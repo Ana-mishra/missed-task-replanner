@@ -1,5 +1,6 @@
 from app.schemas.estimation import EstimationResponse
 from app.schemas.planning import PlanRequest, PlanResponse, ScheduledTaskResponse
+from app.schemas.personalization import PersonalizationInsightResponse, PersonalizationResponse
 from app.schemas.postponement import PostponementResponse
 from app.schemas.progress import ProgressResponse
 from app.schemas.reflection import WeeklyReflectionResponse
@@ -10,6 +11,8 @@ from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 __all__ = [
     "PlanRequest",
     "PlanResponse",
+    "PersonalizationInsightResponse",
+    "PersonalizationResponse",
     "PostponementResponse",
     "ProgressResponse",
     "WeeklyReflectionResponse",

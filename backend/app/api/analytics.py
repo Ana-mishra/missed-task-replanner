@@ -12,6 +12,8 @@ from app.models.task_history import TaskHistory
 from app.services.progress import ProgressService
 from app.schemas.reflection import WeeklyReflectionResponse
 from app.services.reflection import ReflectionService
+from app.schemas.personalization import PersonalizationInsightResponse, PersonalizationResponse
+from app.services.personalization import PersonalizationService
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -73,4 +75,24 @@ def get_weekly_reflection(week_start: date | None = None, db: Session = Depends(
         daily_completed_tasks={day.isoformat(): count for day, count in result.daily_completed_tasks.items()},
         progress_level=result.progress_level,
         progress_percent=result.progress_percent,
+    )
+
+
+@router.get("/personalization", response_model=PersonalizationResponse)
+def get_personalization_insights(db: Session = Depends(get_db)):
+    result = PersonalizationService().analyze(
+        db.query(Task).all(),
+        db.query(TaskHistory).all(),
+        datetime.now(),
+    )
+    return PersonalizationResponse(
+        insights=[
+            PersonalizationInsightResponse(
+                type=insight.type,
+                message=insight.message,
+                evidence_count=insight.evidence_count,
+                confidence=insight.confidence,
+            )
+            for insight in result
+        ]
     )
