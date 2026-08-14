@@ -1,0 +1,26 @@
+from datetime import datetime
+
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'completed', 'missed')", name="valid_task_status"),
+        CheckConstraint("energy_level IN ('low', 'medium', 'high')", name="valid_energy_level"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    deadline: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    priority: Mapped[str] = mapped_column(String, nullable=False)
+    completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="pending", server_default="pending", nullable=False)
+    scheduled_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    scheduled_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    energy_level: Mapped[str] = mapped_column(String, default="medium", server_default="medium", nullable=False)

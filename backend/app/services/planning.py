@@ -1,0 +1,69 @@
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from app.models.task import Task
+
+
+@dataclass(frozen=True)
+class ScheduledTask:
+    """One task placed in the available time window."""
+
+    task_id: int
+    title: str
+    scheduled_start: datetime
+    scheduled_end: datetime
+
+
+class PlanningEngine:
+    """Creates a basic, rule-based task schedule."""
+
+    _priority_order = {"high": 0, "medium": 1, "low": 2}
+
+    def generate_schedule(
+        self,
+        tasks: list[Task],
+        available_start: datetime,
+        available_end: datetime,
+    ) -> list[ScheduledTask]:
+        """Schedule unfinished tasks in deadline and priority order.
+
+        A task is overdue when its deadline is before the available start time.
+        Tasks that do not fit are skipped, allowing later shorter tasks to use
+        any remaining time.
+        """
+        if available_end < available_start:
+            raise ValueError("available_end must be after available_start")
+
+        unfinished_tasks = [task for task in tasks if not task.completed]
+        ordered_tasks = sorted(
+            unfinished_tasks,
+            key=lambda task: (
+                task.deadline >= available_start,
+                task.deadline,
+                self._priority_order.get(task.priority.lower(), 3),
+                task.id,
+            ),
+        )
+
+        current_time = available_start
+        schedule: list[ScheduledTask] = []
+
+        for task in ordered_tasks:
+            if task.duration_minutes <= 0:
+                continue
+
+            scheduled_end = current_time + timedelta(minutes=task.duration_minutes)
+            if scheduled_end > available_end:
+                continue
+
+            schedule.append(
+                ScheduledTask(
+                    task_id=task.id,
+                    title=task.title,
+                    scheduled_start=current_time,
+                    scheduled_end=scheduled_end,
+                )
+            )
+            current_time = scheduled_end
+
+        return schedule
