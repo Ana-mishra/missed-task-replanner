@@ -90,6 +90,7 @@ class ReflectionService:
             tasks,
             [record for record in history_records if record.event_type == "completed"],
             current_time.date(),
+            current_time,
         )
         completed_and_missed = event_counts["completed"] + event_counts["missed"]
 

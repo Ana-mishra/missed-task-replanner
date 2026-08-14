@@ -90,6 +90,21 @@ class ProgressServiceTests(unittest.TestCase):
 
         self.assertEqual(result.current_streak_days, 0)
 
+    def test_later_completion_on_current_day_does_not_count_yet(self):
+        current_time = datetime(2040, 1, 10, 9, 0)
+        history = [
+            TaskHistory(
+                id=1,
+                task_id=1,
+                event_type="completed",
+                timestamp=datetime(2040, 1, 10, 10, 0),
+            )
+        ]
+
+        result = self.service.calculate([], history, self.today, current_time)
+
+        self.assertEqual(result.current_streak_days, 0)
+
     def test_progress_levels_and_percentages(self):
         cases = [(0, 1, 0.0), (4, 1, 80.0), (5, 2, 0.0), (9, 2, 80.0), (10, 3, 0.0), (20, 4, 0.0)]
         for count, level, percent in cases:

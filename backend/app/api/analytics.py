@@ -35,7 +35,10 @@ def get_estimation_analytics(db: Session = Depends(get_db)):
 def get_progress_analytics(current_date: date | None = None, db: Session = Depends(get_db)):
     tasks = db.query(Task).all()
     completed_history = db.query(TaskHistory).filter(TaskHistory.event_type == "completed").all()
-    result = ProgressService().calculate(tasks, completed_history, current_date or date.today())
+    server_now = datetime.now()
+    selected_date = current_date or server_now.date()
+    selected_time = server_now if current_date is None else datetime.combine(current_date, datetime.max.time())
+    result = ProgressService().calculate(tasks, completed_history, selected_date, selected_time)
     return ProgressResponse(
         completed_tasks=result.completed_tasks,
         completed_minutes=result.completed_minutes,

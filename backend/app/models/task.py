@@ -9,6 +9,7 @@ from app.database import Base
 class Task(Base):
     __tablename__ = "tasks"
     __table_args__ = (
+        CheckConstraint("duration_minutes > 0", name="valid_duration_minutes"),
         CheckConstraint("status IN ('pending', 'completed', 'missed')", name="valid_task_status"),
         CheckConstraint("energy_level IN ('low', 'medium', 'high')", name="valid_energy_level"),
         CheckConstraint(

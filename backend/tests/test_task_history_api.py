@@ -165,6 +165,24 @@ class TaskHistoryEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
 
+    def test_invalid_estimate_and_contradictory_status_are_rejected(self):
+        invalid_create = self.client.post(
+            "/tasks",
+            json={
+                "title": "Invalid duration",
+                "duration_minutes": 0,
+                "deadline": "2040-01-01T10:00:00",
+                "priority": "medium",
+            },
+        )
+        self.assertEqual(invalid_create.status_code, 422)
+
+        task = self.create_task("Status consistency")
+        task["status"] = "completed"
+        contradictory_update = self.client.put(f"/tasks/{task['id']}", json=task)
+
+        self.assertEqual(contradictory_update.status_code, 422)
+
     def test_deleting_task_records_deleted_event(self):
         task = self.create_task("Delete task")
 

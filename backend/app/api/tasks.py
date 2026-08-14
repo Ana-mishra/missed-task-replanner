@@ -19,6 +19,8 @@ def get_task_or_404(task_id: int, db: Session) -> Task:
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 def create_task(task_data: TaskCreate, db: Session = Depends(get_db)):
     task = Task(**task_data.model_dump())
+    if task.completed:
+        task.status = "completed"
     db.add(task)
     db.flush()
     db.add(TaskHistory(task_id=task.id, event_type="created"))
@@ -44,6 +46,8 @@ def update_task(task_id: int, task_data: TaskUpdate, db: Session = Depends(get_d
     update_data = task_data.model_dump()
     if was_completed:
         update_data.pop("actual_duration_minutes")
+    if task_data.completed:
+        update_data["status"] = "completed"
     for field, value in update_data.items():
         setattr(task, field, value)
     if not was_completed and task.completed:

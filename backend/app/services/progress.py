@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from app.models.task import Task
 from app.models.task_history import TaskHistory
@@ -24,6 +24,7 @@ class ProgressService:
         tasks: list[Task],
         history_records: list[TaskHistory],
         current_date: date,
+        current_time: datetime | None = None,
     ) -> ProgressResult:
         completed_tasks = [task for task in tasks if task.completed]
         completed_count = len(completed_tasks)
@@ -34,10 +35,11 @@ class ProgressService:
         )
         estimated_completed_minutes = sum(task.duration_minutes for task in completed_tasks)
         completion_rate = 0.0 if not tasks else completed_count / len(tasks) * 100
+        effective_current_time = current_time or datetime.combine(current_date, datetime.max.time())
         completion_dates = {
             record.timestamp.date()
             for record in history_records
-            if record.event_type == "completed" and record.timestamp.date() <= current_date
+            if record.event_type == "completed" and record.timestamp <= effective_current_time
         }
 
         current_streak_days = 0

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class TaskBase(BaseModel):
     title: str
     description: str | None = None
-    duration_minutes: int
+    duration_minutes: int = Field(gt=0)
     deadline: datetime
     priority: str
     completed: bool = False
@@ -21,6 +21,8 @@ class TaskBase(BaseModel):
     def validate_actual_duration(self):
         if self.actual_duration_minutes is not None and not self.completed:
             raise ValueError("actual_duration_minutes can only be provided for a completed task")
+        if not self.completed and self.status == "completed":
+            raise ValueError("status cannot be completed when completed is false")
         return self
 
 
