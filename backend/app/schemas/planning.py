@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
@@ -6,6 +7,7 @@ from pydantic import BaseModel, model_validator
 class PlanRequest(BaseModel):
     available_start: datetime
     available_end: datetime
+    energy_level: Literal["low", "medium", "high"] | None = None
 
     @model_validator(mode="after")
     def validate_time_range(self):

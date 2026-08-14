@@ -16,6 +16,7 @@ def create_plan(plan_request: PlanRequest, db: Session = Depends(get_db)):
         tasks,
         plan_request.available_start,
         plan_request.available_end,
+        plan_request.energy_level,
     )
 
     for item in result.schedule:

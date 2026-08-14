@@ -27,6 +27,7 @@ class PlanningEngine:
     """Creates a basic, rule-based task schedule."""
 
     _priority_order = {"high": 0, "medium": 1, "low": 2}
+    _energy_order = {"low": 0, "medium": 1, "high": 2}
 
     @classmethod
     def priority_rank(cls, priority: str) -> int:
@@ -38,6 +39,7 @@ class PlanningEngine:
         tasks: list[Task],
         available_start: datetime,
         available_end: datetime,
+        user_energy_level: str | None = None,
     ) -> PlanningResult:
         """Schedule unfinished tasks in deadline and priority order.
 
@@ -55,6 +57,7 @@ class PlanningEngine:
                 task.deadline >= available_start,
                 task.deadline,
                 self.priority_rank(task.priority),
+                self.energy_compatibility_rank(task.energy_level, user_energy_level),
                 task.id,
             ),
         )
@@ -87,3 +90,13 @@ class PlanningEngine:
             is_overloaded=unscheduled_minutes > 0,
             unscheduled_minutes=unscheduled_minutes,
         )
+
+    @classmethod
+    def energy_compatibility_rank(cls, task_energy_level: str, user_energy_level: str | None) -> int:
+        """Return how closely a task's energy need matches the user's energy."""
+        if user_energy_level is None:
+            return 0
+
+        task_rank = cls._energy_order.get(task_energy_level.lower(), 3)
+        user_rank = cls._energy_order.get(user_energy_level.lower(), 3)
+        return abs(task_rank - user_rank)

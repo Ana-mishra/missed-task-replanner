@@ -50,6 +50,7 @@ class PlanEndpointTests(unittest.TestCase):
                     json={
                         "available_start": "2040-01-01T09:00:00",
                         "available_end": "2040-01-01T10:00:00",
+                        "energy_level": "low",
                     },
                 )
 
@@ -62,6 +63,7 @@ class PlanEndpointTests(unittest.TestCase):
             self.assertEqual(planned_task["scheduled_start"], "2040-01-01T09:00:00")
             self.assertEqual(planned_task["scheduled_end"], "2040-01-01T09:30:00")
             self.assertTrue(generate_schedule.called)
+            self.assertEqual(generate_schedule.call_args.args[3], "low")
 
             saved_task = self.client.get(f"/tasks/{included_task['id']}").json()
             skipped_task_after_plan = self.client.get(f"/tasks/{skipped_task['id']}").json()
