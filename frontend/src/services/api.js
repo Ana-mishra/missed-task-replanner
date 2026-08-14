@@ -41,3 +41,20 @@ export async function updateTask(taskId, taskData) {
 
   return data
 }
+
+export async function deleteTask(taskId) {
+  const response = await fetch(`${TASKS_API_URL}/${taskId}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    let message = 'Could not delete the task.'
+    try {
+      const data = await response.json()
+      if (typeof data.detail === 'string') message = data.detail
+    } catch {
+      // The backend may return an empty error response.
+    }
+    throw new Error(message)
+  }
+}
