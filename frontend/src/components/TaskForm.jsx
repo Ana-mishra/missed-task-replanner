@@ -10,6 +10,7 @@ const initialValues = {
   time: '',
   priority: 'medium',
   energy_level: 'medium',
+  actual_duration_minutes: '',
 }
 
 const durationChoices = [
@@ -52,14 +53,35 @@ function getTimeOptions() {
   })
 }
 
-function TaskForm({ onSubmit, onClose, submitting, error }) {
-  const [values, setValues] = useState(initialValues)
+function valuesForTask(task) {
+  if (!task) return initialValues
+  const deadline = task.deadline || ''
+  const isPreset = durationChoices.some((choice) => choice.minutes === task.duration_minutes)
+  return {
+    ...initialValues,
+    title: task.title,
+    description: task.description || '',
+    duration_minutes: String(task.duration_minutes),
+    custom_hours: isPreset ? '' : String(Math.floor(task.duration_minutes / 60)),
+    custom_minutes: isPreset ? '' : String(task.duration_minutes % 60),
+    date: deadline.slice(0, 10),
+    time: deadline.slice(11, 16),
+    priority: task.priority,
+    energy_level: task.energy_level,
+  }
+}
+
+function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error }) {
+  const [values, setValues] = useState(() => valuesForTask(task))
   const [validationError, setValidationError] = useState(null)
   const [openPicker, setOpenPicker] = useState(null)
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
-  const [isCustomDuration, setIsCustomDuration] = useState(false)
+  const [isCustomDuration, setIsCustomDuration] = useState(
+    () => Boolean(task) && !durationChoices.some((choice) => choice.minutes === task.duration_minutes),
+  )
   const pickerArea = useRef(null)
   const timeOptions = getTimeOptions()
+  const isCompletion = mode === 'complete'
 
   useEffect(() => {
     function closeOnOutsideClick(event) {
@@ -100,6 +122,16 @@ function TaskForm({ onSubmit, onClose, submitting, error }) {
   function handleSubmit(event) {
     event.preventDefault()
     setValidationError(null)
+
+    if (isCompletion) {
+      const actualDuration = values.actual_duration_minutes === '' ? null : Number(values.actual_duration_minutes)
+      if (actualDuration !== null && actualDuration <= 0) {
+        setValidationError('Actual duration must be greater than zero.')
+        return
+      }
+      onSubmit({ actual_duration_minutes: actualDuration })
+      return
+    }
 
     if (!values.title.trim()) {
       setValidationError('Please add a task title.')
@@ -184,12 +216,13 @@ function TaskForm({ onSubmit, onClose, submitting, error }) {
         <div className="task-form__header">
           <div>
             <p className="eyebrow">Task details</p>
-            <h2 id="task-form-heading">Add a task</h2>
+            <h2 id="task-form-heading">{isCompletion ? 'Complete task' : mode === 'edit' ? 'Edit task' : 'Add a task'}</h2>
           </div>
           <button className="icon-button" type="button" onClick={onClose} disabled={submitting} aria-label="Close form">×</button>
         </div>
 
         <form onSubmit={handleSubmit}>
+          {isCompletion ? <div className="form-section"><p className="form-section-title">Estimated duration: {task.duration_minutes} min</p><p className="form-help">If you know it, add the actual time this task took.</p><label><span className="picker-label">Actual duration (optional)</span><input name="actual_duration_minutes" type="number" min="1" placeholder="For example, 40" value={values.actual_duration_minutes} onChange={handleChange} /></label></div> : <>
           <div className="form-section">
             <label>
               Task title
@@ -231,9 +264,10 @@ function TaskForm({ onSubmit, onClose, submitting, error }) {
             <label>Priority<select name="priority" value={values.priority} onChange={handleChange}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
             <label>Energy needed<select name="energy_level" value={values.energy_level} onChange={handleChange}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
           </div>
+          </>}
 
           {(validationError || error) && <p className="form-error" role="alert">{validationError || error}</p>}
-          <div className="task-form__actions"><button className="button button--quiet" type="button" onClick={onClose} disabled={submitting}>Cancel</button><button className="button button--primary" type="submit" disabled={submitting}>{submitting ? 'Adding…' : 'Add task'}</button></div>
+          <div className="task-form__actions"><button className="button button--quiet" type="button" onClick={onClose} disabled={submitting}>Cancel</button><button className="button button--primary" type="submit" disabled={submitting}>{submitting ? 'Saving…' : isCompletion ? 'Complete task' : mode === 'edit' ? 'Save changes' : 'Add task'}</button></div>
         </form>
       </section>
     </div>
