@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -24,3 +24,7 @@ class Task(Base):
     scheduled_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scheduled_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     energy_level: Mapped[str] = mapped_column(String, default="medium", server_default="medium", nullable=False)
+    history_records: Mapped[list["TaskHistory"]] = relationship(
+        back_populates="task",
+        passive_deletes=True,
+    )

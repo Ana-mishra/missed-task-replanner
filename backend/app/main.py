@@ -6,6 +6,7 @@ from app.api.recommendation import router as recommendation_router
 from app.api.tasks import router as tasks_router
 from app.database import Base, add_task_planning_columns, engine
 from app.models.task import Task
+from app.models.task_history import TaskHistory
 
 app = FastAPI(title="Missed Task Replanner API")
 

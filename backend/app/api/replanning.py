@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.task import Task
+from app.models.task_history import TaskHistory
 from app.schemas.planning import PlanRequest, ScheduledTaskResponse
 from app.schemas.replanning import ReplanResponse
 from app.services.replanning import ReplanningEngine
@@ -21,8 +22,18 @@ def replan_task(task_id: int, replan_request: PlanRequest, db: Session = Depends
             detail="Completed tasks cannot be replanned",
         )
 
+    was_missed = missed_task.status == "missed"
     missed_task.status = "missed"
     missed_task.completed = False
+    if not was_missed:
+        db.add(
+            TaskHistory(
+                task_id=missed_task.id,
+                event_type="missed",
+                scheduled_start=missed_task.scheduled_start,
+                scheduled_end=missed_task.scheduled_end,
+            )
+        )
     incomplete_tasks = db.query(Task).filter(Task.completed.is_(False)).all()
     result = ReplanningEngine().generate_revised_schedule(
         incomplete_tasks,
@@ -38,8 +49,21 @@ def replan_task(task_id: int, replan_request: PlanRequest, db: Session = Depends
             task.scheduled_start = None
             task.scheduled_end = None
         else:
+            schedule_changed = (
+                task.scheduled_start != scheduled_item.scheduled_start
+                or task.scheduled_end != scheduled_item.scheduled_end
+            )
             task.scheduled_start = scheduled_item.scheduled_start
             task.scheduled_end = scheduled_item.scheduled_end
+            if schedule_changed:
+                db.add(
+                    TaskHistory(
+                        task_id=task.id,
+                        event_type="replanned",
+                        scheduled_start=scheduled_item.scheduled_start,
+                        scheduled_end=scheduled_item.scheduled_end,
+                    )
+                )
     db.commit()
 
     return ReplanResponse(
