@@ -8,6 +8,7 @@ class PlanRequest(BaseModel):
     available_start: datetime
     available_end: datetime
     energy_level: Literal["low", "medium", "high"] | None = None
+    bad_day: bool = False
 
     @model_validator(mode="after")
     def validate_time_range(self):
@@ -27,3 +28,4 @@ class PlanResponse(BaseModel):
     schedule: list[ScheduledTaskResponse]
     is_overloaded: bool
     unscheduled_minutes: int
+    bad_day: bool

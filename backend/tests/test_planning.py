@@ -165,6 +165,101 @@ class PlanningEngineTests(unittest.TestCase):
         self.assertTrue(result.is_overloaded)
         self.assertEqual(result.unscheduled_minutes, 121)
 
+    def test_bad_day_false_preserves_normal_planning_behavior(self):
+        tasks = [
+            self.make_task(1, "First", 30, self.available_start + timedelta(hours=1)),
+            self.make_task(2, "Second", 30, self.available_start + timedelta(hours=2)),
+        ]
+
+        normal_result = self.engine.generate_schedule(tasks, self.available_start, self.available_end)
+        bad_day_false_result = self.engine.generate_schedule(
+            tasks, self.available_start, self.available_end, bad_day=False
+        )
+
+        self.assertEqual(normal_result.schedule, bad_day_false_result.schedule)
+        self.assertFalse(bad_day_false_result.bad_day)
+
+    def test_bad_day_reduces_normal_workload(self):
+        available_end = self.available_start + timedelta(minutes=100)
+        tasks = [
+            self.make_task(1, "One", 30, self.available_start + timedelta(days=2)),
+            self.make_task(2, "Two", 30, self.available_start + timedelta(days=3)),
+            self.make_task(3, "Three", 30, self.available_start + timedelta(days=4)),
+        ]
+
+        normal_result = self.engine.generate_schedule(tasks, self.available_start, available_end)
+        bad_day_result = self.engine.generate_schedule(
+            tasks, self.available_start, available_end, bad_day=True
+        )
+
+        self.assertEqual(len(normal_result.schedule), 3)
+        self.assertEqual(len(bad_day_result.schedule), 2)
+        self.assertTrue(bad_day_result.bad_day)
+
+    def test_overdue_task_is_protected_beyond_bad_day_target(self):
+        available_end = self.available_start + timedelta(minutes=100)
+        overdue = self.make_task(1, "Overdue", 80, self.available_start - timedelta(minutes=1))
+        future = self.make_task(2, "Future", 30, self.available_start + timedelta(days=2))
+
+        result = self.engine.generate_schedule(
+            [future, overdue], self.available_start, available_end, bad_day=True
+        )
+
+        self.assertEqual([item.task_id for item in result.schedule], [1])
+        self.assertEqual(result.schedule[0].scheduled_end, self.available_start + timedelta(minutes=80))
+
+    def test_due_soon_task_is_protected_in_bad_day_mode(self):
+        available_end = self.available_start + timedelta(minutes=100)
+        due_soon = self.make_task(1, "Due soon", 70, self.available_start + timedelta(hours=2))
+        future = self.make_task(2, "Future", 30, self.available_start + timedelta(days=2), "high")
+
+        result = self.engine.generate_schedule(
+            [future, due_soon], self.available_start, available_end, bad_day=True
+        )
+
+        self.assertEqual([item.task_id for item in result.schedule], [1])
+
+    def test_low_priority_future_task_is_deprioritized_in_bad_day_mode(self):
+        available_end = self.available_start + timedelta(minutes=50)
+        high_priority = self.make_task(
+            1, "High priority", 30, self.available_start + timedelta(days=2), "high"
+        )
+        low_priority = self.make_task(
+            2, "Low priority", 30, self.available_start + timedelta(days=2), "low"
+        )
+
+        result = self.engine.generate_schedule(
+            [low_priority, high_priority], self.available_start, available_end, bad_day=True
+        )
+
+        self.assertEqual([item.task_id for item in result.schedule], [1])
+
+    def test_energy_preference_still_works_for_comparable_bad_day_tasks(self):
+        available_end = self.available_start + timedelta(minutes=50)
+        high_energy = self.make_task(
+            1, "High energy", 30, self.available_start + timedelta(days=2), energy_level="high"
+        )
+        low_energy = self.make_task(
+            2, "Low energy", 30, self.available_start + timedelta(days=2), energy_level="low"
+        )
+
+        result = self.engine.generate_schedule(
+            [high_energy, low_energy], self.available_start, available_end, "low", bad_day=True
+        )
+
+        self.assertEqual([item.task_id for item in result.schedule], [2])
+
+    def test_bad_day_reports_overload_when_protected_work_cannot_fit(self):
+        overdue = self.make_task(1, "Too long overdue", 121, self.available_start - timedelta(minutes=1))
+
+        result = self.engine.generate_schedule(
+            [overdue], self.available_start, self.available_end, bad_day=True
+        )
+
+        self.assertEqual(result.schedule, [])
+        self.assertTrue(result.is_overloaded)
+        self.assertEqual(result.unscheduled_minutes, 121)
+
 
 if __name__ == "__main__":
     unittest.main()

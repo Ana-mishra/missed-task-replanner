@@ -18,8 +18,10 @@ def create_plan(plan_request: PlanRequest, db: Session = Depends(get_db)):
         plan_request.available_start,
         plan_request.available_end,
         plan_request.energy_level,
+        plan_request.bad_day,
     )
 
+    scheduled_task_ids = {item.task_id for item in result.schedule}
     for item in result.schedule:
         task = db.get(Task, item.task_id)
         if task is not None:
@@ -38,6 +40,10 @@ def create_plan(plan_request: PlanRequest, db: Session = Depends(get_db)):
                         scheduled_end=item.scheduled_end,
                     )
                 )
+    for task in tasks:
+        if not task.completed and task.id not in scheduled_task_ids:
+            task.scheduled_start = None
+            task.scheduled_end = None
     db.commit()
 
     return PlanResponse(
@@ -52,4 +58,5 @@ def create_plan(plan_request: PlanRequest, db: Session = Depends(get_db)):
         ],
         is_overloaded=result.is_overloaded,
         unscheduled_minutes=result.unscheduled_minutes,
+        bad_day=result.bad_day,
     )

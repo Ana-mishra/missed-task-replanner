@@ -3,14 +3,38 @@ from datetime import datetime
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from app.database import Base, get_db
 from app.main import app
 from app.services.planning import PlanningResult, ScheduledTask
 
 
 class PlanEndpointTests(unittest.TestCase):
     def setUp(self):
+        self.engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(self.engine)
+        self.session_local = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+
+        def override_get_db():
+            db = self.session_local()
+            try:
+                yield db
+            finally:
+                db.close()
+
+        app.dependency_overrides[get_db] = override_get_db
         self.client = TestClient(app)
+
+    def tearDown(self):
+        app.dependency_overrides.clear()
+        self.engine.dispose()
 
     def create_task(self, title, duration_minutes=30):
         response = self.client.post(
@@ -40,6 +64,7 @@ class PlanEndpointTests(unittest.TestCase):
                 schedule=[scheduled_task],
                 is_overloaded=True,
                 unscheduled_minutes=30,
+                bad_day=True,
             )
             with patch(
                 "app.api.planning.PlanningEngine.generate_schedule",
@@ -51,6 +76,7 @@ class PlanEndpointTests(unittest.TestCase):
                         "available_start": "2040-01-01T09:00:00",
                         "available_end": "2040-01-01T10:00:00",
                         "energy_level": "low",
+                        "bad_day": True,
                     },
                 )
 
@@ -59,11 +85,13 @@ class PlanEndpointTests(unittest.TestCase):
             self.assertEqual(len(schedule), 1)
             self.assertTrue(response.json()["is_overloaded"])
             self.assertEqual(response.json()["unscheduled_minutes"], 30)
+            self.assertTrue(response.json()["bad_day"])
             planned_task = schedule[0]
             self.assertEqual(planned_task["scheduled_start"], "2040-01-01T09:00:00")
             self.assertEqual(planned_task["scheduled_end"], "2040-01-01T09:30:00")
             self.assertTrue(generate_schedule.called)
             self.assertEqual(generate_schedule.call_args.args[3], "low")
+            self.assertTrue(generate_schedule.call_args.args[4])
 
             saved_task = self.client.get(f"/tasks/{included_task['id']}").json()
             skipped_task_after_plan = self.client.get(f"/tasks/{skipped_task['id']}").json()
@@ -71,6 +99,7 @@ class PlanEndpointTests(unittest.TestCase):
             self.assertEqual(saved_task["scheduled_end"], "2040-01-01T09:30:00")
             self.assertIsNone(skipped_task_after_plan["scheduled_start"])
             self.assertIsNone(skipped_task_after_plan["scheduled_end"])
+            self.assertFalse(skipped_task_after_plan["completed"])
         finally:
             self.client.delete(f"/tasks/{included_task['id']}")
             self.client.delete(f"/tasks/{skipped_task['id']}")
