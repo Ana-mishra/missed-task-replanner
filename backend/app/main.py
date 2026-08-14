@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.analytics import router as analytics_router
 from app.api.planning import router as planning_router
 from app.api.replanning import router as replanning_router
 from app.api.recommendation import router as recommendation_router
@@ -16,3 +17,4 @@ app.include_router(tasks_router)
 app.include_router(planning_router)
 app.include_router(replanning_router)
 app.include_router(recommendation_router)
+app.include_router(analytics_router)
