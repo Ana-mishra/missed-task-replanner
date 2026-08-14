@@ -1,5 +1,6 @@
 from app.schemas.estimation import EstimationResponse
 from app.schemas.planning import PlanRequest, PlanResponse, ScheduledTaskResponse
+from app.schemas.postponement import PostponementResponse
 from app.schemas.replanning import ReplanResponse
 from app.schemas.recommendation import RecommendationResponse
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
@@ -7,6 +8,7 @@ from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 __all__ = [
     "PlanRequest",
     "PlanResponse",
+    "PostponementResponse",
     "EstimationResponse",
     "ReplanResponse",
     "RecommendationResponse",
