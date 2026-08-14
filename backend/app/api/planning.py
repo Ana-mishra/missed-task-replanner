@@ -17,6 +17,14 @@ def create_plan(plan_request: PlanRequest, db: Session = Depends(get_db)):
         plan_request.available_start,
         plan_request.available_end,
     )
+
+    for item in generated_schedule:
+        task = db.get(Task, item.task_id)
+        if task is not None:
+            task.scheduled_start = item.scheduled_start
+            task.scheduled_end = item.scheduled_end
+    db.commit()
+
     return PlanResponse(
         schedule=[
             ScheduledTaskResponse(
