@@ -14,6 +14,15 @@ class ScheduledTask:
     scheduled_end: datetime
 
 
+@dataclass(frozen=True)
+class PlanningResult:
+    """The feasible schedule and work that did not fit in the time window."""
+
+    schedule: list[ScheduledTask]
+    is_overloaded: bool
+    unscheduled_minutes: int
+
+
 class PlanningEngine:
     """Creates a basic, rule-based task schedule."""
 
@@ -29,7 +38,7 @@ class PlanningEngine:
         tasks: list[Task],
         available_start: datetime,
         available_end: datetime,
-    ) -> list[ScheduledTask]:
+    ) -> PlanningResult:
         """Schedule unfinished tasks in deadline and priority order.
 
         A task is overdue when its deadline is before the available start time.
@@ -52,6 +61,7 @@ class PlanningEngine:
 
         current_time = available_start
         schedule: list[ScheduledTask] = []
+        unscheduled_minutes = 0
 
         for task in ordered_tasks:
             if task.duration_minutes <= 0:
@@ -59,6 +69,7 @@ class PlanningEngine:
 
             scheduled_end = current_time + timedelta(minutes=task.duration_minutes)
             if scheduled_end > available_end:
+                unscheduled_minutes += task.duration_minutes
                 continue
 
             schedule.append(
@@ -71,4 +82,8 @@ class PlanningEngine:
             )
             current_time = scheduled_end
 
-        return schedule
+        return PlanningResult(
+            schedule=schedule,
+            is_overloaded=unscheduled_minutes > 0,
+            unscheduled_minutes=unscheduled_minutes,
+        )

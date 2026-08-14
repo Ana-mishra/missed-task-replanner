@@ -23,3 +23,5 @@ class ScheduledTaskResponse(BaseModel):
 
 class PlanResponse(BaseModel):
     schedule: list[ScheduledTaskResponse]
+    is_overloaded: bool
+    unscheduled_minutes: int

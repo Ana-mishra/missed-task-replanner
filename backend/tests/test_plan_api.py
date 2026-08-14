@@ -5,7 +5,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.planning import ScheduledTask
+from app.services.planning import PlanningResult, ScheduledTask
 
 
 class PlanEndpointTests(unittest.TestCase):
@@ -36,9 +36,14 @@ class PlanEndpointTests(unittest.TestCase):
                 scheduled_start=datetime(2040, 1, 1, 9, 0),
                 scheduled_end=datetime(2040, 1, 1, 9, 30),
             )
+            result = PlanningResult(
+                schedule=[scheduled_task],
+                is_overloaded=True,
+                unscheduled_minutes=30,
+            )
             with patch(
                 "app.api.planning.PlanningEngine.generate_schedule",
-                return_value=[scheduled_task],
+                return_value=result,
             ) as generate_schedule:
                 response = self.client.post(
                     "/plan",
@@ -51,6 +56,8 @@ class PlanEndpointTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             schedule = response.json()["schedule"]
             self.assertEqual(len(schedule), 1)
+            self.assertTrue(response.json()["is_overloaded"])
+            self.assertEqual(response.json()["unscheduled_minutes"], 30)
             planned_task = schedule[0]
             self.assertEqual(planned_task["scheduled_start"], "2040-01-01T09:00:00")
             self.assertEqual(planned_task["scheduled_end"], "2040-01-01T09:30:00")
