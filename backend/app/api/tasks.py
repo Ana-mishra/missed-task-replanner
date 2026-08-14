@@ -41,9 +41,13 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
 def update_task(task_id: int, task_data: TaskUpdate, db: Session = Depends(get_db)):
     task = get_task_or_404(task_id, db)
     was_completed = task.completed
-    for field, value in task_data.model_dump().items():
+    update_data = task_data.model_dump()
+    if was_completed:
+        update_data.pop("actual_duration_minutes")
+    for field, value in update_data.items():
         setattr(task, field, value)
     if not was_completed and task.completed:
+        task.status = "completed"
         db.add(
             TaskHistory(
                 task_id=task.id,

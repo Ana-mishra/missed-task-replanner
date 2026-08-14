@@ -11,6 +11,10 @@ class Task(Base):
     __table_args__ = (
         CheckConstraint("status IN ('pending', 'completed', 'missed')", name="valid_task_status"),
         CheckConstraint("energy_level IN ('low', 'medium', 'high')", name="valid_energy_level"),
+        CheckConstraint(
+            "actual_duration_minutes IS NULL OR actual_duration_minutes > 0",
+            name="valid_actual_duration_minutes",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -24,6 +28,7 @@ class Task(Base):
     scheduled_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scheduled_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     energy_level: Mapped[str] = mapped_column(String, default="medium", server_default="medium", nullable=False)
+    actual_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     history_records: Mapped[list["TaskHistory"]] = relationship(
         back_populates="task",
         passive_deletes=True,

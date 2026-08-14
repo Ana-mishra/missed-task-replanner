@@ -123,14 +123,47 @@ class TaskHistoryEndpointTests(unittest.TestCase):
         self.assertEqual(len(self.history_for(task["id"], "missed")), 1)
         self.assertEqual(len(self.history_for(task["id"], "replanned")), 1)
 
-    def test_completing_task_records_completed_event(self):
+    def test_completing_task_with_actual_duration_records_completed_event(self):
         task = self.create_task("Complete task")
+        task["completed"] = True
+        task["actual_duration_minutes"] = 42
+
+        response = self.client.put(f"/tasks/{task['id']}", json=task)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["actual_duration_minutes"], 42)
+        self.assertEqual(response.json()["status"], "completed")
+        self.assertEqual(len(self.history_for(task["id"], "completed")), 1)
+
+    def test_completing_without_actual_duration_remains_compatible(self):
+        task = self.create_task("Complete without actual duration")
         task["completed"] = True
 
         response = self.client.put(f"/tasks/{task['id']}", json=task)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(self.history_for(task["id"], "completed")), 1)
+        self.assertIsNone(response.json()["actual_duration_minutes"])
+        self.assertEqual(response.json()["status"], "completed")
+
+    def test_invalid_actual_duration_is_rejected(self):
+        task = self.create_task("Invalid actual duration")
+        task["completed"] = True
+        task["actual_duration_minutes"] = 0
+
+        zero_response = self.client.put(f"/tasks/{task['id']}", json=task)
+        self.assertEqual(zero_response.status_code, 422)
+
+        task["actual_duration_minutes"] = -5
+        negative_response = self.client.put(f"/tasks/{task['id']}", json=task)
+        self.assertEqual(negative_response.status_code, 422)
+
+    def test_actual_duration_without_completion_is_rejected(self):
+        task = self.create_task("Incomplete actual duration")
+        task["actual_duration_minutes"] = 25
+
+        response = self.client.put(f"/tasks/{task['id']}", json=task)
+
+        self.assertEqual(response.status_code, 422)
 
     def test_deleting_task_records_deleted_event(self):
         task = self.create_task("Delete task")

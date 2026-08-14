@@ -35,6 +35,7 @@ def add_task_planning_columns():
         "scheduled_start": "DATETIME",
         "scheduled_end": "DATETIME",
         "energy_level": "VARCHAR NOT NULL DEFAULT 'medium'",
+        "actual_duration_minutes": "INTEGER",
     }
 
     with engine.begin() as connection:
