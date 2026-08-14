@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.analytics import router as analytics_router
 from app.api.planning import router as planning_router
@@ -11,6 +12,14 @@ from app.models.task import Task
 from app.models.task_history import TaskHistory
 
 app = FastAPI(title="Missed Task Replanner API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
 
 Base.metadata.create_all(bind=engine)
 add_task_planning_columns()
