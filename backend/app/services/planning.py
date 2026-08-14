@@ -19,6 +19,11 @@ class PlanningEngine:
 
     _priority_order = {"high": 0, "medium": 1, "low": 2}
 
+    @classmethod
+    def priority_rank(cls, priority: str) -> int:
+        """Return a consistent sort rank for a task priority."""
+        return cls._priority_order.get(priority.lower(), 3)
+
     def generate_schedule(
         self,
         tasks: list[Task],
@@ -40,7 +45,7 @@ class PlanningEngine:
             key=lambda task: (
                 task.deadline >= available_start,
                 task.deadline,
-                self._priority_order.get(task.priority.lower(), 3),
+                self.priority_rank(task.priority),
                 task.id,
             ),
         )
