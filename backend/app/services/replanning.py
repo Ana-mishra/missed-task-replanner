@@ -18,6 +18,11 @@ class ReplanningEngine:
     """Rebuilds the remaining schedule after a task is missed."""
 
     due_soon_window = timedelta(hours=24)
+    @staticmethod
+    def _to_naive_local(value: datetime) -> datetime:
+        if value.tzinfo is not None:
+            value = value.astimezone().replace(tzinfo=None)
+        return value
 
     def __init__(self):
         self.planning_engine = PlanningEngine()
@@ -30,6 +35,10 @@ class ReplanningEngine:
         available_end: datetime,
     ) -> ReplanningResult:
         """Create a new schedule for incomplete work, including the missed task."""
+        
+        available_start = self._to_naive_local(available_start)
+        available_end = self._to_naive_local(available_end)
+
         if available_end < available_start:
             raise ValueError("available_end must be after available_start")
 

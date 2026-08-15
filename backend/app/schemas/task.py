@@ -16,6 +16,7 @@ class TaskBase(BaseModel):
     scheduled_end: datetime | None = None
     energy_level: Literal["low", "medium", "high"] = "medium"
     actual_duration_minutes: int | None = Field(default=None, gt=0)
+    deadline_conflicted: bool = False
 
     @model_validator(mode="after")
     def validate_actual_duration(self):

@@ -1,13 +1,7 @@
 import { useState } from 'react'
+import { formatDuration } from '../utils/duration.mjs'
 
 const PRESETS = [120, 240, 360, 480, 600]
-
-function formatTime(minutes) {
-  const hours = Math.floor(minutes / 60)
-  const remainder = minutes % 60
-  if (hours === 0) return `${remainder}m`
-  return remainder ? `${hours}h ${remainder}m` : `${hours}h`
-}
 
 function numberValue(value, maximum) {
   const digits = value.replace(/\D/g, '').slice(0, 2)
@@ -45,13 +39,15 @@ export default function AvailableTimeCard({ availableMinutes, onSave }) {
 
   return <>
     <section className="available-time-card" aria-labelledby="available-time-heading">
-      <div>
+      <div className="available-time-card__header">
         <p className="available-time-card__eyebrow">Your time today</p>
-        <h3 id="available-time-heading">{hasSavedTime ? formatTime(availableMinutes) : 'Set your available time'}</h3>
+        <button className="button button--quiet" type="button" onClick={openEditor}>{hasSavedTime ? 'Change time' : 'Set time'}</button>
+      </div>
+      <div className="available-time-card__content">
+        <h3 id="available-time-heading" className="available-time-card__duration">{hasSavedTime ? formatDuration(availableMinutes) : 'Set your available time'}</h3>
         <p className="available-time-card__caption">available for tasks</p>
         <p className="available-time-card__help">Plan My Day uses this time to choose which tasks realistically fit into your day.</p>
       </div>
-      <button className="button button--quiet" type="button" onClick={openEditor}>{hasSavedTime ? 'Change time' : 'Set time'}</button>
     </section>
 
     {isOpen && <div className="modal-backdrop"><section className="available-time-dialog" role="dialog" aria-modal="true" aria-labelledby="time-dialog-title">
@@ -60,7 +56,7 @@ export default function AvailableTimeCard({ availableMinutes, onSave }) {
       <p className="available-time-dialog__help">Plan My Day will use this time to choose which tasks realistically fit into your day.</p>
       <p className="available-time-dialog__label">Quick choices</p>
       <div className="available-time-dialog__choices">
-        {PRESETS.map((preset) => <button key={preset} type="button" className={`time-choice ${choice === String(preset) ? 'time-choice--selected' : ''}`} onClick={() => { setChoice(String(preset)); setError('') }}>{preset / 60}h</button>)}
+        {PRESETS.map((preset) => <button key={preset} type="button" className={`time-choice ${choice === String(preset) ? 'time-choice--selected' : ''}`} onClick={() => { setChoice(String(preset)); setError('') }}>{formatDuration(preset)}</button>)}
         <button type="button" className={`time-choice ${choice === 'custom' ? 'time-choice--selected' : ''}`} onClick={() => setChoice('custom')}>Custom</button>
       </div>
       {choice === 'custom' && <div className="available-time-dialog__custom">

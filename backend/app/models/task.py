@@ -30,6 +30,7 @@ class Task(Base):
     scheduled_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     energy_level: Mapped[str] = mapped_column(String, default="medium", server_default="medium", nullable=False)
     actual_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    deadline_conflicted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
     history_records: Mapped[list["TaskHistory"]] = relationship(
         back_populates="task",
         passive_deletes=True,

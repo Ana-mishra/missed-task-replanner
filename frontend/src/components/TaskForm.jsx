@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { formatDuration } from '../utils/duration.mjs'
 
 const initialValues = {
   title: '',
@@ -13,13 +14,7 @@ const initialValues = {
   actual_duration_minutes: '',
 }
 
-const durationChoices = [
-  { label: '15 min', minutes: 15 },
-  { label: '30 min', minutes: 30 },
-  { label: '45 min', minutes: 45 },
-  { label: '1 hr', minutes: 60 },
-  { label: '2 hr', minutes: 120 },
-]
+const durationChoices = [15, 30, 45, 60, 120]
 
 const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -56,7 +51,7 @@ function getTimeOptions() {
 function valuesForTask(task) {
   if (!task) return initialValues
   const deadline = task.deadline || ''
-  const isPreset = durationChoices.some((choice) => choice.minutes === task.duration_minutes)
+  const isPreset = durationChoices.includes(task.duration_minutes)
   return {
     ...initialValues,
     title: task.title,
@@ -74,10 +69,11 @@ function valuesForTask(task) {
 function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error }) {
   const [values, setValues] = useState(() => valuesForTask(task))
   const [validationError, setValidationError] = useState(null)
+  const [deadlineConflict, setDeadlineConflict] = useState(null)
   const [openPicker, setOpenPicker] = useState(null)
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [isCustomDuration, setIsCustomDuration] = useState(
-    () => Boolean(task) && !durationChoices.some((choice) => choice.minutes === task.duration_minutes),
+    () => Boolean(task) && !durationChoices.includes(task.duration_minutes),
   )
   const pickerArea = useRef(null)
   const timeOptions = getTimeOptions()
@@ -170,14 +166,20 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
       return
     }
 
-    onSubmit({
+    const taskData = {
       title: values.title.trim(),
       description: values.description.trim() || null,
       duration_minutes: durationMinutes,
       deadline: `${values.date}T${values.time}:00`,
       priority: values.priority,
       energy_level: values.energy_level,
-    })
+    }
+    const minutesUntilDeadline = Math.floor((new Date(taskData.deadline) - new Date()) / 60000)
+    if (!deadlineConflict && durationMinutes > minutesUntilDeadline) {
+      setDeadlineConflict({ durationMinutes, minutesUntilDeadline, taskData })
+      return
+    }
+    onSubmit({ ...taskData, deadline_conflicted: Boolean(deadlineConflict) })
   }
 
   const calendarYear = calendarMonth.getFullYear()
@@ -235,7 +237,7 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
         </div>
 
         <form onSubmit={handleSubmit}>
-          {isCompletion ? <div className="form-section"><p className="form-section-title">Estimated duration: {task.duration_minutes} min</p><p className="form-help">If you know it, add the actual time this task took.</p><label><span className="picker-label">Actual duration (optional)</span><input name="actual_duration_minutes" type="number" min="1" placeholder="For example, 40" value={values.actual_duration_minutes} onChange={handleChange} /></label></div> : <>
+          {isCompletion ? <div className="form-section"><p className="form-section-title">Estimated duration: {formatDuration(task.duration_minutes)}</p><p className="form-help">If you know it, add the actual time this task took.</p><label><span className="picker-label">Actual duration (optional)</span><input name="actual_duration_minutes" type="number" min="1" placeholder="For example, 40" value={values.actual_duration_minutes} onChange={handleChange} /></label></div> : <>
           <div className="form-section">
             <label>
               Task title
@@ -251,7 +253,7 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
             <p className="form-section-title">How long?</p>
             <p className="form-help">How long will this take?</p>
             <div className="duration-choices" aria-label="Quick duration choices">
-              {durationChoices.map((choice) => <button className={`button ${!isCustomDuration && Number(values.duration_minutes) === choice.minutes ? 'button--primary' : 'button--quiet'}`} type="button" key={choice.minutes} onClick={() => selectDuration(choice.minutes)}>{choice.label}</button>)}
+              {durationChoices.map((minutes) => <button className={`button ${!isCustomDuration && Number(values.duration_minutes) === minutes ? 'button--primary' : 'button--quiet'}`} type="button" key={minutes} onClick={() => selectDuration(minutes)}>{formatDuration(minutes)}</button>)}
               <button className={`button ${isCustomDuration ? 'button--primary' : 'button--quiet'}`} type="button" onClick={() => selectDuration(null)}>Custom</button>
             </div>
             {isCustomDuration && <div className="custom-duration-fields"><label><span className="picker-label">Hours</span><input name="custom_hours" type="number" min="0" step="1" inputMode="numeric" placeholder="0" value={values.custom_hours} onChange={handleChange} /></label><label><span className="picker-label">Minutes</span><input name="custom_minutes" type="number" min="0" max="59" step="1" inputMode="numeric" placeholder="0" value={values.custom_minutes} onChange={handleChange} /></label></div>}
@@ -280,6 +282,7 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
           </>}
 
           {(validationError || error) && <p className="form-error" role="alert">{validationError || error}</p>}
+          {deadlineConflict && <div className="deadline-conflict"><strong>Deadline may not be realistic</strong><p>This task needs {formatDuration(deadlineConflict.durationMinutes)}, but only {formatDuration(Math.max(0, deadlineConflict.minutesUntilDeadline))} remain until its deadline.</p><div><button className="button button--quiet" type="button" onClick={() => setDeadlineConflict(null)}>Adjust task</button><button className="button button--primary" type="button" onClick={() => onSubmit({ ...deadlineConflict.taskData, deadline_conflicted: true })}>Save anyway</button></div></div>}
           <div className="task-form__actions"><button className="button button--quiet" type="button" onClick={onClose} disabled={submitting}>Cancel</button><button className="button button--primary" type="submit" disabled={submitting}>{submitting ? 'Saving…' : isCompletion ? 'Complete task' : mode === 'edit' ? 'Save changes' : 'Add task'}</button></div>
         </form>
       </section>

@@ -1,3 +1,5 @@
+import { formatDuration } from '../utils/duration.mjs'
+
 function isOverdue(task) {
   return !task.completed && new Date(task.deadline) < new Date()
 }
@@ -22,7 +24,7 @@ function formatDeadline(deadline) {
   })
 }
 
-function TaskCard({ task, onEdit, onComplete, onDelete }) {
+function TaskCard({ task, onEdit, onComplete, onDelete, onMiss }) {
   const overdue = isOverdue(task)
   const urgency = getUrgency(task)
   const state = task.completed
@@ -53,7 +55,7 @@ function TaskCard({ task, onEdit, onComplete, onDelete }) {
           <span className={`task-card__meta-item priority priority--${task.priority}`}>
             {task.priority} priority
           </span>
-          <span className="task-card__meta-item">{task.duration_minutes} min</span>
+          <span className="task-card__meta-item">{formatDuration(task.duration_minutes)}</span>
           <span className="task-card__meta-item">{task.energy_level} energy</span>
         </div>
       </div>
@@ -72,6 +74,9 @@ function TaskCard({ task, onEdit, onComplete, onDelete }) {
             <>
               <button className="button button--quiet" type="button" onClick={onEdit}>Edit</button>
               <button className="button button--complete" type="button" onClick={onComplete}>Complete</button>
+              <button className="button button--quiet" type="button" onClick={onMiss}>
+  Missed
+</button>
             </>
           )}
           <button className="button button--quiet button--danger" type="button" onClick={onDelete}>

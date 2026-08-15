@@ -31,6 +31,12 @@ class PlanningEngine:
     _energy_order = {"low": 0, "medium": 1, "high": 2}
     due_soon_window = timedelta(hours=24)
 
+    @staticmethod
+    def _to_naive_local(value: datetime) -> datetime:
+        if value.tzinfo is not None:
+            value = value.astimezone().replace(tzinfo=None)
+        return value
+
     @classmethod
     def priority_rank(cls, priority: str) -> int:
         """Return a consistent sort rank for a task priority."""
@@ -50,6 +56,12 @@ class PlanningEngine:
         Tasks that do not fit are skipped, allowing later shorter tasks to use
         any remaining time.
         """
+        if available_start.tzinfo is not None:
+            available_start = available_start.astimezone().replace(tzinfo=None)
+
+        if available_end.tzinfo is not None:
+            available_end = available_end.astimezone().replace(tzinfo=None)
+
         if available_end < available_start:
             raise ValueError("available_end must be after available_start")
 

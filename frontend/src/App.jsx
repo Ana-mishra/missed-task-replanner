@@ -3,13 +3,21 @@ import AppShell from './components/AppShell.jsx'
 import TaskCard from './components/TaskCard.jsx'
 import TaskForm from './components/TaskForm.jsx'
 import AvailableTimeCard from './components/AvailableTimeCard.jsx'
-import { createTask, deleteTask, getTasks, updateTask } from './services/api.js'
+import { formatDuration } from './utils/duration.mjs'
+import {
+  createTask,
+  deleteTask,
+  getTasks,
+  planDay,
+  replanTask,
+  updateTask,
+} from './services/api.js'
 import {
   DEFAULT_AVAILABLE_MINUTES,
   getTodayOverloadStatus,
   getPlannedWorkload,
 } from './utils/workload.mjs'
-import { createDailyPlan } from './utils/dailyPlan.mjs'
+
 
 function formatDeadline(deadline) {
   return new Date(deadline).toLocaleString([], {
@@ -64,13 +72,6 @@ function App() {
     .filter((task) => task && !isCompletedTask(task))
   const plannedWorkload = getPlannedWorkload(currentPlannedTasks, availableMinutes)
 
-  useEffect(() => {
-    if (!hasPlanned) return
-
-    const result = createDailyPlan(tasks, availableMinutes)
-    setPlannedTasks(result.plan)
-    setPlanIsOverloaded(result.isOverloaded)
-  }, [tasks, availableMinutes, hasPlanned])
 
   function updateAvailableMinutes(minutes) {
     return Number(minutes)
@@ -101,11 +102,7 @@ function App() {
     setIsCapacityEditorOpen(false)
   }
 
-  function formatHoursAndMinutes(minutes) {
-    const hours = Math.floor(minutes / 60)
-    const remainingMinutes = minutes % 60
-    return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`
-  }
+  const formatHoursAndMinutes = formatDuration
 
   function openForm(nextMode, task = null) {
     setSelected(task)
@@ -157,21 +154,65 @@ function App() {
       setDeleting(false)
     }
   }
+  async function handleMiss(task) {
+  setError(null)
 
-  function handlePlanDay() {
-    if (hasPlanned) {
-      setHasPlanned(false)
-      return
-    }
+  try {
+    const now = new Date()
+    const availableStart = now
+    const availableEnd = new Date(
+      now.getTime() + availableMinutes * 60 * 1000,
+    )
 
-    const result = createDailyPlan(incompleteTasks, availableMinutes)
+    const result = await replanTask(task.id, {
+      available_start: availableStart.toISOString(),
+      available_end: availableEnd.toISOString(),
+    })
 
-    setPlanning(true)
-    setPlannedTasks(result.plan)
-    setPlanIsOverloaded(result.isOverloaded)
+    const updatedTasks = await getTasks()
+    setTasks(updatedTasks)
+
+    setPlannedTasks([])
+    setPlanIsOverloaded(false)
+    setHasPlanned(false)
+  } catch (requestError) {
+    setError(requestError.message)
+  }
+}
+
+  async function handlePlanDay() {
+  if (hasPlanned) {
+    setHasPlanned(false)
+    return
+  }
+
+  setPlanning(true)
+
+  try {
+    const now = new Date()
+    const availableStart = now
+    const availableEnd = new Date(
+      now.getTime() + availableMinutes * 60 * 1000,
+    )
+
+    const result = await planDay({
+      available_start: availableStart.toISOString(),
+      available_end: availableEnd.toISOString(),
+    })
+
+    setPlannedTasks(
+      result.schedule.map((item) => ({
+        id: item.task_id,
+      })),
+    )
+    setPlanIsOverloaded(result.is_overloaded)
     setHasPlanned(true)
+  } catch (requestError) {
+    setError(requestError.message)
+  } finally {
     setPlanning(false)
   }
+}
 
   function planReason(task) {
     const deadline = new Date(task.deadline)
@@ -205,31 +246,22 @@ function App() {
         </div>
         <div className="summary__rule" />
         <div className="summary__item">
-          <span className="summary__value">{totalMinutes}</span>
-          <span className="summary__label">estimated minutes</span>
+          <span className="summary__value">{formatDuration(totalMinutes)}</span>
+          <span className="summary__label">estimated time</span>
         </div>
       </section>
 
       <section className="tasks-section">
         <div className="section-heading">
           <h2>Today’s tasks</h2>
-          <div className="section-heading__actions">
-            <button
-              className={`button button--quiet ${hasPlanned ? 'button--plan-open' : ''}`}
-              onClick={handlePlanDay}
-              disabled={planning}
-              aria-expanded={hasPlanned}
-              aria-controls="today-plan"
-            >
-              {planning ? 'Planning…' : hasPlanned ? 'Hide plan ×' : 'Plan my day'}
-            </button>
-            <button className="button button--primary" onClick={() => openForm('create')}>
-              Add task
-            </button>
-          </div>
         </div>
 
         <AvailableTimeCard availableMinutes={availableMinutes} onSave={setAvailableMinutes} />
+
+        <div className="task-list-actions">
+          <button className={`button button--quiet ${hasPlanned ? 'button--plan-open' : ''}`} onClick={handlePlanDay} disabled={planning} aria-expanded={hasPlanned} aria-controls="today-plan">{planning ? 'Planning…' : hasPlanned ? 'Hide plan ×' : 'Plan my day'}</button>
+          <button className="button button--primary" onClick={() => openForm('create')}>Add task</button>
+        </div>
 
         <section className="capacity-summary" aria-labelledby="capacity-heading">
           <div>
@@ -347,7 +379,7 @@ function App() {
                       <div>
                         <strong>{task.title}</strong>
                         <span className="plan-panel__meta">
-                          {task.duration_minutes} min · {task.priority} priority · Due {formatDeadline(task.deadline)}
+                          {formatDuration(task.duration_minutes)} · {task.priority} priority · Due {formatDeadline(task.deadline)}
                         </span>
                         <span className="plan-panel__reason">
                           <span className="plan-panel__reason-label">Why now</span>
@@ -358,8 +390,8 @@ function App() {
                   ))}
                 </ol>
                 <p className="plan-panel__summary">
-                  {currentPlannedTasks.length} {currentPlannedTasks.length === 1 ? 'task' : 'tasks'} · {plannedMinutes} min planned
-                  {plannedMinutes < availableMinutes && ` · ${formatHoursAndMinutes(availableMinutes - plannedMinutes)} remaining`}
+                  {currentPlannedTasks.length} {currentPlannedTasks.length === 1 ? 'task' : 'tasks'} · {formatDuration(plannedMinutes)} planned
+                  {plannedMinutes < availableMinutes && ` · ${formatDuration(availableMinutes - plannedMinutes)} remaining`}
                 </p>
               </>
             )}
@@ -377,6 +409,7 @@ function App() {
                 task={task}
                 onEdit={() => openForm('edit', task)}
                 onComplete={() => openForm('complete', task)}
+                onMiss={() => handleMiss(task)}
                 onDelete={() => setTaskToDelete(task)}
               />
             ))}
