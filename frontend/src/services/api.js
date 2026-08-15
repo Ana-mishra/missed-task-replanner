@@ -58,3 +58,17 @@ export async function deleteTask(taskId) {
     throw new Error(message)
   }
 }
+
+export async function planDay(planData) {
+  const response = await fetch('http://localhost:8000/plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(planData),
+  })
+
+  const data = await response.json()
+  if (!response.ok) {
+    throw new Error(typeof data.detail === 'string' ? data.detail : 'Could not create a plan.')
+  }
+  return data
+}

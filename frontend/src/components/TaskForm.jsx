@@ -110,6 +110,9 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
   }
 
   function selectDate(date) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (date < today) return
     setValues((currentValues) => ({ ...currentValues, date: toDateValue(date) }))
     setOpenPicker(null)
   }
@@ -162,6 +165,11 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
       return
     }
 
+    if (new Date(`${values.date}T00:00:00`) < new Date(new Date().setHours(0, 0, 0, 0))) {
+      setValidationError('Deadline cannot be before today.')
+      return
+    }
+
     onSubmit({
       title: values.title.trim(),
       description: values.description.trim() || null,
@@ -174,6 +182,8 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
 
   const calendarYear = calendarMonth.getFullYear()
   const calendarMonthIndex = calendarMonth.getMonth()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
   const firstDay = new Date(calendarYear, calendarMonthIndex, 1).getDay()
   const daysInMonth = new Date(calendarYear, calendarMonthIndex + 1, 0).getDate()
   const calendarDays = Array.from({ length: firstDay + daysInMonth }, (_, index) => index < firstDay ? null : index - firstDay + 1)
@@ -204,6 +214,9 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
           .task-form--redesigned .calendar-day:hover { background: #edf3ed; }
           .task-form--redesigned .calendar-day--selected { color: var(--surface); background: var(--primary); }
           .task-form--redesigned .calendar-day--selected:hover { background: var(--primary); }
+          .task-form--redesigned .calendar-day--today { color: var(--surface); background: var(--primary); box-shadow: 0 0 0 2px #dce9d6; }
+          .task-form--redesigned .calendar-day--disabled { color: #a9b0ab; cursor: not-allowed; }
+          .task-form--redesigned .calendar-day--disabled:hover { background: transparent; }
           .task-form--redesigned .time-list { max-height: 13rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; overflow-y: auto; padding-right: .15rem; }
           .task-form--redesigned .time-option { border: 0; border-radius: var(--radius-sm); padding: .45rem .25rem; color: var(--text); background: #f5f7f2; font-size: .75rem; }
           .task-form--redesigned .time-option:hover { background: #e3eee4; }
@@ -250,7 +263,7 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
               <div className="picker-field">
                 <span className="picker-label">Date</span>
                 <button className="picker-trigger" type="button" onClick={() => setOpenPicker(openPicker === 'date' ? null : 'date')} aria-expanded={openPicker === 'date'}><span>{formatDate(values.date)}</span><span className="picker-icon" aria-hidden="true">◷</span></button>
-                {openPicker === 'date' && <div className="picker-popover"><div className="calendar-header"><button className="calendar-navigation" type="button" onClick={() => setCalendarMonth(new Date(calendarYear, calendarMonthIndex - 1, 1))} aria-label="Previous month">‹</button><span>{calendarMonth.toLocaleDateString([], { month: 'long', year: 'numeric' })}</span><button className="calendar-navigation" type="button" onClick={() => setCalendarMonth(new Date(calendarYear, calendarMonthIndex + 1, 1))} aria-label="Next month">›</button></div><div className="calendar-grid">{weekdayNames.map((day) => <span className="calendar-weekday" key={day}>{day}</span>)}{calendarDays.map((day, index) => day ? <button className={`calendar-day ${values.date === toDateValue(new Date(calendarYear, calendarMonthIndex, day)) ? 'calendar-day--selected' : ''}`} type="button" key={day} onClick={() => selectDate(new Date(calendarYear, calendarMonthIndex, day))}>{day}</button> : <span key={`empty-${index}`} />)}</div></div>}
+                {openPicker === 'date' && <div className="picker-popover"><div className="calendar-header"><button className="calendar-navigation" type="button" onClick={() => setCalendarMonth(new Date(calendarYear, calendarMonthIndex - 1, 1))} aria-label="Previous month">‹</button><span>{calendarMonth.toLocaleDateString([], { month: 'long', year: 'numeric' })}</span><button className="calendar-navigation" type="button" onClick={() => setCalendarMonth(new Date(calendarYear, calendarMonthIndex + 1, 1))} aria-label="Next month">›</button></div><div className="calendar-grid">{weekdayNames.map((day) => <span className="calendar-weekday" key={day}>{day}</span>)}{calendarDays.map((day, index) => { const calendarDate = day && new Date(calendarYear, calendarMonthIndex, day); const isPast = calendarDate && calendarDate < today; const isToday = calendarDate && toDateValue(calendarDate) === toDateValue(today); return day ? <button className={`calendar-day ${values.date === toDateValue(calendarDate) ? 'calendar-day--selected' : ''} ${isToday ? 'calendar-day--today' : ''} ${isPast ? 'calendar-day--disabled' : ''}`} type="button" key={day} disabled={isPast} onClick={() => selectDate(calendarDate)}>{day}</button> : <span key={`empty-${index}`} /> })}</div></div>}
               </div>
               <div className="picker-field">
                 <span className="picker-label">Time</span>
