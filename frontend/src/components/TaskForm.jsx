@@ -11,7 +11,8 @@ const initialValues = {
   time: '',
   priority: 'medium',
   energy_level: 'medium',
-  actual_duration_minutes: '',
+  actual_hours: '',
+  actual_minutes: '',
 }
 
 const durationChoices = [15, 30, 45, 60, 120]
@@ -91,11 +92,33 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
   }, [])
 
   function handleChange(event) {
+  const { name, value } = event.target
+
+  if (name === 'actual_hours') {
+    const numericValue = value === '' ? '' : Math.min(Number(value), 23)
+
     setValues((currentValues) => ({
       ...currentValues,
-      [event.target.name]: event.target.value,
+      [name]: numericValue === '' ? '' : String(numericValue),
     }))
+    return
   }
+
+  if (name === 'actual_minutes') {
+    const numericValue = value === '' ? '' : Math.min(Number(value), 59)
+
+    setValues((currentValues) => ({
+      ...currentValues,
+      [name]: numericValue === '' ? '' : String(numericValue),
+    }))
+    return
+  }
+
+  setValues((currentValues) => ({
+    ...currentValues,
+    [name]: value,
+  }))
+}
 
   function selectDuration(minutes) {
     setIsCustomDuration(minutes === null)
@@ -123,14 +146,36 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
     setValidationError(null)
 
     if (isCompletion) {
-      const actualDuration = values.actual_duration_minutes === '' ? null : Number(values.actual_duration_minutes)
-      if (actualDuration !== null && actualDuration <= 0) {
-        setValidationError('Actual duration must be greater than zero.')
-        return
-      }
-      onSubmit({ actual_duration_minutes: actualDuration })
-      return
-    }
+  const actualHours = Number(values.actual_hours || 0)
+  const actualMinutes = Number(values.actual_minutes || 0)
+
+  const hasActualDuration =
+    values.actual_hours !== '' || values.actual_minutes !== ''
+
+  if (
+    !Number.isInteger(actualHours)
+    || actualHours < 0
+    || !Number.isInteger(actualMinutes)
+    || actualMinutes < 0
+    || actualMinutes > 59
+  ) {
+    setValidationError('Use whole hours and minutes from 0 to 59.')
+    return
+  }
+
+  const actualDuration = (actualHours * 60) + actualMinutes
+
+  if (hasActualDuration && actualDuration <= 0) {
+    setValidationError('Actual duration must be greater than zero.')
+    return
+  }
+
+  onSubmit({
+    actual_duration_minutes: hasActualDuration ? actualDuration : null,
+  })
+
+  return
+}
 
     if (!values.title.trim()) {
       setValidationError('Please add a task title.')
@@ -237,7 +282,49 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
         </div>
 
         <form onSubmit={handleSubmit}>
-          {isCompletion ? <div className="form-section"><p className="form-section-title">Estimated duration: {formatDuration(task.duration_minutes)}</p><p className="form-help">If you know it, add the actual time this task took.</p><label><span className="picker-label">Actual duration (optional)</span><input name="actual_duration_minutes" type="number" min="1" placeholder="For example, 40" value={values.actual_duration_minutes} onChange={handleChange} /></label></div> : <>
+         {isCompletion ? (
+  <div className="form-section">
+    <p className="form-section-title">
+      Estimated duration: {formatDuration(task.duration_minutes)}
+    </p>
+
+    <p className="form-help">
+      If you know it, add the actual time this task took.
+    </p>
+
+    <div className="custom-duration-fields">
+      <label>
+        <span className="picker-label">Hours</span>
+        <input
+          name="actual_hours"
+          type="number"
+          min="0"
+          max="23"
+          step="1"
+          inputMode="numeric"
+          placeholder="0"
+          value={values.actual_hours}
+          onChange={handleChange}
+        />
+      </label>
+
+      <label>
+        <span className="picker-label">Minutes</span>
+        <input
+          name="actual_minutes"
+          type="number"
+          min="0"
+          max="59"
+          step="1"
+          inputMode="numeric"
+          placeholder="0"
+          value={values.actual_minutes}
+          onChange={handleChange}
+        />
+      </label>
+    </div>
+  </div>
+) : <>
           <div className="form-section">
             <label>
               Task title
