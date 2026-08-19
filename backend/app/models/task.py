@@ -31,6 +31,11 @@ class Task(Base):
     energy_level: Mapped[str] = mapped_column(String, default="medium", server_default="medium", nullable=False)
     actual_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     deadline_conflicted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+    # Internal planning state: false means an intentionally unscheduled task
+    # belongs to the current plan rather than needing a fresh calculation.
+    schedule_needs_refresh: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="1", nullable=False
+    )
     history_records: Mapped[list["TaskHistory"]] = relationship(
         back_populates="task",
         passive_deletes=True,

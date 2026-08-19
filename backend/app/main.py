@@ -7,7 +7,9 @@ from app.api.postponement import router as postponement_router
 from app.api.replanning import router as replanning_router
 from app.api.recommendation import router as recommendation_router
 from app.api.tasks import router as tasks_router
-from app.database import Base, add_task_planning_columns, engine
+from app.api.task_history import router as task_history_router
+from app.api.history import router as history_router
+from app.database import Base, add_task_planning_columns, engine, upgrade_task_history_table
 from app.models.task import Task
 from app.models.task_history import TaskHistory
 
@@ -23,7 +25,10 @@ app.add_middleware(
 
 Base.metadata.create_all(bind=engine)
 add_task_planning_columns()
+upgrade_task_history_table()
 app.include_router(tasks_router)
+app.include_router(task_history_router)
+app.include_router(history_router)
 app.include_router(planning_router)
 app.include_router(replanning_router)
 app.include_router(recommendation_router)

@@ -95,7 +95,83 @@ class TaskHistoryEndpointTests(unittest.TestCase):
         self.assertEqual(len(self.history_for(scheduled_task["id"], "scheduled")), 1)
         self.assertEqual(self.history_for(skipped_task["id"], "scheduled"), [])
 
-    def test_replanning_records_missed_and_replanned_events(self):
+    def test_planning_records_one_rescheduled_event_only_for_a_real_schedule_change(self):
+        task = self.create_task("Reschedule once")
+        first_start = datetime(2040, 1, 1, 9, 0)
+        first_end = datetime(2040, 1, 1, 9, 30)
+        second_start = datetime(2040, 1, 1, 10, 0)
+        second_end = datetime(2040, 1, 1, 10, 30)
+
+        def plan_at(schedule):
+            result = PlanningResult(
+                schedule=schedule,
+                is_overloaded=False,
+                unscheduled_minutes=0,
+            )
+            with patch("app.api.planning.PlanningEngine.generate_schedule", return_value=result):
+                response = self.client.post(
+                    "/plan",
+                    json={
+                        "available_start": "2040-01-01T09:00:00",
+                        "available_end": "2040-01-01T11:00:00",
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+
+        plan_at([ScheduledTask(task["id"], task["title"], first_start, first_end)])
+        self.assertEqual(len(self.history_for(task["id"], "rescheduled")), 0)
+
+        new_task = self.create_task("New planning work")
+        plan_at(
+            [
+                ScheduledTask(new_task["id"], new_task["title"], first_start, first_end),
+                ScheduledTask(task["id"], task["title"], second_start, second_end),
+            ]
+        )
+        rescheduled = self.history_for(task["id"], "rescheduled")
+        self.assertEqual(len(rescheduled), 1)
+        self.assertEqual(rescheduled[0].old_start, first_start)
+        self.assertEqual(rescheduled[0].old_end, first_end)
+        self.assertEqual(rescheduled[0].new_start, second_start)
+        self.assertEqual(rescheduled[0].new_end, second_end)
+
+        plan_at(
+            [
+                ScheduledTask(new_task["id"], new_task["title"], first_start, first_end),
+                ScheduledTask(task["id"], task["title"], second_start, second_end),
+            ]
+        )
+        self.assertEqual(len(self.history_for(task["id"], "rescheduled")), 1)
+
+    def test_replanning_first_assignment_does_not_create_rescheduled_event(self):
+        task = self.create_task("Recovered without prior schedule")
+        result = ReplanningResult(
+            schedule=[
+                ScheduledTask(
+                    task_id=task["id"],
+                    title=task["title"],
+                    scheduled_start=datetime(2040, 1, 1, 9, 0),
+                    scheduled_end=datetime(2040, 1, 1, 9, 30),
+                )
+            ],
+            is_overloaded=False,
+            unscheduled_minutes=0,
+        )
+
+        with patch("app.api.replanning.ReplanningEngine.generate_revised_schedule", return_value=result):
+            response = self.client.post(
+                f"/replan/{task['id']}",
+                json={
+                    "available_start": "2040-01-01T09:00:00",
+                    "available_end": "2040-01-01T10:00:00",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.history_for(task["id"], "rescheduled"), [])
+        self.assertEqual(len(self.history_for(task["id"], "recovered")), 1)
+
+    def test_replanning_records_missed_and_recovered_events(self):
         task = self.create_task("Missed task")
         result = ReplanningResult(
             schedule=[
@@ -121,7 +197,18 @@ class TaskHistoryEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(self.history_for(task["id"], "missed")), 1)
-        self.assertEqual(len(self.history_for(task["id"], "replanned")), 1)
+        self.assertEqual(len(self.history_for(task["id"], "replanned")), 0)
+        self.assertEqual(self.history_for(task["id"], "rescheduled"), [])
+        recovered_events = self.history_for(task["id"], "recovered")
+        self.assertEqual(len(recovered_events), 1)
+        self.assertEqual(recovered_events[0].new_start, datetime(2040, 1, 1, 9, 0))
+
+        fetched_task = self.client.get(f"/tasks/{task['id']}").json()
+        task_list = self.client.get("/tasks").json()
+        self.assertTrue(fetched_task["was_replanned"])
+        self.assertTrue(
+            next(item for item in task_list if item["id"] == task["id"])["was_replanned"]
+        )
 
     def test_completing_task_with_actual_duration_records_completed_event(self):
         task = self.create_task("Complete task")

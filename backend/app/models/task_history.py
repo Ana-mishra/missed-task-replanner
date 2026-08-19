@@ -12,7 +12,8 @@ class TaskHistory(Base):
     __tablename__ = "task_history"
     __table_args__ = (
         CheckConstraint(
-            "event_type IN ('created', 'scheduled', 'missed', 'completed', 'replanned', 'deleted')",
+            "event_type IN ('created', 'scheduled', 'missed', 'completed', "
+            "'replanned', 'rescheduled', 'recovered', 'deleted')",
             name="valid_task_history_event_type",
         ),
     )
@@ -23,5 +24,12 @@ class TaskHistory(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     scheduled_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scheduled_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Keep the legacy scheduled_* fields for existing API clients.  The
+    # explicit before/after fields make schedule changes understandable later.
+    old_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    old_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    new_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    new_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reason: Mapped[str | None] = mapped_column(String, nullable=True)
 
     task: Mapped["Task"] = relationship(back_populates="history_records")

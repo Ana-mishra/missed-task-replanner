@@ -51,6 +51,7 @@ class ReflectionServiceTests(unittest.TestCase):
             self.event(3, 2, "completed", datetime(2026, 8, 11, 11)),
             self.event(4, 1, "missed", datetime(2026, 8, 12, 10)),
             self.event(5, 1, "replanned", datetime(2026, 8, 12, 11)),
+            self.event(6, 1, "recovered", datetime(2026, 8, 12, 12)),
         ]
 
         result = self.service.calculate(
@@ -61,6 +62,7 @@ class ReflectionServiceTests(unittest.TestCase):
         self.assertEqual(result.tasks_completed, 2)
         self.assertEqual(result.tasks_missed, 1)
         self.assertEqual(result.tasks_replanned, 1)
+        self.assertEqual(result.tasks_recovered, 1)
         self.assertAlmostEqual(result.completion_rate, 2 / 3)
         self.assertEqual(result.estimated_completed_minutes, 90)
         self.assertEqual(result.actual_completed_minutes, 45)

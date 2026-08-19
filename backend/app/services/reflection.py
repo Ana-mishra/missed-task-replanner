@@ -16,6 +16,7 @@ class WeeklyReflectionResult:
     tasks_completed: int
     tasks_missed: int
     tasks_replanned: int
+    tasks_recovered: int
     completion_rate: float
     estimated_completed_minutes: int
     actual_completed_minutes: int
@@ -101,6 +102,7 @@ class ReflectionService:
             tasks_completed=event_counts["completed"],
             tasks_missed=event_counts["missed"],
             tasks_replanned=event_counts["replanned"],
+            tasks_recovered=event_counts["recovered"],
             completion_rate=(event_counts["completed"] / completed_and_missed if completed_and_missed else 0.0),
             estimated_completed_minutes=estimated_completed_minutes,
             actual_completed_minutes=actual_completed_minutes,

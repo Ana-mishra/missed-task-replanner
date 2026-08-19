@@ -37,5 +37,6 @@ class TaskUpdate(TaskBase):
 
 class TaskResponse(TaskBase):
     id: int
+    was_replanned: bool = False
 
     model_config = ConfigDict(from_attributes=True)

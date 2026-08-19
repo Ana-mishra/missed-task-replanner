@@ -9,6 +9,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
+from app.models.task import Task
+from app.models.task_history import TaskHistory
 from app.services.planning import ScheduledTask
 from app.services.replanning import ReplanningResult
 
@@ -37,7 +39,13 @@ class ReplanEndpointTests(unittest.TestCase):
         app.dependency_overrides.clear()
         self.engine.dispose()
 
-    def create_task(self, title, completed=False):
+    def create_task(
+    self,
+    title,
+    completed=False,
+    scheduled_start=None,
+    scheduled_end=None,
+):
         response = self.client.post(
             "/tasks",
             json={
@@ -46,6 +54,8 @@ class ReplanEndpointTests(unittest.TestCase):
                 "deadline": "2040-01-01T10:00:00",
                 "priority": "medium",
                 "completed": completed,
+                "scheduled_start": scheduled_start,
+                "scheduled_end": scheduled_end,
             },
         )
         self.assertEqual(response.status_code, 201)
@@ -60,9 +70,22 @@ class ReplanEndpointTests(unittest.TestCase):
             },
         )
 
+    def history_types(self, task_id):
+        with self.session_local() as db:
+            return [
+                event.event_type
+                for event in db.query(TaskHistory)
+                .filter(TaskHistory.task_id == task_id)
+                .order_by(TaskHistory.timestamp, TaskHistory.id)
+            ]
+
     def test_replan_marks_task_missed_and_persists_revised_schedule(self):
         missed_task = self.create_task("Missed task")
-        other_task = self.create_task("Other task")
+        other_task = self.create_task(
+            "Other task",
+            scheduled_start="2040-01-02T09:00:00",
+            scheduled_end="2040-01-02T09:30:00",
+        )
         result = ReplanningResult(
             schedule=[
                 ScheduledTask(
@@ -74,6 +97,8 @@ class ReplanEndpointTests(unittest.TestCase):
             ],
             is_overloaded=False,
             unscheduled_minutes=0,
+            missed_task_scheduled=True,
+            scheduled_for=datetime(2040, 1, 1, 9, 0),
         )
 
         try:
@@ -89,15 +114,59 @@ class ReplanEndpointTests(unittest.TestCase):
 
             missed_after_replan = self.client.get(f"/tasks/{missed_task['id']}").json()
             other_after_replan = self.client.get(f"/tasks/{other_task['id']}").json()
-            self.assertEqual(missed_after_replan["status"], "missed")
+            self.assertEqual(missed_after_replan["status"], "pending")
             self.assertFalse(missed_after_replan["completed"])
+            self.assertTrue(missed_after_replan["was_replanned"])
             self.assertEqual(missed_after_replan["scheduled_start"], "2040-01-01T09:00:00")
             self.assertEqual(missed_after_replan["scheduled_end"], "2040-01-01T09:30:00")
-            self.assertIsNone(other_after_replan["scheduled_start"])
-            self.assertIsNone(other_after_replan["scheduled_end"])
+            self.assertEqual(
+                other_after_replan["scheduled_start"],
+                "2040-01-02T09:00:00",
+            )
+            self.assertEqual(
+                other_after_replan["scheduled_end"],
+                "2040-01-02T09:30:00",
+            )
         finally:
             self.client.delete(f"/tasks/{missed_task['id']}")
             self.client.delete(f"/tasks/{other_task['id']}")
+
+    def test_replan_leaves_missed_task_unscheduled_when_it_does_not_fit_today(self):
+        missed_task = self.create_task("Missed task")
+
+        result = ReplanningResult(
+            schedule=[],
+            is_overloaded=True,
+            unscheduled_minutes=30,
+        )
+
+        try:
+            with patch(
+                "app.api.replanning.ReplanningEngine.generate_revised_schedule",
+                return_value=result,
+            ):
+                response = self.replan(missed_task["id"])
+
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.json()["is_overloaded"])
+            self.assertEqual(response.json()["unscheduled_minutes"], 30)
+            self.assertFalse(response.json()["missed_task_scheduled"])
+            self.assertIsNone(response.json()["scheduled_for"])
+
+            task_after_replan = self.client.get(
+                f"/tasks/{missed_task['id']}"
+            ).json()
+
+            self.assertEqual(task_after_replan["status"], "missed")
+            self.assertFalse(task_after_replan["completed"])
+            self.assertFalse(task_after_replan["was_replanned"])
+            self.assertIsNone(task_after_replan["scheduled_start"])
+            self.assertIsNone(task_after_replan["scheduled_end"])
+            event_types = self.history_types(missed_task["id"])
+            self.assertEqual(event_types.count("missed"), 1)
+            self.assertNotIn("recovered", event_types)
+        finally:
+            self.client.delete(f"/tasks/{missed_task['id']}")
 
     def test_completed_task_cannot_be_replanned(self):
         task = self.create_task("Completed task", completed=True)
@@ -140,6 +209,82 @@ class ReplanEndpointTests(unittest.TestCase):
             self.assertEqual(response.json()["unscheduled_minutes"], 30)
         finally:
             self.client.delete(f"/tasks/{task['id']}")
+
+    def test_repeating_replan_without_a_new_miss_does_not_duplicate_recovery(self):
+        task = self.create_task("Recovered once")
+        result = ReplanningResult(
+            schedule=[
+                ScheduledTask(
+                    task_id=task["id"],
+                    title=task["title"],
+                    scheduled_start=datetime(2040, 1, 1, 9),
+                    scheduled_end=datetime(2040, 1, 1, 9, 30),
+                )
+            ],
+            is_overloaded=False,
+            unscheduled_minutes=0,
+        )
+
+        with patch("app.api.replanning.ReplanningEngine.generate_revised_schedule", return_value=result):
+            self.assertEqual(self.replan(task["id"]).status_code, 200)
+            self.assertEqual(self.replan(task["id"]).status_code, 200)
+
+        event_types = self.history_types(task["id"])
+        self.assertEqual(event_types.count("missed"), 1)
+        self.assertEqual(event_types.count("recovered"), 1)
+        self.assertNotIn("replanned", event_types)
+
+    def test_already_missed_task_recovers_once_when_a_slot_is_found(self):
+        task = self.create_task("Already missed")
+        with self.session_local() as db:
+            db.add(TaskHistory(task_id=task["id"], event_type="missed"))
+            stored_task = db.get(Task, task["id"])
+            stored_task.status = "missed"
+            db.commit()
+        result = ReplanningResult(
+            schedule=[
+                ScheduledTask(task["id"], task["title"], datetime(2040, 1, 1, 9), datetime(2040, 1, 1, 9, 30))
+            ],
+            is_overloaded=False,
+            unscheduled_minutes=0,
+        )
+
+        with patch("app.api.replanning.ReplanningEngine.generate_revised_schedule", return_value=result):
+            self.assertEqual(self.replan(task["id"]).status_code, 200)
+
+        event_types = self.history_types(task["id"])
+        self.assertEqual(event_types.count("missed"), 1)
+        self.assertEqual(event_types.count("recovered"), 1)
+
+    def test_a_later_genuine_miss_can_start_a_second_recovery_cycle(self):
+        task = self.create_task("Recovered twice")
+        first = ReplanningResult(
+            schedule=[
+                ScheduledTask(task["id"], task["title"], datetime(2040, 1, 1, 9), datetime(2040, 1, 1, 9, 30))
+            ],
+            is_overloaded=False,
+            unscheduled_minutes=0,
+        )
+        second = ReplanningResult(
+            schedule=[
+                ScheduledTask(task["id"], task["title"], datetime(2040, 1, 1, 10), datetime(2040, 1, 1, 10, 30))
+            ],
+            is_overloaded=False,
+            unscheduled_minutes=0,
+        )
+
+        with patch("app.api.replanning.ReplanningEngine.generate_revised_schedule", return_value=first):
+            self.assertEqual(self.replan(task["id"]).status_code, 200)
+        with patch("app.api.replanning.ReplanningEngine.generate_revised_schedule", return_value=second):
+            response = self.client.post(
+                f"/replan/{task['id']}",
+                json={"available_start": "2040-01-01T10:00:00", "available_end": "2040-01-01T11:00:00"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        event_types = self.history_types(task["id"])
+        self.assertEqual(event_types.count("missed"), 2)
+        self.assertEqual(event_types.count("recovered"), 2)
 
 
 if __name__ == "__main__":

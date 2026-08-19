@@ -58,30 +58,36 @@ function TaskCard({ task, onEdit, onComplete, onDelete, onMiss }) {
           <span className="task-card__meta-item">{formatDuration(task.duration_minutes)}</span>
           <span className="task-card__meta-item">{task.energy_level} energy</span>
         </div>
-      </div>
-      <div className="task-card__side">
-        <div className="task-card__deadline">
-          <span className="task-card__state">{state}</span>
-          <time dateTime={task.deadline}>
-            <span className="task-card__deadline-label">Deadline</span>
-            {formatDeadline(task.deadline)}
-          </time>
-        </div>
-        <div className="task-card__actions">
+        <div className="task-card__actions" aria-label={`Actions for ${task.title}`}>
           {task.completed ? (
             <span className="task-card__completed-label">✓ Completed</span>
           ) : (
             <>
               <button className="button button--quiet" type="button" onClick={onEdit}>Edit</button>
               <button className="button button--complete" type="button" onClick={onComplete}>Complete</button>
-              <button className="button button--quiet" type="button" onClick={onMiss}>
-  Missed
-</button>
+              <button className="button button--quiet" type="button" onClick={onMiss}>Missed</button>
             </>
           )}
           <button className="button button--quiet button--danger" type="button" onClick={onDelete}>
             Delete
           </button>
+        </div>
+      </div>
+      <div className="task-card__side">
+        <div className="task-card__deadline">
+          <span className="task-card__state">{state}</span>
+          {task.was_replanned && !task.completed && (
+            <span
+              className="task-card__replanned"
+              aria-label="Previously missed and successfully recovered"
+            >
+              Recovered
+            </span>
+          )}
+          <time dateTime={task.deadline}>
+            <span className="task-card__deadline-label">Deadline</span>
+            {formatDeadline(task.deadline)}
+          </time>
         </div>
       </div>
     </article>

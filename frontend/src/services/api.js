@@ -10,6 +10,74 @@ export async function getTasks() {
   return response.json()
 }
 
+export async function getTaskHistory() {
+  const response = await fetch('http://localhost:8000/task-history')
+
+  if (!response.ok) {
+    throw new Error('Could not load task history from the backend.')
+  }
+
+  return response.json()
+}
+
+export async function getHistory(params = {}) {
+  const query = new URLSearchParams()
+
+  if (params.range) {
+    query.set('range', params.range)
+  }
+
+  if (params.eventType) {
+    query.set('event_type', params.eventType)
+  }
+
+  if (params.startDate) {
+    query.set('start_date', params.startDate)
+  }
+
+  if (params.endDate) {
+    query.set('end_date', params.endDate)
+  }
+
+  const queryString = query.toString()
+  const url = `http://localhost:8000/history${queryString ? `?${queryString}` : ''}`
+
+  const response = await fetch(url)
+
+  if (!response.ok) {
+    throw new Error('Could not load history from the backend.')
+  }
+
+  return response.json()
+}
+
+export async function getHistorySummary(params = {}) {
+  const query = new URLSearchParams()
+
+  if (params.range) {
+    query.set('range', params.range)
+  }
+
+  if (params.startDate) {
+    query.set('start_date', params.startDate)
+  }
+
+  if (params.endDate) {
+    query.set('end_date', params.endDate)
+  }
+
+  const queryString = query.toString()
+  const url = `http://localhost:8000/history/summary${queryString ? `?${queryString}` : ''}`
+
+  const response = await fetch(url)
+
+  if (!response.ok) {
+    throw new Error('Could not load history summary from the backend.')
+  }
+
+  return response.json()
+}
+
 export async function createTask(taskData) {
   const response = await fetch(TASKS_API_URL, {
     method: 'POST',
@@ -90,4 +158,34 @@ export async function replanTask(taskId, planData) {
   }
 
   return data
+}
+export async function recommendTask() {
+  const response = await fetch('http://127.0.0.1:8000/recommend')
+
+  const data = await response.json()
+
+  if (!response.ok) {
+    throw new Error(
+      typeof data.detail === 'string'
+        ? data.detail
+        : 'Could not get a recommendation.',
+    )
+  }
+
+  return data
+}
+
+async function getAnalytics(path, message) {
+  const response = await fetch(`http://127.0.0.1:8000/analytics/${path}`)
+  const data = await response.json()
+  if (!response.ok) throw new Error(message)
+  return data
+}
+
+export function getProgress() {
+  return getAnalytics('progress', 'Could not load progress.')
+}
+
+export function getWeeklyReflection() {
+  return getAnalytics('reflection/weekly', 'Could not load weekly reflection.')
 }

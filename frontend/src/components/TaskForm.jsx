@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { formatDuration } from '../utils/duration.mjs'
 
 const initialValues = {
@@ -79,6 +80,16 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
   const pickerArea = useRef(null)
   const timeOptions = getTimeOptions()
   const isCompletion = mode === 'complete'
+  const deadlineProtected = Boolean(
+    mode === 'edit'
+    && task
+    && !task.completed
+    && (
+      task.status === 'missed'
+      || task.was_replanned
+      || new Date(task.deadline) < new Date()
+    )
+  )
 
   useEffect(() => {
     function closeOnOutsideClick(event) {
@@ -201,12 +212,12 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
       return
     }
 
-    if (!values.date || !values.time) {
+    if (!deadlineProtected && (!values.date || !values.time)) {
       setValidationError('Please choose both a date and time for the deadline.')
       return
     }
 
-    if (new Date(`${values.date}T00:00:00`) < new Date(new Date().setHours(0, 0, 0, 0))) {
+    if (!deadlineProtected && new Date(`${values.date}T00:00:00`) < new Date(new Date().setHours(0, 0, 0, 0))) {
       setValidationError('Deadline cannot be before today.')
       return
     }
@@ -215,16 +226,16 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
       title: values.title.trim(),
       description: values.description.trim() || null,
       duration_minutes: durationMinutes,
-      deadline: `${values.date}T${values.time}:00`,
+      deadline: deadlineProtected ? task.deadline : `${values.date}T${values.time}:00`,
       priority: values.priority,
       energy_level: values.energy_level,
     }
     const minutesUntilDeadline = Math.floor((new Date(taskData.deadline) - new Date()) / 60000)
-    if (!deadlineConflict && durationMinutes > minutesUntilDeadline) {
+    if (!deadlineProtected && !deadlineConflict && durationMinutes > minutesUntilDeadline) {
       setDeadlineConflict({ durationMinutes, minutesUntilDeadline, taskData })
       return
     }
-    onSubmit({ ...taskData, deadline_conflicted: Boolean(deadlineConflict) })
+    onSubmit({ ...taskData, deadline_conflicted: deadlineProtected ? task.deadline_conflicted : Boolean(deadlineConflict) })
   }
 
   const calendarYear = calendarMonth.getFullYear()
@@ -235,7 +246,7 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
   const daysInMonth = new Date(calendarYear, calendarMonthIndex + 1, 0).getDate()
   const calendarDays = Array.from({ length: firstDay + daysInMonth }, (_, index) => index < firstDay ? null : index - firstDay + 1)
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="presentation">
       <section className="task-form task-form--redesigned" role="dialog" aria-modal="true" aria-labelledby="task-form-heading">
         <style>{`
@@ -247,6 +258,8 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
           .task-form--redesigned .custom-duration-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: .9rem; }
           .task-form--redesigned .deadline-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: .75rem; }
           .task-form--redesigned .picker-field { position: relative; }
+          .task-form--redesigned .deadline-locked { min-height: 2.65rem; display: grid; align-content: center; gap: .15rem; padding: .58rem .75rem; border: 1px solid #d9dfd5; border-radius: var(--radius-sm); background: #f5f6f1; color: var(--muted); font-size: .82rem; }
+          .task-form--redesigned .deadline-locked strong { color: var(--text); font-weight: 700; }
           .task-form--redesigned .picker-label { display: block; margin-bottom: .45rem; font-size: .82rem; font-weight: 700; }
           .task-form--redesigned .picker-trigger { width: 100%; min-height: 2.65rem; display: flex; align-items: center; justify-content: space-between; padding: .7rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: #fffefc; text-align: left; font-size: .9rem; }
           .task-form--redesigned .picker-trigger:hover { border-color: #bdcdc2; }
@@ -348,7 +361,10 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
 
           <div className="form-section" ref={pickerArea}>
             <p className="form-section-title">Deadline</p>
-            <div className="deadline-fields">
+            {deadlineProtected ? <>
+              <p className="form-help">This deadline is preserved because the task is overdue, missed, or has been replanned.</p>
+              <div className="deadline-locked"><strong>{formatDate(values.date)} · {formatTime(values.time)}</strong><span>Deadline locked to preserve the task’s history.</span></div>
+            </> : <div className="deadline-fields">
               <div className="picker-field">
                 <span className="picker-label">Date</span>
                 <button className="picker-trigger" type="button" onClick={() => setOpenPicker(openPicker === 'date' ? null : 'date')} aria-expanded={openPicker === 'date'}><span>{formatDate(values.date)}</span><span className="picker-icon" aria-hidden="true">◷</span></button>
@@ -359,7 +375,7 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
                 <button className="picker-trigger" type="button" onClick={() => setOpenPicker(openPicker === 'time' ? null : 'time')} aria-expanded={openPicker === 'time'}><span>{formatTime(values.time)}</span><span className="picker-icon" aria-hidden="true">◷</span></button>
                 {openPicker === 'time' && <div className="picker-popover"><div className="time-list">{timeOptions.map((time) => <button className={`time-option ${values.time === time ? 'time-option--selected' : ''}`} type="button" key={time} onClick={() => selectTime(time)}>{formatTime(time)}</button>)}</div></div>}
               </div>
-            </div>
+            </div>}
           </div>
 
           <div className="form-grid">
@@ -374,7 +390,7 @@ function TaskForm({ mode = 'create', task, onSubmit, onClose, submitting, error 
         </form>
       </section>
     </div>
-  )
+  , document.body)
 }
 
 export default TaskForm

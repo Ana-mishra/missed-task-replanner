@@ -66,6 +66,7 @@ def get_weekly_reflection(week_start: date | None = None, db: Session = Depends(
         tasks_completed=result.tasks_completed,
         tasks_missed=result.tasks_missed,
         tasks_replanned=result.tasks_replanned,
+        tasks_recovered=result.tasks_recovered,
         completion_rate=result.completion_rate,
         estimated_completed_minutes=result.estimated_completed_minutes,
         actual_completed_minutes=result.actual_completed_minutes,

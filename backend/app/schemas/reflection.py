@@ -10,6 +10,7 @@ class WeeklyReflectionResponse(BaseModel):
     tasks_completed: int
     tasks_missed: int
     tasks_replanned: int
+    tasks_recovered: int
     completion_rate: float
     estimated_completed_minutes: int
     actual_completed_minutes: int

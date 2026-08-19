@@ -20,20 +20,31 @@ export function getPlannedWorkload(plannedTasks, availableMinutes = DEFAULT_AVAI
   }
 }
 
-export function getTodayOverloadStatus(tasks, availableMinutes, currentTime = new Date()) {
-  const endOfToday = new Date(currentTime)
-  endOfToday.setHours(23, 59, 59, 999)
-  const relevantTasks = tasks.filter((task) => {
-    const deadline = new Date(task.deadline)
-    return !task.completed && task.status !== 'completed' && !Number.isNaN(deadline.getTime()) && deadline <= endOfToday
-  })
-  const totalTodayMinutes = relevantTasks.reduce((total, task) => total + task.duration_minutes, 0)
-  const remainingMinutes = availableMinutes - totalTodayMinutes
+export function getTodayOverloadStatus(
+  tasks,
+  availableMinutes,
+  currentTime = new Date(),
+) {
+  const relevantTasks = tasks.filter(
+    (task) =>
+      !task.completed &&
+      task.status !== "completed" &&
+      Number.isFinite(task.duration_minutes) &&
+      task.duration_minutes > 0,
+  );
+
+  const totalTodayMinutes = relevantTasks.reduce(
+    (total, task) => total + task.duration_minutes,
+    0,
+  );
+
+  const remainingMinutes = availableMinutes - totalTodayMinutes;
+
   return {
     totalTodayMinutes,
     availableMinutes,
     remainingMinutes,
     overloadedByMinutes: Math.max(0, -remainingMinutes),
     isOverloaded: totalTodayMinutes > availableMinutes,
-  }
+  };
 }

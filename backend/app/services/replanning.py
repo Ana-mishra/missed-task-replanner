@@ -12,6 +12,8 @@ class ReplanningResult:
     schedule: list[ScheduledTask]
     is_overloaded: bool
     unscheduled_minutes: int
+    missed_task_scheduled: bool = False
+    scheduled_for: datetime | None = None
 
 
 class ReplanningEngine:
@@ -41,7 +43,7 @@ class ReplanningEngine:
 
         if available_end < available_start:
             raise ValueError("available_end must be after available_start")
-
+        
         tasks_by_id = {task.id: task for task in tasks}
         tasks_by_id[missed_task.id] = missed_task
         incomplete_tasks = [task for task in tasks_by_id.values() if not task.completed]
