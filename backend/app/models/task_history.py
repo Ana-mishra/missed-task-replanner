@@ -20,6 +20,9 @@ class TaskHistory(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False)
+    # Stored separately so a deleted task's append-only history remains
+    # private to its owner after the Task row is gone.
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     event_type: Mapped[str] = mapped_column(String, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     scheduled_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

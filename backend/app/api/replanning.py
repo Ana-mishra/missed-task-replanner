@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.task import Task
 from app.models.task_history import TaskHistory
+from app.models.user import User
+from app.api.auth import get_current_user
 from app.schemas.planning import PlanRequest, ScheduledTaskResponse
 from app.schemas.replanning import ReplanResponse
 from app.services.history_state import recovery_state_by_task_id
@@ -13,8 +15,15 @@ router = APIRouter(tags=["replanning"])
 
 
 @router.post("/replan/{task_id}", response_model=ReplanResponse)
-def replan_task(task_id: int, replan_request: PlanRequest, db: Session = Depends(get_db)):
-    missed_task = db.get(Task, task_id)
+def replan_task(
+    task_id: int,
+    replan_request: PlanRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    missed_task = (
+        db.query(Task).filter(Task.id == task_id, Task.user_id == current_user.id).first()
+    )
     if missed_task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     if missed_task.completed:
@@ -46,6 +55,7 @@ def replan_task(task_id: int, replan_request: PlanRequest, db: Session = Depends
         db.add(
             TaskHistory(
                 task_id=missed_task.id,
+                user_id=current_user.id,
                 event_type="missed",
                 scheduled_start=missed_task.scheduled_start,
                 scheduled_end=missed_task.scheduled_end,
@@ -58,7 +68,11 @@ def replan_task(task_id: int, replan_request: PlanRequest, db: Session = Depends
     if recovery_open:
         missed_task.status = "missed"
         missed_task.completed = False
-    incomplete_tasks = db.query(Task).filter(Task.completed.is_(False)).all()
+    incomplete_tasks = (
+        db.query(Task)
+        .filter(Task.user_id == current_user.id, Task.completed.is_(False))
+        .all()
+    )
     result = replanning_engine.generate_revised_schedule(
         incomplete_tasks,
         missed_task,
@@ -107,6 +121,7 @@ def replan_task(task_id: int, replan_request: PlanRequest, db: Session = Depends
                 db.add(
                     TaskHistory(
                         task_id=task.id,
+                        user_id=current_user.id,
                         event_type="rescheduled",
                         old_start=old_start,
                         old_end=old_end,
@@ -120,6 +135,7 @@ def replan_task(task_id: int, replan_request: PlanRequest, db: Session = Depends
         db.add(
             TaskHistory(
                 task_id=missed_task.id,
+                user_id=current_user.id,
                 event_type="recovered",
                 old_start=missed_start,
                 old_end=missed_end,

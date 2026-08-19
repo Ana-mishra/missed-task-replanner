@@ -5,6 +5,7 @@ import TaskForm from "./components/TaskForm.jsx";
 import AvailableTimeCard from "./components/AvailableTimeCard.jsx";
 import DashboardRail from "./components/DashboardRail.jsx";
 import HistoryPage from "./components/HistoryPage.jsx";
+import AuthPage from "./components/AuthPage.jsx";
 import { formatDuration } from "./utils/duration.mjs";
 
 import {
@@ -17,6 +18,8 @@ import {
   replanTask,
   updateTask,
   getWeeklyReflection,
+  clearAccessToken,
+  getAccessToken,
 } from "./services/api.js";
 import {
   DEFAULT_AVAILABLE_MINUTES,
@@ -33,6 +36,7 @@ function formatDeadline(deadline) {
 }
 
 function App() {
+  const [authenticated, setAuthenticated] = useState(() => Boolean(getAccessToken()));
   const [activePage, setActivePage] = useState("today");
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,16 +64,30 @@ function App() {
   );
 
   useEffect(() => {
+    if (!authenticated) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     getTasks()
       .then(setTasks)
-      .catch((requestError) => setError(requestError.message))
+      .catch((requestError) => {
+        if (requestError.message === "Invalid or expired authentication credentials") {
+          clearAccessToken();
+          setAuthenticated(false);
+        } else {
+          setError(requestError.message);
+        }
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [authenticated]);
 
   useEffect(() => {
+    if (!authenticated) return;
     getProgress().then(setProgress).catch(() => setProgress(null));
     getWeeklyReflection().then(setReflection).catch(() => setReflection(null));
-  }, []);
+  }, [authenticated]);
 
   useEffect(() => {
   if (replanNotice && replanNoticeRef.current) {
@@ -249,8 +267,22 @@ const updatedTasks = await getTasks();
   );
   const overloadStatus = getTodayOverloadStatus(tasks, availableMinutes);
 
+  function handleLogout() {
+    clearAccessToken();
+    setAuthenticated(false);
+    setTasks([]);
+    setPlannedTasks([]);
+    setRecommendation(null);
+    setError(null);
+    setActivePage("today");
+  }
+
+  if (!authenticated) {
+    return <AuthPage onAuthenticated={() => setAuthenticated(true)} />;
+  }
+
   return (
-    <AppShell activePage={activePage} onNavigate={setActivePage}>
+    <AppShell activePage={activePage} onNavigate={setActivePage} onLogout={handleLogout}>
       {activePage === "history" ? <HistoryPage /> : <>
       <section className="welcome">
   <div>

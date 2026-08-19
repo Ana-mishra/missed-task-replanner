@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app.models.task import Task
+from app.models.user import User
 
 
 class PersonalizationEndpointTests(unittest.TestCase):
@@ -44,9 +45,13 @@ class PersonalizationEndpointTests(unittest.TestCase):
     def test_endpoint_returns_estimation_insight(self):
         db = self.session_local()
         try:
+            user = User(name="Analytics test user", email="analytics@planora.local", password_hash="test")
+            db.add(user)
+            db.flush()
             for index in range(1, 4):
                 db.add(
                     Task(
+                        user_id=user.id,
                         title=f"Completed task {index}",
                         duration_minutes=30,
                         actual_duration_minutes=45,

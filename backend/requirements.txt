@@ -3,3 +3,5 @@ uvicorn[standard]
 sqlalchemy
 httpx
 pytest
+PyJWT
+pwdlib[argon2]

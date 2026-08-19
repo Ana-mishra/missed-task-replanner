@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.task import Task
 from app.models.task_history import TaskHistory
+from app.models.user import User
+from app.api.auth import get_current_user
 from app.schemas.postponement import PostponementResponse
 from app.services.postponement import PostponementService
 
@@ -15,8 +17,9 @@ def get_postponement_analysis(
     task_id: int,
     threshold: int = Query(default=3, gt=0),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    task = db.get(Task, task_id)
+    task = db.query(Task).filter(Task.id == task_id, Task.user_id == current_user.id).first()
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
 

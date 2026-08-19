@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-function AppShell({ children, activePage = 'today', onNavigate }) {
+function AppShell({ children, activePage = 'today', onNavigate, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false)
  const sidebarRef = useRef(null)
    useEffect(() => {
@@ -159,6 +159,7 @@ function AppShell({ children, activePage = 'today', onNavigate }) {
                 className="profile-menu__logout"
                 type="button"
                 role="menuitem"
+                onClick={onLogout}
               >
                 Log out
               </button>

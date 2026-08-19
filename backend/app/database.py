@@ -46,6 +46,68 @@ def add_task_planning_columns():
                 connection.execute(text(f"ALTER TABLE tasks ADD COLUMN {name} {definition}"))
 
 
+def add_task_ownership_column():
+    """Safely attach pre-auth SQLite tasks to one deterministic dev account.
+
+    SQLite cannot add a non-null foreign-key column to a populated table in a
+    single ALTER statement.  The application model requires ownership for all
+    new rows; existing rows are first given a nullable column and then
+    backfilled without deleting or rewriting task/history records.
+    """
+    inspector = inspect(engine)
+    if "tasks" not in inspector.get_table_names() or "users" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("tasks")}
+    with engine.begin() as connection:
+        if "user_id" not in existing_columns:
+            connection.execute(text("ALTER TABLE tasks ADD COLUMN user_id INTEGER"))
+
+        legacy_email = "legacy-development@planora.local"
+        legacy_user_id = connection.execute(
+            text("SELECT id FROM users WHERE email = :email"), {"email": legacy_email}
+        ).scalar()
+        if legacy_user_id is None:
+            result = connection.execute(
+                text(
+                    "INSERT INTO users (name, email, password_hash) "
+                    "VALUES (:name, :email, :password_hash)"
+                ),
+                {
+                    "name": "Legacy Development Data",
+                    "email": legacy_email,
+                    # Deliberately not a usable password. This account is only
+                    # a deterministic owner for rows created before accounts.
+                    "password_hash": "legacy-development-data-no-login",
+                },
+            )
+            legacy_user_id = result.lastrowid
+
+        connection.execute(
+            text("UPDATE tasks SET user_id = :user_id WHERE user_id IS NULL"),
+            {"user_id": legacy_user_id},
+        )
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_tasks_user_id ON tasks (user_id)"))
+
+        if "task_history" in inspector.get_table_names():
+            history_columns = {
+                column["name"] for column in inspector.get_columns("task_history")
+            }
+            if "user_id" not in history_columns:
+                connection.execute(text("ALTER TABLE task_history ADD COLUMN user_id INTEGER"))
+            connection.execute(
+                text(
+                    "UPDATE task_history SET user_id = COALESCE("
+                    "(SELECT tasks.user_id FROM tasks WHERE tasks.id = task_history.task_id), "
+                    ":legacy_user_id) WHERE user_id IS NULL"
+                ),
+                {"legacy_user_id": legacy_user_id},
+            )
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_task_history_user_id ON task_history (user_id)")
+            )
+
+
 def upgrade_task_history_table():
     """Safely expand the append-only history table without losing existing rows.
 
@@ -82,6 +144,7 @@ def upgrade_task_history_table():
                 CREATE TABLE task_history__upgrade (
                     id INTEGER NOT NULL PRIMARY KEY,
                     task_id INTEGER NOT NULL,
+                    user_id INTEGER,
                     event_type VARCHAR NOT NULL,
                     timestamp DATETIME NOT NULL,
                     scheduled_start DATETIME,
@@ -97,7 +160,8 @@ def upgrade_task_history_table():
                             'replanned', 'rescheduled', 'recovered', 'deleted'
                         )
                     ),
-                    FOREIGN KEY(task_id) REFERENCES tasks (id)
+                    FOREIGN KEY(task_id) REFERENCES tasks (id),
+                    FOREIGN KEY(user_id) REFERENCES users (id)
                 )
                 """
             )
@@ -106,10 +170,10 @@ def upgrade_task_history_table():
             text(
                 """
                 INSERT INTO task_history__upgrade (
-                    id, task_id, event_type, timestamp, scheduled_start,
+                    id, task_id, user_id, event_type, timestamp, scheduled_start,
                     scheduled_end, old_start, old_end, new_start, new_end, reason
                 )
-                SELECT id, task_id, event_type, timestamp, scheduled_start,
+                SELECT id, task_id, user_id, event_type, timestamp, scheduled_start,
                     scheduled_end, old_start, old_end, new_start, new_end, reason
                 FROM task_history
                 """

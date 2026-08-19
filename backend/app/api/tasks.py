@@ -6,14 +6,16 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.task import Task
 from app.models.task_history import TaskHistory
+from app.models.user import User
+from app.api.auth import get_current_user
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 from app.services.history_state import recovery_state_by_task_id
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
-def get_task_or_404(task_id: int, db: Session) -> Task:
-    task = db.get(Task, task_id)
+def get_task_or_404(task_id: int, db: Session, user_id: int) -> Task:
+    task = db.query(Task).filter(Task.id == task_id, Task.user_id == user_id).first()
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return task
@@ -52,34 +54,47 @@ def is_deadline_protected(task: Task, db: Session) -> bool:
 
 
 @router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
-def create_task(task_data: TaskCreate, db: Session = Depends(get_db)):
-    task = Task(**task_data.model_dump())
+def create_task(
+    task_data: TaskCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = Task(**task_data.model_dump(), user_id=current_user.id)
     if task.completed:
         task.status = "completed"
     db.add(task)
     db.flush()
-    db.add(TaskHistory(task_id=task.id, event_type="created"))
+    db.add(TaskHistory(task_id=task.id, user_id=current_user.id, event_type="created"))
     db.commit()
     db.refresh(task)
     return serialize_task(task)
 
 
 @router.get("", response_model=list[TaskResponse])
-def list_tasks(db: Session = Depends(get_db)):
-    tasks = db.query(Task).all()
+def list_tasks(
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    tasks = db.query(Task).filter(Task.user_id == current_user.id).all()
     replanned_task_ids = get_replanned_task_ids(db, [task.id for task in tasks])
     return [serialize_task(task, replanned_task_ids) for task in tasks]
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
-def get_task(task_id: int, db: Session = Depends(get_db)):
-    task = get_task_or_404(task_id, db)
+def get_task(
+    task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    task = get_task_or_404(task_id, db, current_user.id)
     return serialize_task(task, get_replanned_task_ids(db, [task.id]))
 
 
 @router.put("/{task_id}", response_model=TaskResponse)
-def update_task(task_id: int, task_data: TaskUpdate, db: Session = Depends(get_db)):
-    task = get_task_or_404(task_id, db)
+def update_task(
+    task_id: int,
+    task_data: TaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    task = get_task_or_404(task_id, db, current_user.id)
     if (
         is_deadline_protected(task, db)
         and to_naive_local(task_data.deadline) != to_naive_local(task.deadline)
@@ -109,6 +124,7 @@ def update_task(task_id: int, task_data: TaskUpdate, db: Session = Depends(get_d
         db.add(
             TaskHistory(
                 task_id=task.id,
+                user_id=current_user.id,
                 event_type="completed",
                 scheduled_start=task.scheduled_start,
                 scheduled_end=task.scheduled_end,
@@ -123,11 +139,14 @@ def update_task(task_id: int, task_data: TaskUpdate, db: Session = Depends(get_d
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_task(task_id: int, db: Session = Depends(get_db)):
-    task = get_task_or_404(task_id, db)
+def delete_task(
+    task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    task = get_task_or_404(task_id, db, current_user.id)
     db.add(
         TaskHistory(
             task_id=task.id,
+            user_id=current_user.id,
             event_type="deleted",
             scheduled_start=task.scheduled_start,
             scheduled_end=task.scheduled_end,
@@ -135,6 +154,10 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
     )
     db.commit()
     db.delete(task)
-    for remaining_task in db.query(Task).filter(Task.completed.is_(False)).all():
+    for remaining_task in (
+        db.query(Task)
+        .filter(Task.user_id == current_user.id, Task.completed.is_(False))
+        .all()
+    ):
         remaining_task.schedule_needs_refresh = True
     db.commit()

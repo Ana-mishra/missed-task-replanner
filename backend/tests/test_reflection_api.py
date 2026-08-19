@@ -10,6 +10,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models.task import Task
 from app.models.task_history import TaskHistory
+from app.models.user import User
 
 
 class ReflectionEndpointTests(unittest.TestCase):
@@ -38,7 +39,11 @@ class ReflectionEndpointTests(unittest.TestCase):
 
     def test_week_start_query_returns_weekly_response(self):
         with self.session_local() as db:
+            user = User(name="Reflection test user", email="reflection@planora.local", password_hash="test")
+            db.add(user)
+            db.flush()
             task = Task(
+                user_id=user.id,
                 title="Reflection task",
                 duration_minutes=30,
                 actual_duration_minutes=25,

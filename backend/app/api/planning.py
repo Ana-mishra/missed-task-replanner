@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.task import Task
 from app.models.task_history import TaskHistory
+from app.models.user import User
+from app.api.auth import get_current_user
 from app.schemas.planning import PlanRequest, PlanResponse, ScheduledTaskResponse
 from app.services.planning import PlanningEngine
 
@@ -28,8 +30,12 @@ def persisted_schedule(tasks: list[Task]) -> list[ScheduledTaskResponse]:
 
 
 @router.post("/plan", response_model=PlanResponse)
-def create_plan(plan_request: PlanRequest, db: Session = Depends(get_db)):
-    tasks = db.query(Task).all()
+def create_plan(
+    plan_request: PlanRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tasks = db.query(Task).filter(Task.user_id == current_user.id).all()
     incomplete_tasks = [task for task in tasks if not task.completed]
 
     # An unchanged plan is already the user's deliberate plan for the day.
@@ -61,7 +67,11 @@ def create_plan(plan_request: PlanRequest, db: Session = Depends(get_db)):
 
     scheduled_task_ids = {item.task_id for item in result.schedule}
     for item in result.schedule:
-        task = db.get(Task, item.task_id)
+        task = (
+            db.query(Task)
+            .filter(Task.id == item.task_id, Task.user_id == current_user.id)
+            .first()
+        )
         if task is not None:
             old_start = task.scheduled_start
             old_end = task.scheduled_end
@@ -77,6 +87,7 @@ def create_plan(plan_request: PlanRequest, db: Session = Depends(get_db)):
                 db.add(
                     TaskHistory(
                         task_id=task.id,
+                        user_id=current_user.id,
                         event_type="rescheduled" if was_previously_scheduled else "scheduled",
                         scheduled_start=item.scheduled_start,
                         scheduled_end=item.scheduled_end,
