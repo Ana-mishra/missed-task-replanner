@@ -250,11 +250,21 @@ const updatedTasks = await getTasks();
     }
   }
 
-  function planReason(task) {
+  function planReason(task, scheduledTasks) {
     const deadline = new Date(task.deadline);
     if (deadline < new Date()) {
       return "Overdue";
     }
+
+    const upcomingDeadlines = scheduledTasks
+      .filter((scheduledTask) => new Date(scheduledTask.deadline) >= new Date())
+      .map((scheduledTask) => new Date(scheduledTask.deadline).getTime());
+    const earliestUpcomingDeadline = Math.min(...upcomingDeadlines);
+
+    if (deadline.getTime() === earliestUpcomingDeadline) {
+      return "Closest upcoming deadline";
+    }
+
     if (task.priority === "high") {
       return "High priority";
     }
@@ -473,7 +483,7 @@ const updatedTasks = await getTasks();
                               <span className="plan-panel__reason-label">
                                 Why now
                               </span>
-                              {planReason(task)}
+                              {planReason(task, currentPlannedTasks)}
                             </span>
                           </div>
                         </li>
