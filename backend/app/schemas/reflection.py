@@ -1,6 +1,7 @@
 from datetime import date
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class WeeklyReflectionResponse(BaseModel):
@@ -18,5 +19,39 @@ class WeeklyReflectionResponse(BaseModel):
     postponement_cycles: int
     most_productive_day: date | None
     daily_completed_tasks: dict[str, int]
+    daily_planned_minutes: dict[str, int]
+    daily_estimated_minutes: dict[str, int]
+    daily_actual_minutes: dict[str, int]
     progress_level: int
     progress_percent: float
+    previous_tasks_completed: int | None = None
+    previous_completion_rate: float | None = None
+    previous_tasks_missed: int | None = None
+    previous_tasks_recovered: int | None = None
+
+
+Mood = Literal["tough", "okay", "neutral", "good", "great"]
+
+
+class DailyReflectionInput(BaseModel):
+    mood: Mood | None = None
+    went_well: str = Field(default="", max_length=500)
+    could_be_better: str = Field(default="", max_length=500)
+    note_to_self: str = Field(default="", max_length=500)
+    tomorrow_step: str = Field(default="", max_length=500)
+
+
+class ReflectionStreakDay(BaseModel):
+    date: date
+    reflected: bool
+
+
+class DailyReflectionResponse(DailyReflectionInput):
+    date: date
+    completed: int
+    missed: int
+    recovered: int
+    planned_work_minutes: int
+    available_minutes: int | None = None
+    streak_days: int
+    recent_streak_days: list[ReflectionStreakDay]

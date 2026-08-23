@@ -71,6 +71,73 @@ class ReflectionServiceTests(unittest.TestCase):
         self.assertEqual(result.most_productive_day, date(2026, 8, 11))
         self.assertEqual(result.daily_completed_tasks[date(2026, 8, 11)], 2)
 
+    def test_daily_planned_minutes_use_scheduled_interval(self):
+        scheduled_task = self.task(1, estimate=120, actual=90, completed=True)
+        scheduled_task.scheduled_start = datetime(2026, 8, 11, 9)
+        scheduled_task.scheduled_end = datetime(2026, 8, 11, 9, 45)
+        history = [self.event(1, 1, "completed", datetime(2026, 8, 11, 10))]
+
+        result = self.service.calculate(
+            [scheduled_task], history, self.week_start, self.current_time
+        )
+
+        self.assertEqual(result.daily_planned_minutes[date(2026, 8, 11)], 45)
+        self.assertEqual(result.daily_actual_minutes[date(2026, 8, 11)], 90)
+
+    def test_previous_week_summary_values_are_separate_from_current_week(self):
+        history = [
+            self.event(1, 1, "completed", datetime(2026, 8, 5, 10)),
+            self.event(2, 1, "missed", datetime(2026, 8, 6, 10)),
+            self.event(3, 1, "completed", datetime(2026, 8, 11, 10)),
+        ]
+
+        result = self.service.calculate([], history, self.week_start, self.current_time)
+
+        self.assertEqual(result.tasks_completed, 1)
+        self.assertEqual(result.previous_tasks_completed, 1)
+        self.assertEqual(result.previous_tasks_missed, 1)
+        self.assertEqual(result.previous_tasks_recovered, 0)
+        self.assertEqual(result.previous_completion_rate, 0.5)
+
+    def test_all_time_summary_has_no_invented_previous_period(self):
+        result = self.service.calculate([], [], self.week_start, self.current_time, "all")
+
+        self.assertIsNone(result.previous_tasks_completed)
+        self.assertIsNone(result.previous_completion_rate)
+
+    def test_month_and_all_time_use_period_buckets(self):
+        month_result = self.service.calculate([], [], date(2026, 8, 1), self.current_time, "month")
+        all_time_result = self.service.calculate([], [], date(2026, 8, 1), self.current_time, "all")
+
+        self.assertEqual(len(month_result.daily_completed_tasks), 31)
+        self.assertEqual(list(all_time_result.daily_completed_tasks), [date(2026, 8, 1)])
+
+    def test_recovery_rate_comparison_supports_positive_change(self):
+        history = [
+            self.event(1, 1, "missed", datetime(2026, 8, 5, 10)),
+            self.event(2, 1, "missed", datetime(2026, 8, 11, 10)),
+            self.event(3, 1, "recovered", datetime(2026, 8, 11, 11)),
+        ]
+
+        result = self.service.calculate([], history, self.week_start, self.current_time)
+
+        self.assertEqual(result.tasks_recovered, 1)
+        self.assertEqual(result.previous_tasks_recovered, 0)
+        self.assertEqual(result.previous_tasks_missed, 1)
+
+    def test_recovery_rate_comparison_supports_negative_change(self):
+        history = [
+            self.event(1, 1, "missed", datetime(2026, 8, 5, 10)),
+            self.event(2, 1, "recovered", datetime(2026, 8, 5, 11)),
+            self.event(3, 1, "missed", datetime(2026, 8, 11, 10)),
+        ]
+
+        result = self.service.calculate([], history, self.week_start, self.current_time)
+
+        self.assertEqual(result.tasks_recovered, 0)
+        self.assertEqual(result.previous_tasks_recovered, 1)
+        self.assertEqual(result.previous_tasks_missed, 1)
+
     def test_most_productive_day_tie_uses_earliest_date(self):
         history = [
             self.event(1, 1, "completed", datetime(2026, 8, 11, 10)),

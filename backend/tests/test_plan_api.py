@@ -172,6 +172,39 @@ class PlanEndpointTests(unittest.TestCase):
             ).count()
         self.assertEqual(after_history_count, before_history_count)
 
+    def test_force_replan_only_records_a_reschedule_when_the_schedule_changes(self):
+        task = self.create_task("Capacity changed")
+        initial = PlanningResult(
+            schedule=[
+                ScheduledTask(task["id"], task["title"], datetime(2040, 1, 1, 9), datetime(2040, 1, 1, 9, 30))
+            ],
+            is_overloaded=False,
+            unscheduled_minutes=0,
+        )
+        request = {"available_start": "2040-01-01T09:00:00", "available_end": "2040-01-01T11:00:00"}
+        with patch("app.api.planning.PlanningEngine.generate_schedule", return_value=initial):
+            self.assertEqual(self.client.post("/plan", json=request).status_code, 200)
+
+        with self.session_local() as db:
+            before_history_count = db.query(TaskHistory).filter(
+                TaskHistory.task_id == task["id"], TaskHistory.event_type == "rescheduled"
+            ).count()
+
+        # Capacity changed, so the frontend may request a replan. An identical
+        # resulting schedule must still be history-idempotent.
+        with patch("app.api.planning.PlanningEngine.generate_schedule", return_value=initial) as generate_schedule:
+            response = self.client.post("/plan", json={**request, "force_replan": True})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(generate_schedule.call_count, 1)
+
+        with self.session_local() as db:
+            self.assertEqual(
+                db.query(TaskHistory).filter(
+                    TaskHistory.task_id == task["id"], TaskHistory.event_type == "rescheduled"
+                ).count(),
+                before_history_count,
+            )
+
     def test_an_unscheduled_new_task_allows_the_planner_to_update_the_plan(self):
         scheduled_task = self.create_task("Already planned")
         first = PlanningResult(

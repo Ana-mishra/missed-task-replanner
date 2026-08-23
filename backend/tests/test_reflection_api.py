@@ -39,8 +39,11 @@ class ReflectionEndpointTests(unittest.TestCase):
 
     def test_week_start_query_returns_weekly_response(self):
         with self.session_local() as db:
-            user = User(name="Reflection test user", email="reflection@planora.local", password_hash="test")
-            db.add(user)
+            user = db.query(User).filter(User.email == "tests@planora.local").first()
+            if user is None:
+                user = User(name="Endpoint Test User", email="tests@planora.local", password_hash="test")
+                db.add(user)
+                db.flush()
             db.flush()
             task = Task(
                 user_id=user.id,
@@ -53,7 +56,12 @@ class ReflectionEndpointTests(unittest.TestCase):
             )
             db.add(task)
             db.flush()
-            db.add(TaskHistory(task_id=task.id, event_type="completed", timestamp=datetime(2026, 8, 11, 10)))
+            db.add(TaskHistory(
+                task_id=task.id,
+                user_id=user.id,
+                event_type="completed",
+                timestamp=datetime(2026, 8, 11, 10),
+            ))
             db.commit()
 
         response = self.client.get("/analytics/reflection/weekly?week_start=2026-08-10")

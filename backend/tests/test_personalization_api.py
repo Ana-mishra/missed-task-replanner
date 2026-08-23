@@ -45,9 +45,11 @@ class PersonalizationEndpointTests(unittest.TestCase):
     def test_endpoint_returns_estimation_insight(self):
         db = self.session_local()
         try:
-            user = User(name="Analytics test user", email="analytics@planora.local", password_hash="test")
-            db.add(user)
-            db.flush()
+            user = db.query(User).filter(User.email == "tests@planora.local").first()
+            if user is None:
+                user = User(name="Endpoint Test User", email="tests@planora.local", password_hash="test")
+                db.add(user)
+                db.flush()
             for index in range(1, 4):
                 db.add(
                     Task(

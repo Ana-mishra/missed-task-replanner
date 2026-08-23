@@ -24,8 +24,15 @@ class WeeklyReflectionResult:
     postponement_cycles: int
     most_productive_day: date | None
     daily_completed_tasks: dict[date, int]
+    daily_planned_minutes: dict[date, int]
+    daily_estimated_minutes: dict[date, int]
+    daily_actual_minutes: dict[date, int]
     progress_level: int
     progress_percent: float
+    previous_tasks_completed: int | None = None
+    previous_completion_rate: float | None = None
+    previous_tasks_missed: int | None = None
+    previous_tasks_recovered: int | None = None
 
 
 class ReflectionService:
@@ -37,8 +44,24 @@ class ReflectionService:
         history_records: list[TaskHistory],
         week_start: date,
         current_time: datetime,
+        period: str = "week",
     ) -> WeeklyReflectionResult:
-        week_end = week_start + timedelta(days=6)
+        if period == "month":
+            next_month = (week_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+            week_end = next_month - timedelta(days=1)
+            bucket_dates = [week_start + timedelta(days=offset) for offset in range((week_end - week_start).days + 1)]
+        elif period == "all":
+            week_start = week_start.replace(day=1)
+            week_end = current_time.date()
+            bucket_dates = []
+            bucket = week_start
+            while bucket <= week_end:
+                bucket_dates.append(bucket)
+                next_bucket = (bucket.replace(day=28) + timedelta(days=4)).replace(day=1)
+                bucket = next_bucket
+        else:
+            week_end = week_start + timedelta(days=6)
+            bucket_dates = [week_start + timedelta(days=offset) for offset in range(7)]
         week_end_exclusive = datetime.combine(week_end + timedelta(days=1), datetime.min.time())
         week_start_datetime = datetime.combine(week_start, datetime.min.time())
         week_history = [
@@ -73,9 +96,31 @@ class ReflectionService:
             else None
         )
 
-        daily_completed_tasks = {week_start + timedelta(days=offset): 0 for offset in range(7)}
+        daily_completed_tasks = {bucket: 0 for bucket in bucket_dates}
+        daily_planned_minutes = {bucket: 0 for bucket in bucket_dates}
+        daily_estimated_minutes = {bucket: 0 for bucket in bucket_dates}
+        daily_actual_minutes = {bucket: 0 for bucket in bucket_dates}
+        def bucket_for(value: date) -> date:
+            return value.replace(day=1) if period == "all" else value
+
+        period_end_exclusive = datetime.combine(week_end + timedelta(days=1), datetime.min.time())
+        for task in tasks:
+            if (
+                task.scheduled_start is not None
+                and task.scheduled_end is not None
+                and week_start_datetime <= task.scheduled_start < period_end_exclusive
+            ):
+                daily_planned_minutes[bucket_for(task.scheduled_start.date())] += max(
+                    0,
+                    int((task.scheduled_end - task.scheduled_start).total_seconds() // 60),
+                )
         for record in completed_events:
-            daily_completed_tasks[record.timestamp.date()] += 1
+            bucket = bucket_for(record.timestamp.date())
+            daily_completed_tasks[bucket] += 1
+            task = task_by_id.get(record.task_id)
+            if task is not None:
+                daily_estimated_minutes[bucket] += task.duration_minutes
+                daily_actual_minutes[bucket] += task.actual_duration_minutes or 0
         most_productive_day = self._most_productive_day(daily_completed_tasks)
 
         history_by_task = defaultdict(list)
@@ -95,6 +140,27 @@ class ReflectionService:
         )
         completed_and_missed = event_counts["completed"] + event_counts["missed"]
 
+        previous_tasks_completed = None
+        previous_completion_rate = None
+        previous_tasks_missed = None
+        previous_tasks_recovered = None
+        if period != "all":
+            period_days = (week_end - week_start).days + 1
+            previous_end = week_start - timedelta(days=1)
+            previous_start = previous_end - timedelta(days=period_days - 1)
+            previous_history = [
+                record
+                for record in history_records
+                if previous_start <= record.timestamp.date() <= previous_end
+                and record.timestamp <= current_time
+            ]
+            previous_counts = Counter(record.event_type for record in previous_history)
+            previous_tasks_completed = previous_counts["completed"]
+            previous_tasks_missed = previous_counts["missed"]
+            previous_tasks_recovered = previous_counts["recovered"]
+            previous_total = previous_tasks_completed + previous_tasks_missed
+            previous_completion_rate = previous_tasks_completed / previous_total if previous_total else 0.0
+
         return WeeklyReflectionResult(
             week_start=week_start,
             week_end=week_end,
@@ -110,8 +176,15 @@ class ReflectionService:
             postponement_cycles=postponement_cycles,
             most_productive_day=most_productive_day,
             daily_completed_tasks=daily_completed_tasks,
+            daily_planned_minutes=daily_planned_minutes,
+            daily_estimated_minutes=daily_estimated_minutes,
+            daily_actual_minutes=daily_actual_minutes,
             progress_level=progress.progress_level,
             progress_percent=progress.progress_percent,
+            previous_tasks_completed=previous_tasks_completed,
+            previous_completion_rate=previous_completion_rate,
+            previous_tasks_missed=previous_tasks_missed,
+            previous_tasks_recovered=previous_tasks_recovered,
         )
 
     def _most_productive_day(self, daily_completed_tasks: dict[date, int]) -> date | None:
@@ -119,3 +192,41 @@ class ReflectionService:
         if highest_count == 0:
             return None
         return min(day for day, count in daily_completed_tasks.items() if count == highest_count)
+
+    def daily_glance(
+        self,
+        tasks: list[Task],
+        history_records: list[TaskHistory],
+        selected_date: date,
+    ) -> dict[str, int | None]:
+        """Return task/history facts for one reflection date."""
+        events = [record for record in history_records if record.timestamp.date() == selected_date]
+        planned_work_minutes = sum(
+            max(0, int((task.scheduled_end - task.scheduled_start).total_seconds() // 60))
+            for task in tasks
+            if task.scheduled_start is not None
+            and task.scheduled_end is not None
+            and task.scheduled_start.date() == selected_date
+        )
+        return {
+            "completed": sum(record.event_type == "completed" for record in events),
+            "missed": sum(record.event_type == "missed" for record in events),
+            "recovered": sum(record.event_type == "recovered" for record in events),
+            "planned_work_minutes": planned_work_minutes,
+            "available_minutes": None,
+        }
+
+    def reflection_streak(
+        self, reflection_dates: list[date], selected_date: date
+    ) -> tuple[int, list[dict[str, object]]]:
+        reflected_dates = set(reflection_dates)
+        streak_days = 0
+        cursor = selected_date
+        while cursor in reflected_dates:
+            streak_days += 1
+            cursor -= timedelta(days=1)
+        recent_days = [
+            {"date": selected_date - timedelta(days=offset), "reflected": selected_date - timedelta(days=offset) in reflected_dates}
+            for offset in range(4, -1, -1)
+        ]
+        return streak_days, recent_days

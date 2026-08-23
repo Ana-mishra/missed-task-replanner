@@ -9,6 +9,7 @@ class PlanRequest(BaseModel):
     available_end: datetime
     energy_level: Literal["low", "medium", "high"] | None = None
     bad_day: bool = False
+    force_replan: bool = False
 
     @model_validator(mode="after")
     def validate_time_range(self):

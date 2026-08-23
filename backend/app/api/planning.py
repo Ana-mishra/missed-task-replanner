@@ -42,7 +42,11 @@ def create_plan(
     # This includes tasks intentionally left unscheduled because the day is
     # overloaded. Reusing it prevents the current clock from shifting the
     # scheduled subset on a repeated Plan My Day call.
-    if incomplete_tasks and not any(task.schedule_needs_refresh for task in incomplete_tasks):
+    if (
+    incomplete_tasks
+    and not plan_request.force_replan
+    and not any(task.schedule_needs_refresh for task in incomplete_tasks)
+):
         unscheduled_minutes = sum(
             task.duration_minutes
             for task in incomplete_tasks

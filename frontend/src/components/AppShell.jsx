@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-function AppShell({ children, activePage = 'today', onNavigate, onLogout }) {
+function AppShell({ children, activePage = 'today', onNavigate, onLogout, progress }) {
   const [profileOpen, setProfileOpen] = useState(false)
  const sidebarRef = useRef(null)
    useEffect(() => {
@@ -85,11 +85,21 @@ function AppShell({ children, activePage = 'today', onNavigate, onLogout }) {
 
 
             <button
-              className="sidebar__item"
+              className={`sidebar__item ${activePage === 'stats' ? 'sidebar__item--active' : ''}`}
               type="button"
+              onClick={() => onNavigate?.('stats')}
             >
               <span className="sidebar__icon" aria-hidden="true">◇</span>
               <span className="sidebar__label">Stats</span>
+            </button>
+
+            <button
+              className={`sidebar__item ${activePage === 'reflection' ? 'sidebar__item--active' : ''}`}
+              type="button"
+              onClick={() => onNavigate?.('reflection')}
+            >
+              <span className="sidebar__icon" aria-hidden="true">♧</span>
+              <span className="sidebar__label">Reflection</span>
             </button>
 
             <button className="sidebar__item" type="button">
@@ -102,8 +112,6 @@ function AppShell({ children, activePage = 'today', onNavigate, onLogout }) {
         </div>
 
         <div className="sidebar__bottom">
-
-
           <button
             className="sidebar__profile"
             type="button"

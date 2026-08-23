@@ -40,11 +40,16 @@ class EstimationService:
         estimated_minutes = sum(task.duration_minutes for task in eligible_tasks)
         actual_minutes = sum(task.actual_duration_minutes for task in eligible_tasks)
         total_difference_minutes = actual_minutes - estimated_minutes
-        accuracies = [
-            max(0.0, 100 * (1 - abs(task.actual_duration_minutes - task.duration_minutes) / task.duration_minutes))
-            for task in eligible_tasks
-        ]
         completed_tasks = len(eligible_tasks)
+
+        if max(estimated_minutes, actual_minutes) > 0:
+            average_accuracy_percent = (
+                min(estimated_minutes, actual_minutes)
+                / max(estimated_minutes, actual_minutes)
+                * 100
+            )
+        else:
+            average_accuracy_percent = 0.0
 
         if total_difference_minutes > 0:
             tendency = "underestimate"
@@ -59,6 +64,6 @@ class EstimationService:
             actual_minutes=actual_minutes,
             total_difference_minutes=total_difference_minutes,
             average_difference_minutes=total_difference_minutes / completed_tasks,
-            average_accuracy_percent=sum(accuracies) / completed_tasks,
+            average_accuracy_percent=average_accuracy_percent,
             tendency=tendency,
         )

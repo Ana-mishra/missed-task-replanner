@@ -44,6 +44,12 @@ class ProgressService:
 
         current_streak_days = 0
         streak_date = current_date
+
+        # An unfinished current day does not break the streak yet.
+        # Once a day has passed without a completion, the streak is broken.
+        if streak_date not in completion_dates:
+            streak_date -= timedelta(days=1)
+
         while streak_date in completion_dates:
             current_streak_days += 1
             streak_date -= timedelta(days=1)

@@ -166,6 +166,29 @@ export function getProgress() {
   return getAnalytics('progress', 'Could not load progress.')
 }
 
-export function getWeeklyReflection() {
-  return getAnalytics('reflection/weekly', 'Could not load weekly reflection.')
+export function getWeeklyReflection(period = 'week') {
+  const query = period === 'week' ? '' : `?period=${encodeURIComponent(period)}`
+  return getAnalytics(`reflection/weekly${query}`, 'Could not load weekly reflection.')
+}
+
+export function getDailyReflection(date) {
+  return getAnalytics(`reflection/daily?reflection_date=${encodeURIComponent(date)}`, 'Could not load this reflection.')
+}
+
+export async function saveDailyReflection(date, reflection) {
+  const response = await apiFetch(`/analytics/reflection/daily?reflection_date=${encodeURIComponent(date)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(reflection),
+  })
+  if (!response.ok) throw new Error(await readError(response, 'Could not save this reflection.'))
+  return response.json()
+}
+
+export function getEstimation() {
+  return getAnalytics('estimation', 'Could not load estimation analytics.')
+}
+
+export function getPersonalization() {
+  return getAnalytics('personalization', 'Could not load personalization insights.')
 }

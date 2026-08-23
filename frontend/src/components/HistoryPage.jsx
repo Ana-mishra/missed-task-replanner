@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getHistory, getHistorySummary } from "../services/api.js";
 
 const PAGE_SIZE = 10;
@@ -125,12 +125,29 @@ function HistoryPage() {
 });
   const [filter, setFilter] = useState("all");
   const [isRangeOpen, setIsRangeOpen] = useState(false);
+  const rangeDropdownRef = useRef(null);
   const [query, setQuery] = useState("");
   const [range, setRange] = useState("week");
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  useEffect(() => {
+  function handleOutsideClick(event) {
+    if (
+      rangeDropdownRef.current &&
+      !rangeDropdownRef.current.contains(event.target)
+    ) {
+      setIsRangeOpen(false);
+    }
+  }
+
+  document.addEventListener("mousedown", handleOutsideClick);
+
+  return () => {
+    document.removeEventListener("mousedown", handleOutsideClick);
+  };
+}, []);
 
   useEffect(() => {
   setLoading(true);
@@ -198,7 +215,7 @@ useEffect(() => {
           >
             Filter
           </button>
-          <div className="history-dropdown">
+          <div className="history-dropdown" ref={rangeDropdownRef}>
             <button type="button" className="history-dropdown-trigger" onClick={() => setIsRangeOpen((open) => !open)} aria-expanded={isRangeOpen} aria-haspopup="menu">
               {RANGE_LABELS[range]} <span className="history-dropdown-arrow" aria-hidden="true">⌄</span>
             </button>

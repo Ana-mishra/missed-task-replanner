@@ -55,7 +55,7 @@ class EstimationServiceTests(unittest.TestCase):
         self.assertEqual(result.actual_minutes, 75)
         self.assertEqual(result.total_difference_minutes, -15)
         self.assertEqual(result.average_difference_minutes, -7.5)
-        self.assertEqual(result.average_accuracy_percent, 50.0)
+        self.assertAlmostEqual(result.average_accuracy_percent, 83.33333333333334)
 
     def test_tasks_without_actual_duration_are_ignored(self):
         result = self.service.calculate([self.make_task(1, 30, 30), self.make_task(2, 60)])

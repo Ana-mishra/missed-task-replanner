@@ -20,6 +20,7 @@ from app.database import (
 from app.models.task import Task
 from app.models.task_history import TaskHistory
 from app.models.user import User
+from app.models.daily_reflection import DailyReflection
 
 app = FastAPI(title="Missed Task Replanner API")
 

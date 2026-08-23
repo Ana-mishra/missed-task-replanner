@@ -5,6 +5,8 @@ import TaskForm from "./components/TaskForm.jsx";
 import AvailableTimeCard from "./components/AvailableTimeCard.jsx";
 import DashboardRail from "./components/DashboardRail.jsx";
 import HistoryPage from "./components/HistoryPage.jsx";
+import StatsPage from "./components/StatsPage.jsx";
+import ReflectionPage from "./components/ReflectionPage.jsx";
 import AuthPage from "./components/AuthPage.jsx";
 import { formatDuration } from "./utils/duration.mjs";
 
@@ -12,6 +14,7 @@ import {
   createTask,
   deleteTask,
   getTasks,
+   getTaskHistory,
   planDay,
   getProgress,
   recommendTask,
@@ -26,6 +29,8 @@ import {
   getTodayOverloadStatus,
 } from "./utils/workload.mjs";
 
+const LAST_PLANNED_AVAILABLE_MINUTES_KEY = "planora.lastPlannedAvailableMinutes";
+
 function formatDeadline(deadline) {
   return new Date(deadline).toLocaleString([], {
     month: "short",
@@ -35,10 +40,22 @@ function formatDeadline(deadline) {
   });
 }
 
+function getTodayCompletedTaskIds(history) {
+  const today = new Date().toDateString();
+  return history
+    .filter(
+      (event) =>
+        event.event_type === "completed" &&
+        new Date(event.timestamp).toDateString() === today,
+    )
+    .map((event) => String(event.task_id));
+}
+
 function App() {
   const [authenticated, setAuthenticated] = useState(() => Boolean(getAccessToken()));
   const [activePage, setActivePage] = useState("today");
   const [tasks, setTasks] = useState([]);
+  const [todayCompletedTaskIds, setTodayCompletedTaskIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [mode, setMode] = useState(null);
@@ -51,12 +68,17 @@ function App() {
   const [planning, setPlanning] = useState(false);
   const [hasPlanned, setHasPlanned] = useState(false);
   const [plannedTasks, setPlannedTasks] = useState([]);
+  const [todayPlanTaskIds, setTodayPlanTaskIds] = useState([]);
   const [planIsOverloaded, setPlanIsOverloaded] = useState(false);
+  const [unscheduledMinutes, setUnscheduledMinutes] = useState(0);
   const [recommendation, setRecommendation] = useState(null);
   const [progress, setProgress] = useState(null);
   const [reflection, setReflection] = useState(null);
   const [replanNotice, setReplanNotice] = useState(null);
   const replanNoticeRef = useRef(null);
+  const lastPlannedAvailableMinutesRef = useRef(
+    Number(localStorage.getItem(LAST_PLANNED_AVAILABLE_MINUTES_KEY)) || null,
+  );
   const [availableMinutes, setAvailableMinutes] = useState(
     () =>
       Number(localStorage.getItem("todayAvailableMinutes")) ||
@@ -84,10 +106,24 @@ function App() {
   }, [authenticated]);
 
   useEffect(() => {
-    if (!authenticated) return;
-    getProgress().then(setProgress).catch(() => setProgress(null));
-    getWeeklyReflection().then(setReflection).catch(() => setReflection(null));
-  }, [authenticated]);
+  if (!authenticated) return;
+
+  getProgress()
+    .then(setProgress)
+    .catch(() => setProgress(null));
+
+  getWeeklyReflection()
+    .then(setReflection)
+    .catch(() => setReflection(null));
+
+  getTaskHistory()
+    .then((history) => {
+      setTodayCompletedTaskIds((ids) => [
+        ...new Set([...ids, ...getTodayCompletedTaskIds(history)]),
+      ]);
+    })
+    .catch(() => setTodayCompletedTaskIds([]));
+}, [authenticated]);
 
   useEffect(() => {
   if (replanNotice && replanNoticeRef.current) {
@@ -111,6 +147,18 @@ function App() {
       tasks.find((task) => String(task.id) === String(plannedTask.id)),
     )
     .filter((task) => task && !isCompletedTask(task));
+const todayPlannedTasks = todayPlanTaskIds
+  .map((id) =>
+    tasks.find((task) => String(task.id) === String(id)),
+  )
+  .filter(Boolean);
+
+const completedTodayTasks = tasks.filter((task) =>
+  isCompletedTask(task) && todayCompletedTaskIds.includes(String(task.id)),
+);
+const completedTodayPlannedTasks = todayPlannedTasks.filter((task) =>
+  todayCompletedTaskIds.includes(String(task.id)),
+);
 
   function openForm(nextMode, task = null) {
     setSelected(task);
@@ -142,6 +190,14 @@ function App() {
         setTasks((all) =>
           all.map((task) => (task.id === saved.id ? saved : task)),
         );
+        setTodayCompletedTaskIds((ids) => [
+          ...new Set([...ids, String(saved.id)]),
+        ]);
+        getTaskHistory()
+          .then((history) => setTodayCompletedTaskIds(getTodayCompletedTaskIds(history)))
+          .catch(() => {
+            // The successful update above remains the immediate UI source.
+          });
       }
 
       setMode(null);
@@ -196,11 +252,22 @@ if (result.missed_task_scheduled) {
 }
 
 const updatedTasks = await getTasks();
-      setTasks(updatedTasks);
+setTasks(updatedTasks);
 
-      setPlannedTasks([]);
-      setPlanIsOverloaded(false);
-      setHasPlanned(false);
+const planTaskIds = result.schedule.map(
+  (item) => String(item.task_id),
+);
+
+setPlannedTasks(
+  planTaskIds.map((id) => ({
+    id,
+  })),
+);
+
+setTodayPlanTaskIds(planTaskIds);
+setPlanIsOverloaded(result.is_overloaded);
+setUnscheduledMinutes(result.unscheduled_minutes ?? 0);
+setHasPlanned(false);
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -208,9 +275,12 @@ const updatedTasks = await getTasks();
 
   async function handlePlanDay() {
     if (hasPlanned) {
-      setHasPlanned(false);
-      return;
-    }
+  setHasPlanned(false);
+  setPlannedTasks([]);
+  setPlanIsOverloaded(false);
+  setUnscheduledMinutes(0);
+  return;
+}
 
     setPlanning(true);
 
@@ -224,15 +294,28 @@ const updatedTasks = await getTasks();
       const result = await planDay({
         available_start: availableStart.toISOString(),
         available_end: availableEnd.toISOString(),
+        // The backend's normal idempotency guard preserves a saved plan as
+        // wall-clock time moves. Capacity is the one frontend-only planning
+        // input, so request a recalculation only after it actually changes.
+        force_replan:
+          lastPlannedAvailableMinutesRef.current !== null &&
+          lastPlannedAvailableMinutesRef.current !== availableMinutes,
       });
 
-      setPlannedTasks(
-        result.schedule.map((item) => ({
-          id: item.task_id,
-        })),
-      );
-      setPlanIsOverloaded(result.is_overloaded);
-      setHasPlanned(true);
+   const planTaskIds = result.schedule.map((item) => String(item.task_id));
+
+setPlannedTasks(
+  planTaskIds.map((id) => ({
+    id,
+  })),
+);
+
+setTodayPlanTaskIds(planTaskIds);
+setPlanIsOverloaded(result.is_overloaded);
+setUnscheduledMinutes(result.unscheduled_minutes ?? 0);
+lastPlannedAvailableMinutesRef.current = availableMinutes;
+localStorage.setItem(LAST_PLANNED_AVAILABLE_MINUTES_KEY, String(availableMinutes));
+setHasPlanned(true);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -276,12 +359,20 @@ const updatedTasks = await getTasks();
     0,
   );
   const overloadStatus = getTodayOverloadStatus(tasks, availableMinutes);
+  const displayedIsOverloaded = hasPlanned
+  ? planIsOverloaded
+  : overloadStatus.isOverloaded;
+
+const displayedOverloadedMinutes = hasPlanned
+  ? unscheduledMinutes
+  : overloadStatus.overloadedByMinutes;
 
   function handleLogout() {
     clearAccessToken();
     setAuthenticated(false);
     setTasks([]);
     setPlannedTasks([]);
+    setTodayPlanTaskIds([]);
     setRecommendation(null);
     setError(null);
     setActivePage("today");
@@ -292,8 +383,8 @@ const updatedTasks = await getTasks();
   }
 
   return (
-    <AppShell activePage={activePage} onNavigate={setActivePage} onLogout={handleLogout}>
-      {activePage === "history" ? <HistoryPage /> : <>
+    <AppShell activePage={activePage} onNavigate={setActivePage} onLogout={handleLogout} progress={progress}>
+      {activePage === "history" ? <HistoryPage /> : activePage === "stats" ? <StatsPage /> : activePage === "reflection" ? <ReflectionPage availableMinutes={availableMinutes} /> : <>
       <section className="welcome">
   <div>
     <p className="eyebrow">Your gentle reset</p>
@@ -306,11 +397,19 @@ const updatedTasks = await getTasks();
 
       <section className="summary">
         <div className="summary__item">
-          <span className="summary__label">Tasks Today</span>
-          <span className="summary__value">{tasks.length}</span>
-          <span className="summary__detail">
-            {completedTasks.length} completed
-          </span>
+          <span className="summary__label">
+  {hasPlanned ? "Tasks Today" : "Tasks to Plan"}
+</span>
+
+<span className="summary__value">
+  {hasPlanned ? todayPlannedTasks.length : incompleteTasks.length}
+</span>
+
+<span className="summary__detail">
+  {hasPlanned
+    ? `${completedTodayPlannedTasks.length} completed`
+    : `${incompleteTasks.length} available`}
+</span>
         </div>
 
         <div className="summary__item summary__item--time">
@@ -333,21 +432,21 @@ const updatedTasks = await getTasks();
 
         <div
           className={`summary__item ${
-            overloadStatus.isOverloaded
-              ? "summary__item--overloaded"
-              : "summary__item--on-track"
-          }`}
+  displayedIsOverloaded
+    ? "summary__item--overloaded"
+    : "summary__item--on-track"
+}`}
         >
           <span className="summary__label">Overload Status</span>
 
           <span className="summary__value">
-            {overloadStatus.isOverloaded ? "Overloaded" : "On Track"}
+            {displayedIsOverloaded ? "Overloaded" : "On Track"}
           </span>
 
           <span className="summary__detail">
-            {overloadStatus.isOverloaded
-              ? `${formatDuration(overloadStatus.overloadedByMinutes)} over`
-              : "You’re doing great!"}
+            {displayedIsOverloaded
+  ? `${formatDuration(displayedOverloadedMinutes)} left for later`
+  : "You’re doing great!"}
           </span>
         </div>
       </section>
@@ -523,23 +622,24 @@ const updatedTasks = await getTasks();
               </div>
             )}
 
-            {completedTasks.length > 0 && (
-              <section className="completed-section">
-                <h2>Completed</h2>
+            {completedTodayTasks.length > 0 && (
+  <section className="completed-section">
+    <h2>Completed · Finished for now</h2>
 
-                <div className="task-list">
-                  {completedTasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      onEdit={() => openForm("edit", task)}
-                      onComplete={() => openForm("complete", task)}
-                      onDelete={() => setTaskToDelete(task)}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+    <div className="task-list">
+      {completedTodayTasks.map((task) => (
+        <TaskCard
+          key={task.id}
+          task={task}
+          onEdit={() => openForm("edit", task)}
+          onComplete={() => openForm("complete", task)}
+          onDelete={() => setTaskToDelete(task)}
+        />
+      ))}
+    </div>
+  </section>
+)}
+
           </main>
 
           <DashboardRail
