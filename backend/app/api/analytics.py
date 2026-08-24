@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends,  HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -86,6 +86,11 @@ def save_daily_reflection(
     current_user: User = Depends(get_current_user),
 ):
     selected_date = reflection_date or datetime.now().date()
+    if selected_date < datetime.now().date():
+     raise HTTPException(
+        status_code=400,
+        detail="Past reflections cannot be edited.",
+    )
     reflection = db.query(DailyReflection).filter(
         DailyReflection.user_id == current_user.id,
         DailyReflection.reflection_date == selected_date,

@@ -8026,3 +8026,289 @@ body {
     width: 100% !important;
   }
 }
+/* Reflection action buttons */
+
+.reflection-edit-button {
+  border: 1px solid #cbdacf;
+  background: #fffdf9;
+  color: #0d4f43;
+  border-radius: 10px;
+  padding: 11px 20px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.reflection-edit-button:hover {
+  background: #f1f6ef;
+  border-color: #a9c4b2;
+}
+
+.reflection-edit-button:active {
+  transform: translateY(1px);
+}
+
+.reflection-save-button {
+  border: 1px solid #0d4f43;
+  background: #0d4f43;
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 11px 20px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.reflection-save-button:hover {
+  background: #0a4339;
+}
+
+.reflection-save-button:active {
+  transform: translateY(1px);
+}
+
+.reflection-save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+/* Reflection mood faces */
+
+.mood-face {
+  position: relative;
+  width: 2.8rem;
+  height: 2.8rem;
+  display: block;
+  border: 2px solid #71847c;
+  border-radius: 50%;
+  background: #fffefb;
+}
+
+.mood-face::before,
+.mood-face::after {
+  content: "";
+  position: absolute;
+  top: 0.78rem;
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 50%;
+  background: #71847c;
+}
+
+.mood-face::before {
+  left: 0.72rem;
+}
+
+.mood-face::after {
+  right: 0.72rem;
+}
+
+.mood-face i {
+  position: absolute;
+  left: 50%;
+  bottom: 0.62rem;
+  width: 0.9rem;
+  height: 0.42rem;
+  border-bottom: 2px solid #71847c;
+  border-radius: 0 0 1rem 1rem;
+  transform: translateX(-50%);
+}
+
+/* Tough — frown */
+.mood-face--sad i {
+  bottom: 0.72rem;
+  border-bottom: 0;
+  border-top: 2px solid #71847c;
+  border-radius: 1rem 1rem 0 0;
+}
+
+/* Okay — slightly sad */
+.mood-face--slightly-sad i {
+  bottom: 0.68rem;
+  width: 0.75rem;
+  transform: translateX(-50%) rotate(8deg);
+}
+
+/* Neutral — straight mouth */
+.mood-face--neutral i {
+  bottom: 0.7rem;
+  width: 0.85rem;
+  height: 0;
+  border: 0;
+  border-top: 2px solid #71847c;
+  border-radius: 0;
+}
+
+/* Good — smile */
+.mood-face--happy i {
+  bottom: 0.62rem;
+}
+
+/* Great — bigger smile */
+.mood-face--very-happy i {
+  bottom: 0.52rem;
+  width: 1.15rem;
+  height: 0.62rem;
+  border-bottom-width: 3px;
+  border-radius: 0 0 1.5rem 1.5rem;
+}
+
+/* Selected mood */
+.reflection-mood__choice--selected .mood-face {
+  border-color: var(--primary);
+  background: #edf5e9;
+  box-shadow: 0 0 0 3px #e1eddf;
+}
+
+.reflection-mood__choice--selected .mood-face::before,
+.reflection-mood__choice--selected .mood-face::after,
+.reflection-mood__choice--selected .mood-face i {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+/* ---------- Reflection custom calendar ---------- */
+
+.reflection-date-picker {
+  position: relative !important;
+  width: 205px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.reflection-date-picker__trigger {
+  width: 100% !important;
+  height: 2.7rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 0.9rem !important;
+  border: 1px solid #e2dacc !important;
+  border-radius: 13px !important;
+  background: #fffdf9 !important;
+  color: #173f35 !important;
+  font-family: Inter, "Segoe UI", sans-serif !important;
+  font-size: 0.86rem !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+  cursor: pointer !important;
+}
+
+.reflection-date-picker__trigger:hover {
+  border-color: #bdcdc2 !important;
+}
+
+.reflection-date-picker__trigger:focus-visible {
+  outline: 2px solid #9cc3aa !important;
+  border-color: var(--primary) !important;
+}
+
+.reflection-calendar {
+  position: absolute !important;
+  z-index: 20 !important;
+  top: calc(100% + 0.45rem) !important;
+  right: 0 !important;
+  width: 19.5rem !important;
+  padding: 0.8rem !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--surface-elevated) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.reflection-calendar__header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 0.65rem !important;
+  color: var(--text) !important;
+  font-size: 0.82rem !important;
+  font-weight: 750 !important;
+}
+
+.reflection-calendar__header button {
+  width: 1.8rem !important;
+  height: 1.8rem !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  color: var(--primary) !important;
+  background: #edf3ed !important;
+  font-size: 1.1rem !important;
+  cursor: pointer !important;
+}
+
+.reflection-calendar__grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 0.2rem !important;
+}
+
+.reflection-calendar__weekday {
+  padding-block: 0.25rem !important;
+  color: var(--muted) !important;
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+}
+
+.reflection-calendar__day {
+  aspect-ratio: 1 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  color: var(--text) !important;
+  background: transparent !important;
+  font-size: 0.76rem !important;
+  cursor: pointer !important;
+}
+
+.reflection-calendar__day:hover {
+  background: #edf3ed !important;
+}
+
+.reflection-calendar__day--selected {
+  color: var(--surface) !important;
+  background: var(--primary) !important;
+}
+
+.reflection-calendar__day--selected:hover {
+  background: var(--primary) !important;
+}
+/* Reflection calendar — date states */
+
+.reflection-calendar__day--today {
+  border: 2px solid #d5e5d7 !important;
+  background: transparent !important;
+}
+
+.reflection-calendar__day--today:hover {
+  background: #edf3ed !important;
+}
+
+.reflection-calendar__day:disabled {
+  color: #c9c9c9 !important;
+  cursor: not-allowed !important;
+  background: transparent !important;
+  opacity: 1 !important;
+}
+
+.reflection-calendar__day:disabled:hover {
+  background: transparent !important;
+}
+
+.reflection-calendar__header button:disabled {
+  color: #c8cec9 !important;
+  background: #f2f4f1 !important;
+  cursor: not-allowed !important;
+  opacity: 0.7 !important;
+}
+
+.reflection-date-picker__trigger svg {
+  display: block;
+  color: #173f35;
+}
