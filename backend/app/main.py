@@ -14,6 +14,7 @@ from app.database import (
     Base,
     add_task_ownership_column,
     add_task_planning_columns,
+    add_user_name_confirmation_column,
     engine,
     upgrade_task_history_table,
 )
@@ -35,6 +36,7 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 add_task_planning_columns()
 add_task_ownership_column()
+add_user_name_confirmation_column()
 upgrade_task_history_table()
 app.include_router(tasks_router)
 app.include_router(auth_router)

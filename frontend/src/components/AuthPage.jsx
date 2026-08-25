@@ -4,6 +4,7 @@ import { login, register } from '../services/api.js'
 
 function AuthPage({ onAuthenticated }) {
   const [mode, setMode] = useState('login')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -14,10 +15,11 @@ function AuthPage({ onAuthenticated }) {
   const isRegistering = mode === 'register'
 
   function switchMode(nextMode) {
-    setMode(nextMode)
-    setError(null)
-    setConfirmPassword('')
-  }
+  setMode(nextMode)
+  setError(null)
+  setConfirmPassword('')
+  setName('')
+}
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -31,9 +33,12 @@ function AuthPage({ onAuthenticated }) {
     setSubmitting(true)
     try {
       if (isRegistering) {
-        const displayName = email.trim().split('@')[0] || 'Planora user'
-        await register({ name: displayName, email, password })
-      }
+  await register({
+    name: name.trim(),
+    email,
+    password,
+  })
+}
 
       await login({ email, password })
       onAuthenticated()
@@ -81,11 +86,20 @@ function AuthPage({ onAuthenticated }) {
         <form className="auth-card" onSubmit={handleSubmit}>
           <p className="auth-card__eyebrow">Your gentle reset</p>
           <h2 id="auth-heading">{isRegistering ? 'Create your account' : 'Welcome back!'}</h2>
-          <p className="auth-card__copy">
-            {isRegistering
-              ? 'Start planning your days with more clarity and care.'
-              : 'Log in to continue your journey.'}
-          </p>
+          {isRegistering && (
+  <label className="auth-field">
+    <span>What should we call you?</span>
+    <input
+      type="text"
+      value={name}
+      onChange={(event) => setName(event.target.value)}
+      placeholder="Your name"
+      autoComplete="name"
+      maxLength="100"
+      required
+    />
+  </label>
+)}
 
           <label className="auth-field">
             <span>Email</span>

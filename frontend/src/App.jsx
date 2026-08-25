@@ -13,7 +13,9 @@ import { formatDuration } from "./utils/duration.mjs";
 import {
   createTask,
   deleteTask,
+  getCurrentUser,
   getTasks,
+  updateCurrentUser,
    getTaskHistory,
   planDay,
   getProgress,
@@ -40,6 +42,24 @@ function formatDeadline(deadline) {
   });
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+
+  if (hour < 12) {
+    return "Good morning";
+  }
+
+  if (hour < 17) {
+    return "Good afternoon";
+  }
+
+  if (hour < 21) {
+    return "Good evening";
+  }
+
+  return "Good night";
+}
+
 function getTodayCompletedTaskIds(history) {
   const today = new Date().toDateString();
   return history
@@ -53,6 +73,11 @@ function getTodayCompletedTaskIds(history) {
 
 function App() {
   const [authenticated, setAuthenticated] = useState(() => Boolean(getAccessToken()));
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [nameInput, setNameInput] = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const [nameError, setNameError] = useState(null)
   const [activePage, setActivePage] = useState("today");
   const [tasks, setTasks] = useState([]);
   const [todayCompletedTaskIds, setTodayCompletedTaskIds] = useState([]);
@@ -84,6 +109,29 @@ function App() {
       Number(localStorage.getItem("todayAvailableMinutes")) ||
       DEFAULT_AVAILABLE_MINUTES,
   );
+
+  useEffect(() => {
+  if (!authenticated) {
+    setCurrentUser(null);
+    setLoadingUser(false);
+    return;
+  }
+
+  setLoadingUser(true);
+
+  getCurrentUser()
+    .then(setCurrentUser)
+    .catch((requestError) => {
+      if (
+        requestError.message ===
+        "Invalid or expired authentication credentials"
+      ) {
+        clearAccessToken();
+        setAuthenticated(false);
+      }
+    })
+    .finally(() => setLoadingUser(false));
+}, [authenticated]);
 
   useEffect(() => {
     if (!authenticated) {
@@ -333,6 +381,29 @@ setHasPlanned(true);
     }
   }
 
+  async function handleNameSubmit(event) {
+  event.preventDefault();
+
+  const trimmedName = nameInput.trim();
+
+  if (!trimmedName) {
+    setNameError("Please enter your name.");
+    return;
+  }
+
+  setSavingName(true);
+  setNameError(null);
+
+  try {
+    const updatedUser = await updateCurrentUser(trimmedName);
+    setCurrentUser(updatedUser);
+  } catch (requestError) {
+    setNameError(requestError.message);
+  } finally {
+    setSavingName(false);
+  }
+}
+
   function planReason(task, scheduledTasks) {
     const deadline = new Date(task.deadline);
     if (deadline < new Date()) {
@@ -370,6 +441,9 @@ const displayedOverloadedMinutes = hasPlanned
   function handleLogout() {
     clearAccessToken();
     setAuthenticated(false);
+    setCurrentUser(null);
+    setNameInput("");
+    setNameError(null);
     setTasks([]);
     setPlannedTasks([]);
     setTodayPlanTaskIds([]);
@@ -379,16 +453,59 @@ const displayedOverloadedMinutes = hasPlanned
   }
 
   if (!authenticated) {
-    return <AuthPage onAuthenticated={() => setAuthenticated(true)} />;
-  }
+  return <AuthPage onAuthenticated={() => setAuthenticated(true)} />;
+}
 
+if (loadingUser) {
+  return null;
+}
+
+if (currentUser && !currentUser.name_confirmed) {
   return (
-    <AppShell activePage={activePage} onNavigate={setActivePage} onLogout={handleLogout} progress={progress}>
+    <div className="name-setup-page">
+      <form className="name-setup-card" onSubmit={handleNameSubmit}>
+        <p className="name-setup-eyebrow">Welcome to Planora</p>
+
+        <h1>What should we call you?</h1>
+
+        <p>
+          Tell Planora your name so your days can feel a little more personal.
+        </p>
+
+        <input
+          type="text"
+          value={nameInput}
+          onChange={(event) => setNameInput(event.target.value)}
+          placeholder="Your name"
+          maxLength={100}
+          autoFocus
+        />
+
+        {nameError && (
+          <p className="name-setup-error">{nameError}</p>
+        )}
+
+        <button type="submit" disabled={savingName}>
+          {savingName ? "Saving…" : "Continue"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+return (
+  <AppShell
+  activePage={activePage}
+  onNavigate={setActivePage}
+  onLogout={handleLogout}
+  progress={progress}
+  currentUser={currentUser}
+>
       {activePage === "history" ? <HistoryPage /> : activePage === "stats" ? <StatsPage /> : activePage === "reflection" ? <ReflectionPage availableMinutes={availableMinutes} /> : <>
       <section className="welcome">
   <div>
     <p className="eyebrow">Your gentle reset</p>
-    <h1>Good evening, Ana! 🌿</h1>
+    <h1>{getGreeting()}, {currentUser.name}! 🌿</h1>
     <p className="welcome__copy">
       Let’s plan a balanced and meaningful day.
     </p>

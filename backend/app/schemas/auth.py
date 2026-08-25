@@ -30,9 +30,13 @@ class LoginRequest(Credentials):
 class UserResponse(BaseModel):
     id: int
     name: str
+    name_confirmed: bool
     email: str
 
     model_config = ConfigDict(from_attributes=True)
+
+class UpdateNameRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
 
 
 class TokenResponse(BaseModel):

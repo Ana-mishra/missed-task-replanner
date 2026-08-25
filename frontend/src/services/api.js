@@ -45,14 +45,46 @@ async function readError(response, fallbackMessage) {
   }
 }
 
+export async function getCurrentUser() {
+  const response = await apiFetch('/auth/me')
+
+  if (!response.ok) {
+    throw new Error(
+      await readError(response, 'Could not load your profile.')
+    )
+  }
+
+  return response.json()
+}
+
+export async function updateCurrentUser(name) {
+  const response = await apiFetch('/auth/me', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      await readError(response, 'Could not update your name.')
+    )
+  }
+
+  return response.json()
+}
+
 export async function login(credentials) {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  const response = await apiFetch('/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(credentials),
   })
 
-  if (!response.ok) throw new Error(await readError(response, 'Could not sign in.'))
+  if (!response.ok) {
+    throw new Error(
+      await readError(response, 'Could not log in.')
+    )
+  }
 
   const data = await response.json()
   setAccessToken(data.access_token)

@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 
-function AppShell({ children, activePage = 'today', onNavigate, onLogout, progress }) {
+function AppShell({
+  children,
+  activePage = 'today',
+  onNavigate,
+  onLogout,
+  progress,
+  currentUser,
+}) {
   const [profileOpen, setProfileOpen] = useState(false)
  const sidebarRef = useRef(null)
    useEffect(() => {
@@ -120,13 +127,13 @@ function AppShell({ children, activePage = 'today', onNavigate, onLogout, progre
             aria-haspopup="menu"
           >
             <span className="sidebar__avatar" aria-hidden="true">
-              A
-            </span>
+  {currentUser?.name?.charAt(0).toUpperCase()}
+</span>
 
-            <span className="sidebar__profile-copy">
-              <strong>Ana</strong>
-              <span>View profile</span>
-            </span>
+<span className="sidebar__profile-copy">
+  <strong>{currentUser?.name}</strong>
+  <span>View profile</span>
+</span>
 
             <span className="sidebar__profile-arrow" aria-hidden="true">
               ›
@@ -137,14 +144,14 @@ function AppShell({ children, activePage = 'today', onNavigate, onLogout, progre
             <div className="profile-menu" role="menu">
 
               <div className="profile-menu__header">
-                <span className="profile-menu__avatar">
-                  A
-                </span>
+              <span className="profile-menu__avatar">
+  {currentUser?.name?.charAt(0).toUpperCase()}
+</span>
 
-                <div>
-                  <strong>Ana</strong>
-                  <span>Your account</span>
-                </div>
+<div>
+  <strong>{currentUser?.name}</strong>
+  <span>Your account</span>
+</div>
               </div>
 
               <button type="button" role="menuitem">

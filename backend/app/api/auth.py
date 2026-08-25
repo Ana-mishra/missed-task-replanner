@@ -5,7 +5,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UpdateNameRequest,
+    UserResponse,
+)
 from app.services.security import create_access_token, decode_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -40,7 +46,12 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == request.email).first() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered")
 
-    user = User(name=request.name, email=request.email, password_hash=hash_password(request.password))
+    user = User(
+    name=request.name,
+    name_confirmed=True,
+    email=request.email,
+    password_hash=hash_password(request.password),
+)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -57,3 +68,20 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     return TokenResponse(access_token=create_access_token(user.id))
+@router.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@router.put("/me", response_model=UserResponse)
+def update_me(
+    request: UpdateNameRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.name = request.name.strip()
+    current_user.name_confirmed = True
+
+    db.commit()
+    db.refresh(current_user)
+
+    return current_user

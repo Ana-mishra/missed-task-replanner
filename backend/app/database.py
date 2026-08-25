@@ -181,3 +181,25 @@ def upgrade_task_history_table():
         )
         connection.execute(text("DROP TABLE task_history"))
         connection.execute(text("ALTER TABLE task_history__upgrade RENAME TO task_history"))
+def add_user_name_confirmation_column():
+    """Add name confirmation state to existing user accounts."""
+    inspector = inspect(engine)
+
+    if "users" not in inspector.get_table_names():
+        return
+
+    existing_columns = {
+        column["name"] for column in inspector.get_columns("users")
+    }
+
+    if "name_confirmed" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE users "
+                "ADD COLUMN name_confirmed BOOLEAN NOT NULL DEFAULT 0"
+            )
+        )        
+        
