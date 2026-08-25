@@ -79,7 +79,7 @@ class ReplanEndpointTests(unittest.TestCase):
                 .order_by(TaskHistory.timestamp, TaskHistory.id)
             ]
 
-    def test_replan_marks_task_missed_and_persists_revised_schedule(self):
+    def test_replan_marks_task_missed_without_recovering_or_persisting_candidate_schedule(self):
         missed_task = self.create_task("Missed task")
         other_task = self.create_task(
             "Other task",
@@ -114,11 +114,13 @@ class ReplanEndpointTests(unittest.TestCase):
 
             missed_after_replan = self.client.get(f"/tasks/{missed_task['id']}").json()
             other_after_replan = self.client.get(f"/tasks/{other_task['id']}").json()
-            self.assertEqual(missed_after_replan["status"], "pending")
+            self.assertEqual(missed_after_replan["status"], "missed")
             self.assertFalse(missed_after_replan["completed"])
-            self.assertTrue(missed_after_replan["was_replanned"])
-            self.assertEqual(missed_after_replan["scheduled_start"], "2040-01-01T09:00:00")
-            self.assertEqual(missed_after_replan["scheduled_end"], "2040-01-01T09:30:00")
+            self.assertFalse(missed_after_replan["was_replanned"])
+            self.assertIsNone(missed_after_replan["scheduled_start"])
+            self.assertIsNone(missed_after_replan["scheduled_end"])
+            self.assertEqual(self.history_types(missed_task["id"]).count("missed"), 1)
+            self.assertNotIn("recovered", self.history_types(missed_task["id"]))
             self.assertEqual(
                 other_after_replan["scheduled_start"],
                 "2040-01-02T09:00:00",
@@ -210,7 +212,7 @@ class ReplanEndpointTests(unittest.TestCase):
         finally:
             self.client.delete(f"/tasks/{task['id']}")
 
-    def test_repeating_replan_without_a_new_miss_does_not_duplicate_recovery(self):
+    def test_repeating_replan_without_a_new_miss_does_not_duplicate_missed_event(self):
         task = self.create_task("Recovered once")
         result = ReplanningResult(
             schedule=[
@@ -231,10 +233,10 @@ class ReplanEndpointTests(unittest.TestCase):
 
         event_types = self.history_types(task["id"])
         self.assertEqual(event_types.count("missed"), 1)
-        self.assertEqual(event_types.count("recovered"), 1)
+        self.assertEqual(event_types.count("recovered"), 0)
         self.assertNotIn("replanned", event_types)
 
-    def test_already_missed_task_recovers_once_when_a_slot_is_found(self):
+    def test_already_missed_task_stays_missed_when_a_candidate_slot_is_found(self):
         task = self.create_task("Already missed")
         with self.session_local() as db:
             db.add(TaskHistory(task_id=task["id"], event_type="missed"))
@@ -254,9 +256,9 @@ class ReplanEndpointTests(unittest.TestCase):
 
         event_types = self.history_types(task["id"])
         self.assertEqual(event_types.count("missed"), 1)
-        self.assertEqual(event_types.count("recovered"), 1)
+        self.assertEqual(event_types.count("recovered"), 0)
 
-    def test_a_later_genuine_miss_can_start_a_second_recovery_cycle(self):
+    def test_a_later_genuine_miss_can_start_a_second_missed_cycle(self):
         task = self.create_task("Recovered twice")
         first = ReplanningResult(
             schedule=[
@@ -283,8 +285,8 @@ class ReplanEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         event_types = self.history_types(task["id"])
-        self.assertEqual(event_types.count("missed"), 2)
-        self.assertEqual(event_types.count("recovered"), 2)
+        self.assertEqual(event_types.count("missed"), 1)
+        self.assertEqual(event_types.count("recovered"), 0)
 
 
 if __name__ == "__main__":

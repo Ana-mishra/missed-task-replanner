@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base, get_db
 from app.main import app
 from app.models.task_history import TaskHistory
+from app.models.task import Task
 from app.services.planning import PlanningResult, ScheduledTask
 
 
@@ -335,6 +336,54 @@ class PlanEndpointTests(unittest.TestCase):
                 TaskHistory.event_type == "rescheduled"
             ).count()
         self.assertEqual(history_after, history_before)
+
+    def test_plan_recovers_an_outstanding_missed_task_only_when_it_is_scheduled(self):
+        task = self.create_task("Needs a reset")
+        with self.session_local() as db:
+            stored = db.get(Task, task["id"])
+            stored.status = "missed"
+            stored.schedule_needs_refresh = True
+            db.add(TaskHistory(task_id=task["id"], user_id=stored.user_id, event_type="missed"))
+            db.commit()
+
+        plan = PlanningResult(
+            schedule=[ScheduledTask(task["id"], task["title"], datetime(2040, 1, 1, 9), datetime(2040, 1, 1, 9, 30))],
+            is_overloaded=False,
+            unscheduled_minutes=0,
+        )
+        request = {"available_start": "2040-01-01T09:00:00", "available_end": "2040-01-01T10:00:00"}
+        with patch("app.api.planning.PlanningEngine.generate_schedule", return_value=plan):
+            self.assertEqual(self.client.post("/plan", json=request).status_code, 200)
+
+        stored = self.client.get(f"/tasks/{task['id']}").json()
+        self.assertEqual(stored["status"], "pending")
+        self.assertTrue(stored["was_replanned"])
+        with self.session_local() as db:
+            self.assertEqual(db.query(TaskHistory).filter(TaskHistory.task_id == task["id"], TaskHistory.event_type == "recovered").count(), 1)
+
+        # The persisted plan short-circuits before creating another recovery.
+        self.assertEqual(self.client.post("/plan", json=request).status_code, 200)
+        with self.session_local() as db:
+            self.assertEqual(db.query(TaskHistory).filter(TaskHistory.task_id == task["id"], TaskHistory.event_type == "recovered").count(), 1)
+
+    def test_plan_leaves_an_outstanding_missed_task_unrecovered_when_it_does_not_fit(self):
+        task = self.create_task("Still needs a reset", duration_minutes=90)
+        with self.session_local() as db:
+            stored = db.get(Task, task["id"])
+            stored.status = "missed"
+            stored.schedule_needs_refresh = True
+            db.add(TaskHistory(task_id=task["id"], user_id=stored.user_id, event_type="missed"))
+            db.commit()
+
+        plan = PlanningResult(schedule=[], is_overloaded=True, unscheduled_minutes=90)
+        with patch("app.api.planning.PlanningEngine.generate_schedule", return_value=plan):
+            self.assertEqual(self.client.post("/plan", json={"available_start": "2040-01-01T09:00:00", "available_end": "2040-01-01T10:00:00"}).status_code, 200)
+
+        stored = self.client.get(f"/tasks/{task['id']}").json()
+        self.assertEqual(stored["status"], "missed")
+        self.assertFalse(stored["was_replanned"])
+        with self.session_local() as db:
+            self.assertEqual(db.query(TaskHistory).filter(TaskHistory.task_id == task["id"], TaskHistory.event_type == "recovered").count(), 0)
 
 
 if __name__ == "__main__":

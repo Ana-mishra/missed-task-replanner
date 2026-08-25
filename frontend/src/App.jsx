@@ -280,41 +280,23 @@ const completedTodayPlannedTasks = todayPlannedTasks.filter((task) =>
         now.getTime() + availableMinutes * 60 * 1000,
       );
 
-      const result = await replanTask(task.id, {
+      await replanTask(task.id, {
   available_start: availableStart.toISOString(),
   available_end: availableEnd.toISOString(),
 });
 
-console.log("REPLAN RESULT:", result);
-
-if (result.missed_task_scheduled) {
-  setReplanNotice({
-    title: "We reshaped your day",
-    message: `${task.title} was missed earlier, but we've found a place for it in today's plan.`,
-  });
-} else {
-  setReplanNotice({
-    title: "We'll find a place for it",
-    message: `${task.title} couldn't fit into the remaining time today, so it will be considered again when the next day's plan is built.`,
-  });
-}
+setReplanNotice({
+  title: "We'll find a place for it",
+  message: `${task.title} needs a reset. Plan My Day will consider it again when building your next plan.`,
+});
 
 const updatedTasks = await getTasks();
 setTasks(updatedTasks);
 
-const planTaskIds = result.schedule.map(
-  (item) => String(item.task_id),
-);
-
-setPlannedTasks(
-  planTaskIds.map((id) => ({
-    id,
-  })),
-);
-
-setTodayPlanTaskIds(planTaskIds);
-setPlanIsOverloaded(result.is_overloaded);
-setUnscheduledMinutes(result.unscheduled_minutes ?? 0);
+setPlannedTasks([]);
+setTodayPlanTaskIds([]);
+setPlanIsOverloaded(false);
+setUnscheduledMinutes(0);
 setHasPlanned(false);
     } catch (requestError) {
       setError(requestError.message);

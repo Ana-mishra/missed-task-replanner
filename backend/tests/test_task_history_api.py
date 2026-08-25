@@ -143,7 +143,7 @@ class TaskHistoryEndpointTests(unittest.TestCase):
         )
         self.assertEqual(len(self.history_for(task["id"], "rescheduled")), 1)
 
-    def test_replanning_first_assignment_does_not_create_rescheduled_event(self):
+    def test_replanning_candidate_does_not_create_rescheduled_or_recovered_event(self):
         task = self.create_task("Recovered without prior schedule")
         result = ReplanningResult(
             schedule=[
@@ -169,9 +169,9 @@ class TaskHistoryEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.history_for(task["id"], "rescheduled"), [])
-        self.assertEqual(len(self.history_for(task["id"], "recovered")), 1)
+        self.assertEqual(self.history_for(task["id"], "recovered"), [])
 
-    def test_replanning_records_missed_and_recovered_events(self):
+    def test_replanning_records_only_the_missed_event_until_plan_includes_the_task(self):
         task = self.create_task("Missed task")
         result = ReplanningResult(
             schedule=[
@@ -199,14 +199,13 @@ class TaskHistoryEndpointTests(unittest.TestCase):
         self.assertEqual(len(self.history_for(task["id"], "missed")), 1)
         self.assertEqual(len(self.history_for(task["id"], "replanned")), 0)
         self.assertEqual(self.history_for(task["id"], "rescheduled"), [])
-        recovered_events = self.history_for(task["id"], "recovered")
-        self.assertEqual(len(recovered_events), 1)
-        self.assertEqual(recovered_events[0].new_start, datetime(2040, 1, 1, 9, 0))
+        self.assertEqual(self.history_for(task["id"], "recovered"), [])
 
         fetched_task = self.client.get(f"/tasks/{task['id']}").json()
         task_list = self.client.get("/tasks").json()
-        self.assertTrue(fetched_task["was_replanned"])
-        self.assertTrue(
+        self.assertEqual(fetched_task["status"], "missed")
+        self.assertFalse(fetched_task["was_replanned"])
+        self.assertFalse(
             next(item for item in task_list if item["id"] == task["id"])["was_replanned"]
         )
 

@@ -66,8 +66,13 @@ def replan_task(
         )
         recovery_open = True
     if recovery_open:
+        # A candidate slot from this endpoint is not the user's persisted
+        # daily plan. Keep the task missed until /plan actually includes it.
         missed_task.status = "missed"
         missed_task.completed = False
+        missed_task.scheduled_start = None
+        missed_task.scheduled_end = None
+        missed_task.schedule_needs_refresh = True
     incomplete_tasks = (
         db.query(Task)
         .filter(Task.user_id == current_user.id, Task.completed.is_(False))
@@ -81,71 +86,6 @@ def replan_task(
     )
 
     scheduled_by_id = {item.task_id: item for item in result.schedule}
-    missed_task_was_scheduled = missed_task.id in scheduled_by_id
-    if recovery_open and missed_task_was_scheduled:
-        # A successful replan puts the task back in the active task list.
-        missed_task.status = "pending"
-    current_day = replanning_engine._to_naive_local(
-        replan_request.available_start
-    ).date()
-
-    affected_task_ids = {
-        task.id
-        for task in incomplete_tasks
-        if task.id == missed_task.id
-        or task.id in scheduled_by_id
-        or (
-            task.scheduled_start is not None
-            and replanning_engine._to_naive_local(
-                task.scheduled_start
-            ).date() == current_day
-        )
-    }
-    for task in incomplete_tasks:
-        if task.id not in affected_task_ids:
-            continue
-        scheduled_item = scheduled_by_id.get(task.id)
-        if scheduled_item is None:
-            task.scheduled_start = None
-            task.scheduled_end = None
-        else:
-            old_start = task.scheduled_start
-            old_end = task.scheduled_end
-            schedule_changed = (
-                old_start != scheduled_item.scheduled_start
-                or old_end != scheduled_item.scheduled_end
-            )
-            task.scheduled_start = scheduled_item.scheduled_start
-            task.scheduled_end = scheduled_item.scheduled_end
-            if schedule_changed and old_start is not None and old_end is not None:
-                db.add(
-                    TaskHistory(
-                        task_id=task.id,
-                        user_id=current_user.id,
-                        event_type="rescheduled",
-                        old_start=old_start,
-                        old_end=old_end,
-                        new_start=scheduled_item.scheduled_start,
-                        new_end=scheduled_item.scheduled_end,
-                        reason="Schedule updated during replanning",
-                    )
-                )
-    if recovery_open and missed_task_was_scheduled:
-        scheduled_item = scheduled_by_id[missed_task.id]
-        db.add(
-            TaskHistory(
-                task_id=missed_task.id,
-                user_id=current_user.id,
-                event_type="recovered",
-                old_start=missed_start,
-                old_end=missed_end,
-                new_start=scheduled_item.scheduled_start,
-                new_end=scheduled_item.scheduled_end,
-                reason="Missed task was placed back into the schedule",
-            )
-        )
-    for task in incomplete_tasks:
-        task.schedule_needs_refresh = False
     db.commit()
 
     return ReplanResponse(
@@ -160,7 +100,9 @@ def replan_task(
         ],
         is_overloaded=result.is_overloaded,
         unscheduled_minutes=result.unscheduled_minutes,
-        missed_task_scheduled=missed_task_was_scheduled,
+        # This remains a candidate result for API compatibility. Recovery is
+        # recorded only when /plan persists the task in its daily schedule.
+        missed_task_scheduled=missed_task.id in scheduled_by_id,
         scheduled_for=next(
             (
                 item.scheduled_start

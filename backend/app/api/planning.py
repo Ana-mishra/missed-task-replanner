@@ -7,6 +7,7 @@ from app.models.task_history import TaskHistory
 from app.models.user import User
 from app.api.auth import get_current_user
 from app.schemas.planning import PlanRequest, PlanResponse, ScheduledTaskResponse
+from app.services.history_state import recovery_state_by_task_id
 from app.services.planning import PlanningEngine
 
 router = APIRouter(tags=["planning"])
@@ -70,6 +71,9 @@ def create_plan(
     )
 
     scheduled_task_ids = {item.task_id for item in result.schedule}
+    _, outstanding_missed_ids = recovery_state_by_task_id(
+        db, [task.id for task in incomplete_tasks]
+    )
     for item in result.schedule:
         task = (
             db.query(Task)
@@ -86,6 +90,23 @@ def create_plan(
             task.scheduled_start = item.scheduled_start
             task.scheduled_end = item.scheduled_end
             task.schedule_needs_refresh = False
+            if task.id in outstanding_missed_ids and task.status == "missed":
+                # A recovery is meaningful only once Plan My Day actually
+                # contains the missed task. The outstanding state prevents a
+                # duplicate event when a persisted plan is reopened.
+                task.status = "pending"
+                db.add(
+                    TaskHistory(
+                        task_id=task.id,
+                        user_id=current_user.id,
+                        event_type="recovered",
+                        old_start=old_start,
+                        old_end=old_end,
+                        new_start=item.scheduled_start,
+                        new_end=item.scheduled_end,
+                        reason="Missed task was included in Plan My Day",
+                    )
+                )
             if schedule_changed:
                 was_previously_scheduled = old_start is not None and old_end is not None
                 db.add(
