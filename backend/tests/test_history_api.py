@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
+from app.models.task import Task
 from app.models.task_history import TaskHistory
 
 
@@ -73,12 +74,19 @@ class HistoryApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         events = response.json()
-        self.assertEqual(len(events), 1)
+        self.assertEqual(len(events), 2)
         self.assertEqual(events[0]["event_type"], "rescheduled")
         self.assertEqual(events[0]["task_title"], "Research")
         self.assertEqual(events[0]["old_start"], old_start.isoformat())
         self.assertEqual(events[0]["new_start"], new_start.isoformat())
-        self.assertEqual(events[0]["reason"], "Schedule updated during replanning")
+        self.assertIsNone(events[0]["reason"])
+        self.assertEqual(events[1]["event_type"], "scheduled")
+
+        summary = self.client.get("/history/summary?range=all").json()
+        self.assertEqual(
+            summary,
+            {"completed": 0, "missed": 0, "recovered": 0, "rescheduled": 1},
+        )
 
     def test_legacy_replanned_rows_are_excluded_from_the_new_user_facing_feed(self):
         task = self.create_task("Recover me")
@@ -125,6 +133,48 @@ class HistoryApiTests(unittest.TestCase):
         self.assertEqual([event["event_type"] for event in events], ["missed"])
         self.assertEqual(summary["recovered"], 0)
 
+    def test_missed_event_keeps_its_expired_slot_separate_from_the_deadline(self):
+        task = self.create_task("Future deadline task")
+        expired_start = datetime(2026, 9, 1, 15, 12)
+        expired_end = expired_start + timedelta(minutes=30)
+        future_deadline = datetime(2026, 9, 2, 17, 5)
+
+        with self.session_local() as db:
+            stored_task = db.get(Task, task["id"])
+            stored_task.deadline = future_deadline
+            db.add(
+                TaskHistory(
+                    task_id=task["id"],
+                    event_type="missed",
+                    timestamp=expired_end,
+                    scheduled_start=expired_start,
+                    scheduled_end=expired_end,
+                    old_start=expired_start,
+                    old_end=expired_end,
+                    reason="Scheduled opportunity passed",
+                )
+            )
+            recovered_start = datetime(2026, 9, 1, 18, 0)
+            db.add(
+                TaskHistory(
+                    task_id=task["id"],
+                    event_type="recovered",
+                    timestamp=recovered_start,
+                    new_start=recovered_start,
+                    new_end=recovered_start + timedelta(minutes=30),
+                    reason="Missed task was included in Plan My Day",
+                )
+            )
+            db.commit()
+
+        events = self.client.get("/history?range=all").json()
+        event = next(event for event in events if event["event_type"] == "missed")
+
+        self.assertEqual(event["event_type"], "missed")
+        self.assertEqual(event["old_start"], expired_start.isoformat())
+        self.assertEqual(event["old_end"], expired_end.isoformat())
+        self.assertEqual(event["deadline"], future_deadline.isoformat())
+
     def test_named_range_summary_counts_rescheduled_events(self):
         task = self.create_task("Range summary")
         now = datetime.now().replace(microsecond=0)
@@ -137,6 +187,41 @@ class HistoryApiTests(unittest.TestCase):
         self.assertEqual(week_summary.status_code, 200)
         self.assertEqual(week_summary.json()["rescheduled"], 1)
         self.assertEqual(all_summary.json()["rescheduled"], 2)
+
+    def test_history_excludes_no_op_reschedules_and_groups_one_plan_reshape(self):
+        first = self.create_task("First moved task")
+        second = self.create_task("Second moved task")
+        third = self.create_task("No-op task")
+        timestamp = datetime(2026, 8, 19, 10, 15)
+
+        for task in (first, second):
+            self.add_event(
+                task["id"],
+                "rescheduled",
+                timestamp,
+                old_start=datetime(2026, 8, 19, 9),
+                old_end=datetime(2026, 8, 19, 9, 30),
+                new_start=datetime(2026, 8, 19, 10),
+                new_end=datetime(2026, 8, 19, 10, 30),
+                reason="Plan reshaped",
+            )
+        same_start = datetime(2026, 8, 19, 11)
+        self.add_event(
+            third["id"], "rescheduled", timestamp,
+            old_start=same_start, old_end=same_start + timedelta(minutes=30),
+            new_start=same_start, new_end=same_start + timedelta(minutes=30),
+            reason="Plan reshaped",
+        )
+
+        events = self.client.get("/history?range=all").json()
+        summary = self.client.get("/history/summary?range=all").json()
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["event_type"], "rescheduled")
+        self.assertEqual(events[0]["task_title"], "Plan reshaped")
+        self.assertEqual(events[0]["task_count"], 2)
+        self.assertEqual(events[0]["reason"], "2 tasks were rearranged to fit your day.")
+        self.assertEqual(summary["rescheduled"], 1)
 
 
 if __name__ == "__main__":

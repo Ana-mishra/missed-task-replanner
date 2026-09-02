@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -30,6 +32,82 @@ def persisted_schedule(tasks: list[Task]) -> list[ScheduledTaskResponse]:
     ]
 
 
+def planning_start_with_persisted_schedule(
+    tasks: list[Task], requested_start: datetime
+) -> datetime:
+    """Anchor refreshes to a still-active persisted plan, when one exists."""
+    requested_start = PlanningEngine._to_naive_local(requested_start)
+
+    persisted_starts = [
+        PlanningEngine._to_naive_local(task.scheduled_start)
+        for task in tasks
+        if (
+            not task.completed
+            and has_complete_schedule(task)
+            # A slot ending at or before the requested planning reference is
+            # stale. It must not pull a refresh back into the past.
+            and PlanningEngine._to_naive_local(task.scheduled_end) > requested_start
+        )
+    ]
+
+    if not persisted_starts:
+        return requested_start
+
+    earliest_persisted_start = min(persisted_starts)
+
+    return min(requested_start, earliest_persisted_start)
+
+
+def schedule_change_reason(tasks: list[Task]) -> str:
+    refresh_reasons = {
+        task.schedule_refresh_reason
+        for task in tasks
+        if task.schedule_needs_refresh
+    }
+    if "added" in refresh_reasons:
+        return "Schedule changed after adding a task"
+    if "edited" in refresh_reasons:
+        return "Schedule changed after editing a task"
+    return "Plan reshaped"
+
+
+def stale_persisted_tasks(
+    tasks: list[Task],
+    planning_reference_time: datetime,
+    outstanding_missed_ids: set[int],
+) -> list[Task]:
+    """Return scheduled, incomplete tasks whose opportunity has elapsed.
+
+    A deadline alone does not start a missed cycle. A task enters that
+    lifecycle only after its persisted scheduled opportunity has ended.
+    """
+    return [
+        task
+        for task in tasks
+        if (
+            not task.completed
+            and task.id not in outstanding_missed_ids
+            and has_complete_schedule(task)
+            and PlanningEngine._to_naive_local(task.scheduled_end)
+            <= planning_reference_time
+        )
+    ]
+def overdue_tasks(
+    tasks: list[Task],
+    planning_reference_time: datetime,
+) -> list[Task]:
+    """Return incomplete tasks whose deadline has passed."""
+    return [
+        task
+        for task in tasks
+        if (
+            not task.completed
+            and task.deadline is not None
+            and PlanningEngine._to_naive_local(task.deadline)
+            <= planning_reference_time
+        )
+    ]
+
 @router.post("/plan", response_model=PlanResponse)
 def create_plan(
     plan_request: PlanRequest,
@@ -38,16 +116,92 @@ def create_plan(
 ):
     tasks = db.query(Task).filter(Task.user_id == current_user.id).all()
     incomplete_tasks = [task for task in tasks if not task.completed]
+    refresh_reason = schedule_change_reason(incomplete_tasks)
+    planning_reference_time = PlanningEngine._to_naive_local(
+        plan_request.available_start
+    )
+    plan_reshaped_at = datetime.now()
+    _, outstanding_missed_ids = recovery_state_by_task_id(
+        db, [task.id for task in incomplete_tasks]
+    )
+    previously_scheduled_ids = {
+        task_id
+        for (task_id,) in (
+            db.query(TaskHistory.task_id)
+            .filter(
+                TaskHistory.task_id.in_([task.id for task in incomplete_tasks]),
+                TaskHistory.event_type == "scheduled",
+            )
+            .all()
+        )
+    }
+    newly_missed_ids: set[int] = set()
+
+    # A fully elapsed persisted slot is a missed scheduled opportunity, not
+    # an ordinary schedule change. Open the established missed cycle before
+    # planning so an included task is recovered below instead of rescheduled.
+    for task in stale_persisted_tasks(
+        incomplete_tasks, planning_reference_time, outstanding_missed_ids
+    ):
+        old_start = task.scheduled_start
+        old_end = task.scheduled_end
+        db.add(
+            TaskHistory(
+                task_id=task.id,
+                user_id=current_user.id,
+                event_type="missed",
+                timestamp=plan_reshaped_at,
+                scheduled_start=old_start,
+                scheduled_end=old_end,
+                old_start=old_start,
+                old_end=old_end,
+                reason="Scheduled opportunity passed",
+            )
+        )
+        task.status = "missed"
+        task.scheduled_start = None
+        task.scheduled_end = None
+        task.schedule_needs_refresh = True
+        newly_missed_ids.add(task.id)
+    outstanding_missed_ids |= newly_missed_ids
+
+    newly_overdue_ids: set[int] = set()
+
+    for task in overdue_tasks(incomplete_tasks, planning_reference_time):
+        existing_overdue = (
+            db.query(TaskHistory.id)
+            .filter(
+                TaskHistory.task_id == task.id,
+                TaskHistory.event_type == "overdue",
+            )
+            .first()
+        )
+
+        if existing_overdue is None:
+            db.add(
+                TaskHistory(
+                    task_id=task.id,
+                    user_id=current_user.id,
+                    event_type="overdue",
+                    timestamp=plan_reshaped_at,
+                    reason="Task deadline passed",
+                )
+            )
+            newly_overdue_ids.add(task.id)
+
+    # A deadline never creates a missed event, but it does close an already
+    # open recovery opportunity. Keep that task missed and unscheduled rather
+    # than creating another future slot after its final deadline has passed.
 
     # An unchanged plan is already the user's deliberate plan for the day.
     # This includes tasks intentionally left unscheduled because the day is
     # overloaded. Reusing it prevents the current clock from shifting the
     # scheduled subset on a repeated Plan My Day call.
     if (
-    incomplete_tasks
-    and not plan_request.force_replan
-    and not any(task.schedule_needs_refresh for task in incomplete_tasks)
-):
+        incomplete_tasks
+        and not plan_request.force_replan
+        and not any(task.schedule_needs_refresh for task in incomplete_tasks)
+    ):
         unscheduled_minutes = sum(
             task.duration_minutes
             for task in incomplete_tasks
@@ -62,18 +216,24 @@ def create_plan(
             bad_day=plan_request.bad_day,
         )
 
-    result = PlanningEngine().generate_schedule(
+    planning_anchor = planning_start_with_persisted_schedule(
         tasks,
         plan_request.available_start,
+    )
+
+    if outstanding_missed_ids:
+        planning_anchor = max(planning_anchor, planning_reference_time)
+
+    result = PlanningEngine().generate_schedule(
+        tasks,
+        planning_anchor,
         plan_request.available_end,
         plan_request.energy_level,
         plan_request.bad_day,
+        preserve_persisted_slots=not plan_request.force_replan,
     )
 
     scheduled_task_ids = {item.task_id for item in result.schedule}
-    _, outstanding_missed_ids = recovery_state_by_task_id(
-        db, [task.id for task in incomplete_tasks]
-    )
     for item in result.schedule:
         task = (
             db.query(Task)
@@ -90,11 +250,18 @@ def create_plan(
             task.scheduled_start = item.scheduled_start
             task.scheduled_end = item.scheduled_end
             task.schedule_needs_refresh = False
-            if task.id in outstanding_missed_ids and task.status == "missed":
+            task.schedule_refresh_reason = None
+            was_recovered = False
+
+            if task.id in outstanding_missed_ids:
                 # A recovery is meaningful only once Plan My Day actually
-                # contains the missed task. The outstanding state prevents a
-                # duplicate event when a persisted plan is reopened.
+                # contains the missed task. The outstanding missed-cycle state
+                # is authoritative even if a prior request normalized status.
+                # It also prevents this task from receiving a Rescheduled
+                # event in the same persistence operation.
                 task.status = "pending"
+                was_recovered = True
+
                 db.add(
                     TaskHistory(
                         task_id=task.id,
@@ -107,31 +274,57 @@ def create_plan(
                         reason="Missed task was included in Plan My Day",
                     )
                 )
-            if schedule_changed:
-                was_previously_scheduled = old_start is not None and old_end is not None
-                db.add(
-                    TaskHistory(
-                        task_id=task.id,
-                        user_id=current_user.id,
-                        event_type="rescheduled" if was_previously_scheduled else "scheduled",
-                        scheduled_start=item.scheduled_start,
-                        scheduled_end=item.scheduled_end,
-                        old_start=old_start,
-                        old_end=old_end,
-                        new_start=item.scheduled_start,
-                        new_end=item.scheduled_end,
-                        reason=(
-                            "Schedule updated by planning"
-                            if was_previously_scheduled
-                            else "Task added to the schedule"
-                        ),
+
+            # Record a schedule change only when the task already had a
+            # schedule and its new schedule is actually different.
+            # A newly scheduled task gets "scheduled", while a recovered
+            # task gets "recovered" only.
+            both_slots_are_past = (
+                old_end is not None
+                and PlanningEngine._to_naive_local(old_end)
+                <= planning_reference_time
+                and PlanningEngine._to_naive_local(item.scheduled_end)
+                <= planning_reference_time
+            )
+            if schedule_changed and not was_recovered and not both_slots_are_past:
+                if old_start is not None and old_end is not None:
+                    db.add(
+                        TaskHistory(
+                            task_id=task.id,
+                            user_id=current_user.id,
+                            event_type="rescheduled",
+                            timestamp=plan_reshaped_at,
+                            scheduled_start=item.scheduled_start,
+                            scheduled_end=item.scheduled_end,
+                            old_start=old_start,
+                            old_end=old_end,
+                            new_start=item.scheduled_start,
+                            new_end=item.scheduled_end,
+                            reason=refresh_reason,
+                        )
                     )
-                )
+                elif task.id not in previously_scheduled_ids:
+                    db.add(
+                        TaskHistory(
+                            task_id=task.id,
+                            user_id=current_user.id,
+                            event_type="scheduled",
+                            timestamp=plan_reshaped_at,
+                            scheduled_start=item.scheduled_start,
+                            scheduled_end=item.scheduled_end,
+                            old_start=old_start,
+                            old_end=old_end,
+                            new_start=item.scheduled_start,
+                            new_end=item.scheduled_end,
+                            reason="Added to your plan",
+                        )
+                    )
     for task in tasks:
         if not task.completed and task.id not in scheduled_task_ids:
             task.scheduled_start = None
             task.scheduled_end = None
             task.schedule_needs_refresh = False
+            task.schedule_refresh_reason = None
     db.commit()
 
     return PlanResponse(

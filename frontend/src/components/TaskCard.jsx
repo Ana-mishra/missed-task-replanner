@@ -21,10 +21,11 @@ function formatDeadline(deadline) {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   })
 }
 
-function TaskCard({ task, onEdit, onComplete, onDelete, onMiss }) {
+function TaskCard({ task, onEdit, onComplete, onDelete }) {
   const overdue = isOverdue(task)
   const urgency = getUrgency(task)
   const state = task.completed
@@ -65,7 +66,6 @@ function TaskCard({ task, onEdit, onComplete, onDelete, onMiss }) {
             <>
               <button className="button button--quiet" type="button" onClick={onEdit}>Edit</button>
               <button className="button button--complete" type="button" onClick={onComplete}>Complete</button>
-              <button className="button button--quiet" type="button" onClick={onMiss}>Missed</button>
             </>
           )}
           <button className="button button--quiet button--danger" type="button" onClick={onDelete}>

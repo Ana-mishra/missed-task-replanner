@@ -36,8 +36,10 @@ def add_task_planning_columns():
         "scheduled_end": "DATETIME",
         "energy_level": "VARCHAR NOT NULL DEFAULT 'medium'",
         "actual_duration_minutes": "INTEGER",
+        "completed_at": "DATETIME",
         "deadline_conflicted": "BOOLEAN NOT NULL DEFAULT 0",
         "schedule_needs_refresh": "BOOLEAN NOT NULL DEFAULT 1",
+        "schedule_refresh_reason": "VARCHAR",
     }
 
     with engine.begin() as connection:
@@ -121,12 +123,13 @@ def upgrade_task_history_table():
 
     existing_columns = {column["name"] for column in inspector.get_columns("task_history")}
     new_columns = {
-        "old_start": "DATETIME",
-        "old_end": "DATETIME",
-        "new_start": "DATETIME",
-        "new_end": "DATETIME",
-        "reason": "VARCHAR",
-    }
+    "old_start": "DATETIME",
+    "old_end": "DATETIME",
+    "new_start": "DATETIME",
+    "new_end": "DATETIME",
+    "reason": "VARCHAR",
+    "completed_at": "DATETIME",
+}
     with engine.begin() as connection:
         for name, definition in new_columns.items():
             if name not in existing_columns:
@@ -135,8 +138,12 @@ def upgrade_task_history_table():
         table_sql = connection.execute(
             text("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_history'")
         ).scalar() or ""
-        if "rescheduled" in table_sql and "recovered" in table_sql:
-            return
+        if (
+    "rescheduled" in table_sql
+    and "recovered" in table_sql
+    and "overdue" in table_sql
+):
+         return
 
         connection.execute(
             text(
@@ -149,6 +156,7 @@ def upgrade_task_history_table():
                     timestamp DATETIME NOT NULL,
                     scheduled_start DATETIME,
                     scheduled_end DATETIME,
+                    completed_at DATETIME,
                     old_start DATETIME,
                     old_end DATETIME,
                     new_start DATETIME,
@@ -156,9 +164,9 @@ def upgrade_task_history_table():
                     reason VARCHAR,
                     CONSTRAINT valid_task_history_event_type CHECK (
                         event_type IN (
-                            'created', 'scheduled', 'missed', 'completed',
-                            'replanned', 'rescheduled', 'recovered', 'deleted'
-                        )
+    'created', 'scheduled', 'missed', 'overdue', 'completed',
+    'replanned', 'rescheduled', 'recovered', 'deleted'
+)
                     ),
                     FOREIGN KEY(task_id) REFERENCES tasks (id),
                     FOREIGN KEY(user_id) REFERENCES users (id)
@@ -170,12 +178,12 @@ def upgrade_task_history_table():
             text(
                 """
                 INSERT INTO task_history__upgrade (
-                    id, task_id, user_id, event_type, timestamp, scheduled_start,
-                    scheduled_end, old_start, old_end, new_start, new_end, reason
-                )
+    id, task_id, user_id, event_type, timestamp, scheduled_start,
+    scheduled_end, completed_at, old_start, old_end, new_start, new_end, reason
+)
                 SELECT id, task_id, user_id, event_type, timestamp, scheduled_start,
-                    scheduled_end, old_start, old_end, new_start, new_end, reason
-                FROM task_history
+    scheduled_end, completed_at, old_start, old_end, new_start, new_end, reason
+FROM task_history
                 """
             )
         )
@@ -202,4 +210,4 @@ def add_user_name_confirmation_column():
                 "ADD COLUMN name_confirmed BOOLEAN NOT NULL DEFAULT 0"
             )
         )        
-        
+           

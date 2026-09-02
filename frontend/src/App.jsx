@@ -20,7 +20,6 @@ import {
   planDay,
   getProgress,
   recommendTask,
-  replanTask,
   updateTask,
   getWeeklyReflection,
   clearAccessToken,
@@ -32,6 +31,22 @@ import {
 } from "./utils/workload.mjs";
 
 const LAST_PLANNED_AVAILABLE_MINUTES_KEY = "planora.lastPlannedAvailableMinutes";
+const PLANORA_PAGES = new Set(["today", "history", "stats", "reflection"]);
+
+function pageFromLocation() {
+  const page = new URLSearchParams(window.location.search).get("page");
+  return PLANORA_PAGES.has(page) ? page : "today";
+}
+
+function pageUrl(page) {
+  const url = new URL(window.location.href);
+  if (page === "today") {
+    url.searchParams.delete("page");
+  } else {
+    url.searchParams.set("page", page);
+  }
+  return `${url.pathname}${url.search}${url.hash}`;
+}
 
 function formatDeadline(deadline) {
   return new Date(deadline).toLocaleString([], {
@@ -78,7 +93,7 @@ function App() {
   const [nameInput, setNameInput] = useState('')
   const [savingName, setSavingName] = useState(false)
   const [nameError, setNameError] = useState(null)
-  const [activePage, setActivePage] = useState("today");
+  const [activePage, setActivePage] = useState(pageFromLocation);
   const [tasks, setTasks] = useState([]);
   const [todayCompletedTaskIds, setTodayCompletedTaskIds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -182,6 +197,25 @@ function App() {
   }
 }, [replanNotice]);
 
+  useEffect(() => {
+    // Seed the initial entry without adding a duplicate browser-history item.
+    window.history.replaceState({ planoraPage: activePage }, "", pageUrl(activePage));
+
+    function handlePopState(event) {
+      const page = event.state?.planoraPage;
+      setActivePage(PLANORA_PAGES.has(page) ? page : pageFromLocation());
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  function navigateToPage(page) {
+    if (!PLANORA_PAGES.has(page) || page === activePage) return;
+    window.history.pushState({ planoraPage: page }, "", pageUrl(page));
+    setActivePage(page);
+  }
+
   const isCompletedTask = (task) =>
     task.completed || task.status === "completed";
   const incompleteTasks = tasks.filter((task) => !isCompletedTask(task));
@@ -270,48 +304,15 @@ const completedTodayPlannedTasks = todayPlannedTasks.filter((task) =>
       setDeleting(false);
     }
   }
-  async function handleMiss(task) {
-    setError(null);
 
-    try {
-      const now = new Date();
-      const availableStart = now;
-      const availableEnd = new Date(
-        now.getTime() + availableMinutes * 60 * 1000,
-      );
-
-      await replanTask(task.id, {
-  available_start: availableStart.toISOString(),
-  available_end: availableEnd.toISOString(),
-});
-
-setReplanNotice({
-  title: "We'll find a place for it",
-  message: `${task.title} needs a reset. Plan My Day will consider it again when building your next plan.`,
-});
-
-const updatedTasks = await getTasks();
-setTasks(updatedTasks);
-
-setPlannedTasks([]);
-setTodayPlanTaskIds([]);
-setPlanIsOverloaded(false);
-setUnscheduledMinutes(0);
-setHasPlanned(false);
-    } catch (requestError) {
-      setError(requestError.message);
-    }
+  function handleHidePlan() {
+    setHasPlanned(false);
+    setPlannedTasks([]);
+    setPlanIsOverloaded(false);
+    setUnscheduledMinutes(0);
   }
 
   async function handlePlanDay() {
-    if (hasPlanned) {
-  setHasPlanned(false);
-  setPlannedTasks([]);
-  setPlanIsOverloaded(false);
-  setUnscheduledMinutes(0);
-  return;
-}
-
     setPlanning(true);
 
     try {
@@ -331,6 +332,9 @@ setHasPlanned(false);
           lastPlannedAvailableMinutesRef.current !== null &&
           lastPlannedAvailableMinutesRef.current !== availableMinutes,
       });
+
+      const updatedTasks = await getTasks();
+      setTasks(updatedTasks);
 
    const planTaskIds = result.schedule.map((item) => String(item.task_id));
 
@@ -476,9 +480,9 @@ if (currentUser && !currentUser.name_confirmed) {
 }
 
 return (
-  <AppShell
-  activePage={activePage}
-  onNavigate={setActivePage}
+    <AppShell
+      activePage={activePage}
+      onNavigate={navigateToPage}
   onLogout={handleLogout}
   progress={progress}
   currentUser={currentUser}
@@ -520,12 +524,12 @@ return (
         </div>
 
         <div className="summary__item summary__item--planned">
-          <span className="summary__label">Planned Work</span>
+          <span className="summary__label">Scheduled Work</span>
           <span className="summary__value">
             {formatDuration(plannedMinutes)}
           </span>
           <span className="summary__detail">
-            {currentPlannedTasks.length} planned
+            {currentPlannedTasks.length} scheduled
           </span>
         </div>
 
@@ -583,18 +587,23 @@ return (
 
         <div className="task-list-actions">
           <button
-            className={`button button--quiet ${hasPlanned ? "button--plan-open" : ""}`}
+            className="button button--quiet"
             onClick={handlePlanDay}
             disabled={planning}
-            aria-expanded={hasPlanned}
-            aria-controls="today-plan"
           >
-            {planning
-              ? "Planning…"
-              : hasPlanned
-                ? "Hide plan ×"
-                : "Plan my day"}
+            {planning ? "Planning…" : "Plan my day"}
           </button>
+          {hasPlanned && (
+            <button
+              className="button button--quiet button--plan-open"
+              type="button"
+              onClick={handleHidePlan}
+              aria-expanded="true"
+              aria-controls="today-plan"
+            >
+              Hide plan ×
+            </button>
+          )}
           <button
             className="button button--primary"
             onClick={() => openForm("create")}
@@ -714,7 +723,6 @@ return (
                     task={task}
                     onEdit={() => openForm("edit", task)}
                     onComplete={() => openForm("complete", task)}
-                    onMiss={() => handleMiss(task)}
                     onDelete={() => setTaskToDelete(task)}
                   />
                 ))}

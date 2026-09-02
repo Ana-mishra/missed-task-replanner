@@ -28,11 +28,14 @@ class HistoryEventResponse(BaseModel):
     task_title: str | None = None
     event_type: str
     timestamp: datetime
+    deadline: datetime | None = None
     old_start: datetime | None = None
     old_end: datetime | None = None
     new_start: datetime | None = None
     new_end: datetime | None = None
     reason: str | None = None
+    task_count: int | None = None
+    completed_at: datetime | None = None
 
 
 class HistorySummaryResponse(BaseModel):

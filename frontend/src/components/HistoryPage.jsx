@@ -4,8 +4,10 @@ import { getHistory, getHistorySummary } from "../services/api.js";
 const PAGE_SIZE = 10;
 const FILTERS = [
   ["all", "All"],
+  ["scheduled", "Scheduled"],
   ["completed", "Completed"],
   ["missed", "Missed"],
+  ["overdue", "Overdue"],
   ["rescheduled", "Rescheduled"],
   ["recovered", "Recovered"],
 ];
@@ -15,6 +17,48 @@ const RANGE_LABELS = {
   year: "This Year",
   all: "All Time",
 };
+
+function getRangeDescription(range) {
+  const today = new Date();
+
+  if (range === "week") {
+    const day = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    return `${monday.toLocaleDateString([], {
+      day: "numeric",
+      month: "short",
+    })} – ${sunday.toLocaleDateString([], {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })}`;
+  }
+
+  if (range === "month") {
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    return `${firstDay.toLocaleDateString([], {
+      day: "numeric",
+      month: "short",
+    })} – ${lastDay.toLocaleDateString([], {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })}`;
+  }
+
+  if (range === "year") {
+    return `1 Jan – 31 Dec ${today.getFullYear()}`;
+  }
+
+  return "All recorded history";
+}
 
 function formatDateHeading(timestamp) {
   const date = new Date(timestamp);
@@ -37,6 +81,7 @@ function formatTime(timestamp) {
   return new Date(timestamp).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
 }
 
@@ -47,7 +92,21 @@ function formatSchedule(timestamp) {
     month: "short",
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
+}
+
+function formatScheduleRange(start, end) {
+  if (!start) return null;
+  if (!end) return formatSchedule(start);
+
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (startDate.toDateString() !== endDate.toDateString()) {
+    return `${formatSchedule(start)}–${formatSchedule(end)}`;
+  }
+
+  return `${formatSchedule(start)}–${formatTime(end)}`;
 }
 
 
@@ -63,28 +122,37 @@ function groupByDate(events) {
 
 function EventDetail({ event }) {
   if (event.event_type === "missed") {
+    const missedStart = event.old_start;
+    const missedEnd = event.old_end;
+
     return (
       <>
-        {event.old_start && (
-          <p>Planned: {formatSchedule(event.old_start)}</p>
+        {missedStart && (
+          <p> Scheduled for: {formatScheduleRange(missedStart, missedEnd)}</p>
         )}
-        <p>Reason: {event.reason || "Task was not completed"}</p>
       </>
     );
   }
+  if (event.event_type === "overdue") {
+  return (
+    <>
+      {event.deadline && (
+        <p>Deadline: {formatSchedule(event.deadline)}</p>
+      )}
+      <p>Task remained incomplete after its deadline.</p>
+    </>
+  );
+}
 
-  if (event.event_type === "rescheduled") {
+  if (event.event_type === "scheduled") {
     return (
       <>
-        {event.old_start && (
-          <p>From: {formatSchedule(event.old_start)}</p>
-        )}
         {event.new_start && (
           <p className="history-row__recovered">
-            To: {formatSchedule(event.new_start)}
+            Scheduled for {formatSchedule(event.new_start)}
           </p>
         )}
-        {event.reason && <p>Reason: {event.reason}</p>}
+        <p>Added to your plan</p>
       </>
     );
   }
@@ -92,25 +160,46 @@ function EventDetail({ event }) {
   if (event.event_type === "recovered") {
     return (
       <>
+        {event.new_start && (
+          <p className="history-row__recovered">
+            New scheduled time: {formatSchedule(event.new_start)}
+          </p>
+        )}
+        <p>
+          Reason:
+          {event.reason || "Missed task recovered into a future plan"}
+        </p>
+      </>
+    );
+  }
+
+  if (event.event_type === "rescheduled") {
+    if (event.task_count) {
+      return <p>{event.reason}</p>;
+    }
+
+    return (
+      <>
         {event.old_start && (
-          <p>From: {formatSchedule(event.old_start)}</p>
+          <p>
+            Was scheduled for: {formatScheduleRange(event.old_start, event.old_end)}
+          </p>
         )}
         {event.new_start && (
           <p className="history-row__recovered">
-            To: {formatSchedule(event.new_start)}
+            Now scheduled for: {formatScheduleRange(event.new_start, event.new_end)}
           </p>
         )}
-        <p>Reason: {event.reason || "Missed task recovered into a future plan"}</p>
+        {event.reason && <p>Reason: {event.reason}</p>}
       </>
     );
   }
 
   return (
     <>
-      {event.old_start && (
-        <p>Planned: {formatSchedule(event.old_start)}</p>
+      {event.deadline && (
+        <p>Deadline: {formatSchedule(event.deadline)}</p>
       )}
-      <p>Completed: {formatTime(event.timestamp)}</p>
     </>
   );
 }
@@ -165,6 +254,29 @@ useEffect(() => {
 }, [range]);
 
   const meaningfulHistory = history;
+
+  const filterCounts = useMemo(
+  () => ({
+    all: meaningfulHistory.length,
+    scheduled: meaningfulHistory.filter(event => event.event_type === "scheduled").length,
+    completed: meaningfulHistory.filter(
+      (event) => event.event_type === "completed",
+    ).length,
+    missed: meaningfulHistory.filter(
+      (event) => event.event_type === "missed",
+    ).length,
+    overdue: meaningfulHistory.filter(
+      (event) => event.event_type === "overdue",
+    ).length,
+    rescheduled: meaningfulHistory.filter(
+      (event) => event.event_type === "rescheduled",
+    ).length,
+    recovered: meaningfulHistory.filter(
+      (event) => event.event_type === "recovered",
+    ).length,
+  }),
+  [meaningfulHistory],
+);
   
   const visibleHistory = useMemo(() => {
     const search = query.trim().toLocaleLowerCase();
@@ -220,7 +332,23 @@ useEffect(() => {
               {RANGE_LABELS[range]} <span className="history-dropdown-arrow" aria-hidden="true">⌄</span>
             </button>
             {isRangeOpen && <div className="history-dropdown-menu" role="menu">
-              {Object.entries(RANGE_LABELS).map(([value, label]) => <button key={value} type="button" role="menuitem" className={range === value ? "history-dropdown-option--active" : ""} onClick={() => { setRange(value); setIsRangeOpen(false); }}>{label}</button>)}
+              {Object.entries(RANGE_LABELS).map(([value, label]) => (
+  <button
+    key={value}
+    type="button"
+    role="menuitem"
+    className={
+      range === value ? "history-dropdown-option--active" : ""
+    }
+    onClick={() => {
+      setRange(value);
+      setIsRangeOpen(false);
+    }}
+  >
+    <span>{label}</span>
+    <small>{getRangeDescription(value)}</small>
+  </button>
+))}
             </div>}
           </div>
         </div>
@@ -228,33 +356,36 @@ useEffect(() => {
 
       <section className="history-summary" aria-label="History summary">
         <article className="history-summary__card history-summary__card--completed">
-          <span>✓</span>
-          <div>
-            <p>Completed</p>
-            <strong>{summary.completed}</strong>
-          </div>
-        </article>
-        <article className="history-summary__card history-summary__card--missed">
-          <span>!</span>
-          <div>
-            <p>Missed</p>
-            <strong>{summary.missed}</strong>
-          </div>
-        </article>
-        <article className="history-summary__card history-summary__card--recovered">
-          <span>↻</span>
-          <div>
-            <p>Recovered</p>
-            <strong>{summary.recovered}</strong>
-          </div>
-        </article>
-        <article className="history-summary__card history-summary__card--rescheduled">
-          <span>↗</span>
-          <div>
-            <p>Rescheduled</p>
-            <strong>{summary.rescheduled}</strong>
-          </div>
-        </article>
+  <span>✓</span>
+  <div>
+    <p>Completed events</p>
+    <strong>{summary.completed}</strong>
+  </div>
+</article>
+
+<article className="history-summary__card history-summary__card--missed">
+  <span>!</span>
+  <div>
+    <p>Missed events</p>
+    <strong>{summary.missed}</strong>
+  </div>
+</article>
+
+<article className="history-summary__card history-summary__card--recovered">
+  <span>↻</span>
+  <div>
+    <p>Recovery events</p>
+    <strong>{summary.recovered}</strong>
+  </div>
+</article>
+
+<article className="history-summary__card history-summary__card--rescheduled">
+  <span>↗</span>
+  <div>
+    <p>Reschedule events</p>
+    <strong>{summary.rescheduled}</strong>
+  </div>
+</article>
       </section>
 
       {filtersOpen && (
@@ -264,21 +395,19 @@ useEffect(() => {
           aria-label="History filters"
         >
           {FILTERS.map(([value, label]) => (
-            <button
-              key={value}
-              className={
-                filter === value
-                  ? "history-tab history-tab--active"
-                  : "history-tab"
-              }
-              type="button"
-              role="tab"
-              aria-selected={filter === value}
-              onClick={() => setFilter(value)}
-            >
-              {label}
-            </button>
-          ))}
+  <button
+    key={value}
+    className={
+  filter === value
+    ? "history-tab history-tab--active"
+    : "history-tab"
+}
+    onClick={() => setFilter(value)}
+  >
+    <span>{label}</span>
+    <span className="history-filter__count">{filterCounts[value]}</span>
+  </button>
+))}
         </div>
       )}
       {loading && <p className="state-message">Loading your history…</p>}
@@ -303,29 +432,38 @@ useEffect(() => {
               <h2>{date}</h2>
               <div className="history-timeline">
                 {events.map((event) => {
-                  const labels = {
+                  console.log("HISTORY EVENT:", event);
+                 const labels = {
   completed: "Completed",
   missed: "Missed",
+  overdue: "Overdue",
   rescheduled: "Rescheduled",
   recovered: "Recovered",
+  scheduled: "Scheduled",
 };
 
 const icons = {
   completed: "✓",
   missed: "!",
+  overdue: "◷",
   rescheduled: "↗",
   recovered: "↻",
+  scheduled: "+",
 };
 
 const label = labels[event.event_type] ?? "History";
 const icon = icons[event.event_type] ?? "•";
+                  const leftTimestamp =
+                    event.event_type === "completed" && event.completed_at
+                      ? event.completed_at
+                      : event.timestamp;
                   return (
                     <article
                       className={`history-row history-row--${event.event_type}`}
                       key={event.id}
                     >
-                      <time dateTime={event.timestamp}>
-                        {formatTime(event.timestamp)}
+                      <time dateTime={leftTimestamp}>
+                        {formatTime(leftTimestamp)}
                       </time>
                       <span className="history-row__line" aria-hidden="true" />
                       <span className="history-row__icon" aria-hidden="true">

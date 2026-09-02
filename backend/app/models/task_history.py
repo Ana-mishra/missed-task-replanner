@@ -1,9 +1,13 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.task import Task
 
 
 class TaskHistory(Base):
@@ -12,10 +16,10 @@ class TaskHistory(Base):
     __tablename__ = "task_history"
     __table_args__ = (
         CheckConstraint(
-            "event_type IN ('created', 'scheduled', 'missed', 'completed', "
-            "'replanned', 'rescheduled', 'recovered', 'deleted')",
-            name="valid_task_history_event_type",
-        ),
+    "event_type IN ('created', 'scheduled', 'missed', 'overdue', 'completed', "
+"'replanned', 'rescheduled', 'recovered', 'deleted')",
+    name="valid_task_history_event_type",
+),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -25,6 +29,7 @@ class TaskHistory(Base):
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     event_type: Mapped[str] = mapped_column(String, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scheduled_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scheduled_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Keep the legacy scheduled_* fields for existing API clients.  The

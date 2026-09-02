@@ -221,6 +221,26 @@ class TaskHistoryEndpointTests(unittest.TestCase):
         self.assertEqual(response.json()["status"], "completed")
         self.assertEqual(len(self.history_for(task["id"], "completed")), 1)
 
+    def test_completion_records_and_exposes_the_server_completion_timestamp(self):
+        task = self.create_task("Timestamped completion")
+        task["completed"] = True
+
+        response = self.client.put(f"/tasks/{task['id']}", json=task)
+
+        self.assertEqual(response.status_code, 200)
+        completed_at = response.json()["completed_at"]
+        self.assertIsNotNone(completed_at)
+        self.assertEqual(
+            self.client.get(f"/tasks/{task['id']}").json()["completed_at"],
+            completed_at,
+        )
+        history = self.client.get("/history?range=all").json()
+        completed_event = next(
+            event for event in history
+            if event["task_id"] == task["id"] and event["event_type"] == "completed"
+        )
+        self.assertEqual(completed_event["completed_at"], completed_at)
+
     def test_completing_without_actual_duration_remains_compatible(self):
         task = self.create_task("Complete without actual duration")
         task["completed"] = True

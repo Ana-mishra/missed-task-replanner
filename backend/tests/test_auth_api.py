@@ -47,7 +47,12 @@ class AuthenticationApiTests(unittest.TestCase):
         response = self.register(email=" ANA@Example.COM ")
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json(), {"id": 1, "name": "Ana", "email": "ana@example.com"})
+        self.assertEqual(response.json(), {
+    "id": 1,
+    "name": "Ana",
+    "name_confirmed": True,
+    "email": "ana@example.com",
+})
         with self.session_local() as db:
             user = db.query(User).one()
             self.assertNotEqual(user.password_hash, "safe-password-123")

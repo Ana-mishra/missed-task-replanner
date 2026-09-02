@@ -49,6 +49,7 @@ class PlanningEngine:
         available_end: datetime,
         user_energy_level: str | None = None,
         bad_day: bool = False,
+        preserve_persisted_slots: bool = False,
     ) -> PlanningResult:
         """Schedule unfinished tasks in deadline and priority order.
 
@@ -86,11 +87,55 @@ class PlanningEngine:
             if task.duration_minutes <= 0:
                 continue
 
-            scheduled_end = current_time + timedelta(minutes=task.duration_minutes)
             task_is_protected = self._is_deadline_protected(task, available_start)
             task_limit = available_end
             if bad_day and not task_is_protected:
                 task_limit = min(available_end, bad_day_target_end)
+
+            persisted_start = (
+                self._to_naive_local(task.scheduled_start)
+                if task.scheduled_start is not None
+                else None
+            )
+            persisted_end = (
+                self._to_naive_local(task.scheduled_end)
+                if task.scheduled_end is not None
+                else None
+            )
+            persisted_duration_matches = (
+                persisted_start is not None
+                and persisted_end is not None
+                and persisted_end - persisted_start
+                == timedelta(minutes=task.duration_minutes)
+            )
+            can_keep_persisted_slot = (
+                preserve_persisted_slots
+                and task.schedule_refresh_reason != "edited"
+                and persisted_duration_matches
+                and (
+                    persisted_start >= current_time
+                    or (not schedule and persisted_end > current_time)
+                )
+                # A fully elapsed slot is stale even if an upstream caller
+                # supplied an older anchor. Partially elapsed first slots keep
+                # the existing product behavior while they are still active.
+                and persisted_end > available_start
+                and persisted_end <= task_limit
+            )
+
+            if can_keep_persisted_slot:
+                schedule.append(
+                    ScheduledTask(
+                        task_id=task.id,
+                        title=task.title,
+                        scheduled_start=persisted_start,
+                        scheduled_end=persisted_end,
+                    )
+                )
+                current_time = persisted_end
+                continue
+
+            scheduled_end = current_time + timedelta(minutes=task.duration_minutes)
 
             if scheduled_end > task_limit:
                 unscheduled_minutes += task.duration_minutes

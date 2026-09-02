@@ -427,7 +427,7 @@ window.setTimeout(() => {
               <span className="reflection-glance__icon" aria-hidden="true">
                 ◷
               </span>
-              Planned work
+              Scheduled work
               <strong>
                 {formatDuration(reflection?.planned_work_minutes ?? 0)}
               </strong>

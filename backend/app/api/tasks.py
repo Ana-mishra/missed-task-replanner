@@ -60,11 +60,27 @@ def create_task(
     current_user: User = Depends(get_current_user),
 ):
     task = Task(**task_data.model_dump(), user_id=current_user.id)
+
     if task.completed:
         task.status = "completed"
+
     db.add(task)
     db.flush()
-    db.add(TaskHistory(task_id=task.id, user_id=current_user.id, event_type="created"))
+
+    # Adding a new task may change the existing plan,
+    # but do not replan automatically. The user must
+    # explicitly click "Plan My Day" again.
+    task.schedule_needs_refresh = True
+    task.schedule_refresh_reason = "added"
+
+    db.add(
+        TaskHistory(
+            task_id=task.id,
+            user_id=current_user.id,
+            event_type="created",
+        )
+    )
+
     db.commit()
     db.refresh(task)
     return serialize_task(task)
@@ -116,11 +132,11 @@ def update_task(
     for field, value in update_data.items():
         setattr(task, field, value)
     if schedule_needs_refresh and not task.completed:
-        task.scheduled_start = None
-        task.scheduled_end = None
         task.schedule_needs_refresh = True
+        task.schedule_refresh_reason = "edited"
     if not was_completed and task.completed:
         task.status = "completed"
+        task.completed_at = datetime.now()
         db.add(
             TaskHistory(
                 task_id=task.id,
@@ -131,6 +147,7 @@ def update_task(
                 old_start=task.scheduled_start,
                 old_end=task.scheduled_end,
                 reason="Task marked completed",
+                completed_at=task.completed_at,
             )
         )
     db.commit()
@@ -160,4 +177,5 @@ def delete_task(
         .all()
     ):
         remaining_task.schedule_needs_refresh = True
+        remaining_task.schedule_refresh_reason = None
     db.commit()

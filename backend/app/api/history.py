@@ -16,9 +16,23 @@ from app.schemas.task_history import HistoryEventResponse, HistorySummaryRespons
 
 router = APIRouter(prefix="/history", tags=["history"])
 
-MeaningfulEvent = Literal["completed", "missed", "rescheduled", "recovered"]
+MeaningfulEvent = Literal["scheduled","completed", "missed", "overdue", "rescheduled", "recovered"]
 HistoryRange = Literal["week", "month", "year", "all"]
-MEANINGFUL_EVENT_TYPES = {"completed", "missed", "rescheduled", "recovered"}
+# Scheduled is shown in the All feed but intentionally has no dedicated tab
+# or summary card.
+MEANINGFUL_EVENT_TYPES = {
+    "scheduled",
+    "completed",
+    "missed",
+    "overdue",
+    "rescheduled",
+    "recovered",
+}
+INTERNAL_RESCHEDULE_REASONS = {
+    "Plan reshaped",
+    "Schedule updated by planning",
+    "Schedule updated during replanning",
+}
 
 
 def range_start(value: HistoryRange, now: datetime | None = None) -> datetime | None:
@@ -50,7 +64,7 @@ def load_meaningful_history(
     lacks enough before/after context to present trustworthy user history.
     """
     query = (
-        db.query(TaskHistory, Task.title)
+        db.query(TaskHistory, Task.title, Task.completed_at, Task.deadline)
         .outerjoin(Task, Task.id == TaskHistory.task_id)
         .filter(
             or_(
@@ -65,7 +79,7 @@ def load_meaningful_history(
     # recognised as a recovery when its missed event predates the filter.
     rows = query.order_by(TaskHistory.timestamp, TaskHistory.id).all()
     events: list[HistoryEventResponse] = []
-    for record, title in rows:
+    for record, title, completed_at, deadline in rows:
         resolved_type = record.event_type
         if resolved_type not in MEANINGFUL_EVENT_TYPES:
             continue
@@ -75,6 +89,21 @@ def load_meaningful_history(
             continue
         if event_type is not None and resolved_type != event_type:
             continue
+        old_start = record.old_start
+        old_end = record.old_end
+        new_start = record.new_start or record.scheduled_start
+        new_end = record.new_end or record.scheduled_end
+        # Older databases can contain no-op rows from previous planner runs.
+        # They remain in the append-only audit table, but are not a meaningful
+        # user-facing change.
+        if (
+            resolved_type == "rescheduled"
+            and old_start is not None
+            and old_end is not None
+            and old_start == new_start
+            and old_end == new_end
+        ):
+            continue
         events.append(
             HistoryEventResponse(
                 id=record.id,
@@ -82,14 +111,56 @@ def load_meaningful_history(
                 task_title=title,
                 event_type=resolved_type,
                 timestamp=record.timestamp,
-                old_start=record.old_start,
-                old_end=record.old_end,
-                new_start=record.new_start or record.scheduled_start,
-                new_end=record.new_end or record.scheduled_end,
+                deadline=deadline,
+                old_start=old_start,
+                old_end=old_end,
+                new_start=new_start,
+                new_end=new_end,
                 reason=record.reason,
+                completed_at=completed_at if resolved_type == "completed" else None,
             )
         )
-    return list(reversed(events))
+    return list(reversed(_group_plan_reshapes(events)))
+
+
+def _group_plan_reshapes(events: list[HistoryEventResponse]) -> list[HistoryEventResponse]:
+    """Present one plan-wide change rather than one row per moved task.
+
+    The original task-level rows remain available to analytics in
+    ``task_history``. New planner writes share an exact timestamp; older
+    internal rows are grouped by their displayed minute for a useful, compact
+    history story.
+    """
+    grouped: dict[tuple[datetime, str], list[HistoryEventResponse]] = {}
+    ungrouped: list[HistoryEventResponse] = []
+    for event in events:
+        if event.event_type != "rescheduled" or event.reason not in INTERNAL_RESCHEDULE_REASONS:
+            ungrouped.append(event)
+            continue
+        timestamp = event.timestamp if event.reason == "Plan reshaped" else event.timestamp.replace(second=0, microsecond=0)
+        grouped.setdefault((timestamp, event.reason), []).append(event)
+
+    for (timestamp, _), grouped_events in grouped.items():
+        first = grouped_events[0]
+        count = len(grouped_events)
+        if count == 1:
+            ungrouped.append(first.model_copy(update={"reason": None}))
+            continue
+        ungrouped.append(
+            first.model_copy(
+                update={
+                    "timestamp": timestamp,
+                    "task_title": "Plan reshaped",
+                    "reason": f"{count} tasks were rearranged to fit your day.",
+                    "task_count": count,
+                    "old_start": None,
+                    "old_end": None,
+                    "new_start": None,
+                    "new_end": None,
+                }
+            )
+        )
+    return sorted(ungrouped, key=lambda event: (event.timestamp, event.id))
 
 
 @router.get("", response_model=list[HistoryEventResponse])
@@ -104,8 +175,8 @@ def list_history(
     """Return filtered, meaningful history newest first.
 
     Explicit dates take precedence over the named calendar range and are
-    inclusive at the date level. Ordinary planner ``scheduled`` events are
-    intentionally excluded.
+    inclusive at the date level. First-time ``scheduled`` events appear in
+    the All feed; the selectable filters remain the user-facing categories.
     """
     return load_meaningful_history(db, current_user.id, range, event_type, start_date, end_date)
 
