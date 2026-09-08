@@ -158,7 +158,7 @@ def get_progress_analytics(
 @router.get("/reflection/weekly", response_model=WeeklyReflectionResponse)
 def get_weekly_reflection(
     week_start: date | None = None,
-    period: Literal["week", "month", "all"] = "week",
+    period: Literal["week", "month", "year", "all"] = "week",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -166,6 +166,8 @@ def get_weekly_reflection(
     selected_week_start = week_start or (current_time.date() - timedelta(days=current_time.weekday()))
     if period == "month":
         selected_week_start = current_time.date().replace(day=1)
+    elif period == "year":
+        selected_week_start = current_time.date().replace(month=1, day=1)
     elif period == "all":
         first_history_date = db.query(TaskHistory.timestamp).filter(
             TaskHistory.user_id == current_user.id,
@@ -186,6 +188,12 @@ def get_weekly_reflection(
         tasks_missed=result.tasks_missed,
         tasks_replanned=result.tasks_replanned,
         tasks_recovered=result.tasks_recovered,
+        tasks_scheduled=result.tasks_scheduled,
+        tasks_scheduled_completed=result.tasks_scheduled_completed,
+        plan_stability=result.plan_stability,
+        recovery_overview_missed=result.recovery_overview_missed,
+        recovery_overview_recovered=result.recovery_overview_recovered,
+        deadline_behavior=result.deadline_behavior,
         completion_rate=result.completion_rate,
         estimated_completed_minutes=result.estimated_completed_minutes,
         actual_completed_minutes=result.actual_completed_minutes,
@@ -193,6 +201,7 @@ def get_weekly_reflection(
         postponement_cycles=result.postponement_cycles,
         most_productive_day=result.most_productive_day,
         daily_completed_tasks={day.isoformat(): count for day, count in result.daily_completed_tasks.items()},
+        daily_scheduled_completed_tasks={day.isoformat(): count for day, count in result.daily_scheduled_completed_tasks.items()},
         daily_planned_minutes={day.isoformat(): count for day, count in result.daily_planned_minutes.items()},
         daily_estimated_minutes={day.isoformat(): count for day, count in result.daily_estimated_minutes.items()},
         daily_actual_minutes={day.isoformat(): count for day, count in result.daily_actual_minutes.items()},

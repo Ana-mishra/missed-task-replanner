@@ -28,6 +28,57 @@ function toDateValue(date) {
   return `${year}-${month}-${day}`;
 }
 
+function toBackendHour(hour, period) {
+  if (period === "AM") return hour === 12 ? 0 : hour;
+  return hour === 12 ? 12 : hour + 12;
+}
+
+function isTimeBeforeNow(dateValue, hour, minute, period) {
+  if (!dateValue || dateValue !== toDateValue(new Date())) {
+    return false;
+  }
+
+  const selectedTime = new Date(`${dateValue}T00:00:00`);
+  selectedTime.setHours(
+    toBackendHour(hour, period),
+    minute,
+    0,
+    0,
+  );
+
+  const currentTime = new Date();
+  currentTime.setSeconds(0, 0);
+
+  return selectedTime < currentTime;
+}
+
+function isStoredTimeBeforeNow(dateValue, timeValue) {
+  if (!timeValue) return false;
+
+  const [backendHour, minute] = timeValue
+    .split(":")
+    .map(Number);
+
+  if (
+    !Number.isInteger(backendHour) ||
+    !Number.isInteger(minute)
+  ) {
+    return false;
+  }
+
+  if (!dateValue || dateValue !== toDateValue(new Date())) {
+    return false;
+  }
+
+  const selectedTime = new Date(`${dateValue}T00:00:00`);
+  selectedTime.setHours(backendHour, minute, 0, 0);
+
+  const currentTime = new Date();
+  currentTime.setSeconds(0, 0);
+
+  return selectedTime < currentTime;
+}
+
 function formatDate(value) {
   if (!value) return "Choose a date";
 
@@ -150,6 +201,8 @@ function TaskForm({
   const [timeHour, setTimeHour] = useState("");
   const [timeMinute, setTimeMinute] = useState("");
   const [timePeriod, setTimePeriod] = useState("AM");
+  const [timeValidationError, setTimeValidationError] = useState(null);
+  const timeValidationTimeout = useRef(null);
 
   const [openSelect, setOpenSelect] = useState(null);
   const [calendarMonth, setCalendarMonth] = useState(
@@ -204,6 +257,22 @@ function TaskForm({
       );
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(timeValidationTimeout.current);
+    };
+  }, []);
+
+  function showTimeValidationError() {
+    setTimeValidationError(
+      "That time has already passed. Please choose a later time.",
+    );
+    window.clearTimeout(timeValidationTimeout.current);
+    timeValidationTimeout.current = window.setTimeout(() => {
+      setTimeValidationError(null);
+    }, 3000);
+  }
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -313,11 +382,9 @@ function TaskForm({
       return;
     }
 
-    const minute = Math.min(Number(value), 59);
-
-    setTimeMinute(
-      String(minute).padStart(2, "0"),
-    );
+    if (value.length < 2 || Number(value) <= 59) {
+      setTimeMinute(value);
+    }
   }
 
   function confirmTime() {
@@ -334,14 +401,22 @@ function TaskForm({
       return;
     }
 
-    let backendHour = hour;
-
-    if (timePeriod === "AM") {
-      backendHour = hour === 12 ? 0 : hour;
-    } else {
-      backendHour =
-        hour === 12 ? 12 : hour + 12;
+    if (
+      isTimeBeforeNow(
+        values.date,
+        hour,
+        minute,
+        timePeriod,
+      )
+    ) {
+      showTimeValidationError();
+      return;
     }
+
+    const backendHour = toBackendHour(
+      hour,
+      timePeriod,
+    );
 
     const formattedTime = `${String(
       backendHour,
@@ -480,6 +555,15 @@ function TaskForm({
       return;
     }
 
+    if (
+      !deadlineProtected &&
+      isStoredTimeBeforeNow(values.date, values.time)
+    ) {
+      showTimeValidationError();
+      setOpenPicker("time");
+      return;
+    }
+
     const taskData = {
       title: values.title.trim(),
       description:
@@ -557,6 +641,36 @@ function TaskForm({
       className="modal-backdrop"
       role="presentation"
     >
+      {timeValidationError && (
+        <div
+          className="stats-new-week-toast"
+          role="status"
+          aria-live="polite"
+        >
+          <span
+            className="stats-new-week-toast__icon"
+            aria-hidden="true"
+          >
+            !
+          </span>
+          <div className="stats-new-week-toast__body">
+            <p>{timeValidationError}</p>
+          </div>
+          <button
+            type="button"
+            className="stats-new-week-toast__close"
+            onClick={() => {
+              window.clearTimeout(
+                timeValidationTimeout.current,
+              );
+              setTimeValidationError(null);
+            }}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <section
         className="task-form task-form--redesigned"
         role="dialog"

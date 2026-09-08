@@ -54,6 +54,7 @@ function formatDeadline(deadline) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
 }
 
@@ -116,6 +117,7 @@ function App() {
   const [reflection, setReflection] = useState(null);
   const [replanNotice, setReplanNotice] = useState(null);
   const replanNoticeRef = useRef(null);
+  const planIsStaleRef = useRef(false);
   const lastPlannedAvailableMinutesRef = useRef(
     Number(localStorage.getItem(LAST_PLANNED_AVAILABLE_MINUTES_KEY)) || null,
   );
@@ -143,6 +145,8 @@ function App() {
       ) {
         clearAccessToken();
         setAuthenticated(false);
+      } else {
+        setError(requestError.message);
       }
     })
     .finally(() => setLoadingUser(false));
@@ -241,7 +245,11 @@ const completedTodayTasks = tasks.filter((task) =>
 const completedTodayPlannedTasks = todayPlannedTasks.filter((task) =>
   todayCompletedTaskIds.includes(String(task.id)),
 );
-
+const isDashboardEmpty =
+  !loading &&
+  incompleteTasks.length === 0 &&
+  completedTodayTasks.length === 0 &&
+  !hasPlanned;
   function openForm(nextMode, task = null) {
     setSelected(task);
     setMode(nextMode);
@@ -282,6 +290,8 @@ const completedTodayPlannedTasks = todayPlannedTasks.filter((task) =>
           });
       }
 
+      planIsStaleRef.current = true;
+
       setMode(null);
       setSelected(null);
     } catch (requestError) {
@@ -297,6 +307,7 @@ const completedTodayPlannedTasks = todayPlannedTasks.filter((task) =>
     try {
       await deleteTask(taskToDelete.id);
       setTasks((all) => all.filter((task) => task.id !== taskToDelete.id));
+      planIsStaleRef.current = true;
       setTaskToDelete(null);
     } catch (requestError) {
       setDeleteError(requestError.message);
@@ -326,11 +337,12 @@ const completedTodayPlannedTasks = todayPlannedTasks.filter((task) =>
         available_start: availableStart.toISOString(),
         available_end: availableEnd.toISOString(),
         // The backend's normal idempotency guard preserves a saved plan as
-        // wall-clock time moves. Capacity is the one frontend-only planning
-        // input, so request a recalculation only after it actually changes.
+        // wall-clock time moves. Recalculate only after a meaningful task
+        // mutation or an available-capacity change.
         force_replan:
-          lastPlannedAvailableMinutesRef.current !== null &&
-          lastPlannedAvailableMinutesRef.current !== availableMinutes,
+          planIsStaleRef.current ||
+          (lastPlannedAvailableMinutesRef.current !== null &&
+            lastPlannedAvailableMinutesRef.current !== availableMinutes),
       });
 
       const updatedTasks = await getTasks();
@@ -349,6 +361,7 @@ setPlanIsOverloaded(result.is_overloaded);
 setUnscheduledMinutes(result.unscheduled_minutes ?? 0);
 lastPlannedAvailableMinutesRef.current = availableMinutes;
 localStorage.setItem(LAST_PLANNED_AVAILABLE_MINUTES_KEY, String(availableMinutes));
+planIsStaleRef.current = false;
 setHasPlanned(true);
     } catch (requestError) {
       setError(requestError.message);
@@ -438,12 +451,27 @@ const displayedOverloadedMinutes = hasPlanned
     setActivePage("today");
   }
 
+  function handleAuthenticated() {
+    setCurrentUser(null);
+    setLoadingUser(true);
+    setError(null);
+    setAuthenticated(true);
+  }
+
   if (!authenticated) {
-  return <AuthPage onAuthenticated={() => setAuthenticated(true)} />;
+  return <AuthPage onAuthenticated={handleAuthenticated} />;
 }
 
 if (loadingUser) {
-  return null;
+  return <p className="state-message">Loading your account…</p>;
+}
+
+if (!currentUser) {
+  return (
+    <p className="state-message state-message--error">
+      {error || "Could not load your account."}
+    </p>
+  );
 }
 
 if (currentUser && !currentUser.name_confirmed) {
@@ -500,6 +528,8 @@ return (
 
       <section className="summary">
         <div className="summary__item">
+          <span className="summary__sign summary__sign--tasks" aria-hidden="true">
+          </span>
           <span className="summary__label">
   {hasPlanned ? "Tasks Today" : "Tasks to Plan"}
 </span>
@@ -516,6 +546,8 @@ return (
         </div>
 
         <div className="summary__item summary__item--time">
+          <span className="summary__sign summary__sign--time" aria-hidden="true">
+          </span>
           <span className="summary__label">Available Time</span>
           <span className="summary__value">
             {formatDuration(availableMinutes)}
@@ -524,6 +556,9 @@ return (
         </div>
 
         <div className="summary__item summary__item--planned">
+          <span className="summary__sign summary__sign--planned" aria-hidden="true">
+            ↗
+          </span>
           <span className="summary__label">Scheduled Work</span>
           <span className="summary__value">
             {formatDuration(plannedMinutes)}
@@ -540,6 +575,9 @@ return (
     : "summary__item--on-track"
 }`}
         >
+          <span className="summary__sign summary__sign--status" aria-hidden="true">
+            <span className="summary__shield" />
+          </span>
           <span className="summary__label">Overload Status</span>
 
           <span className="summary__value">
@@ -576,43 +614,49 @@ return (
             </button>
           </section>
         )}
-        <div className="section-heading">
-          <h2>Today’s tasks</h2>
-        </div>
+        {!isDashboardEmpty && (
+  <div className="section-heading">
+    <h2>Today’s tasks</h2>
+  </div>
+)}
 
         <AvailableTimeCard
           availableMinutes={availableMinutes}
           onSave={setAvailableMinutes}
         />
 
-        <div className="task-list-actions">
-          <button
-            className="button button--quiet"
-            onClick={handlePlanDay}
-            disabled={planning}
-          >
-            {planning ? "Planning…" : "Plan my day"}
-          </button>
-          {hasPlanned && (
-            <button
-              className="button button--quiet button--plan-open"
-              type="button"
-              onClick={handleHidePlan}
-              aria-expanded="true"
-              aria-controls="today-plan"
-            >
-              Hide plan ×
-            </button>
-          )}
-          <button
-            className="button button--primary"
-            onClick={() => openForm("create")}
-          >
-            Add task
-          </button>
-        </div>
+        {!isDashboardEmpty && (
+  <div className="task-list-actions">
+    <button
+      className="button button--quiet"
+      onClick={handlePlanDay}
+      disabled={planning}
+    >
+      {planning ? "Planning…" : "Plan my day"}
+    </button>
 
-        {overloadStatus.isOverloaded && (
+    {hasPlanned && (
+      <button
+        className="button button--quiet button--plan-open"
+        type="button"
+        onClick={handleHidePlan}
+        aria-expanded="true"
+        aria-controls="today-plan"
+      >
+        Hide plan ×
+      </button>
+    )}
+
+    <button
+      className="button button--primary"
+      onClick={() => openForm("create")}
+    >
+      Add task
+    </button>
+  </div>
+)}
+
+        {!isDashboardEmpty && overloadStatus.isOverloaded && (
           <section
             className="overload-notice"
             aria-labelledby="overload-heading"
@@ -649,7 +693,48 @@ return (
 
         <div className="dashboard-grid">
           <main className="dashboard-main">
-            {hasPlanned && (
+            
+  {isDashboardEmpty && (
+      <section
+        className="empty-dashboard"
+        aria-labelledby="empty-dashboard-heading"
+      >
+        <div className="empty-dashboard__content">
+          <p className="empty-dashboard__eyebrow">YOUR DAY IS OPEN</p>
+
+          <h2 id="empty-dashboard-heading">
+            What would make today feel productive?
+          </h2>
+
+          <p className="empty-dashboard__copy">
+            You don't need to plan everything. Add what matters, and Planora
+            will help you find a realistic place for it.
+          </p>
+
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={() => openForm("create")}
+          >
+            Add a task
+          </button>
+
+          <div className="empty-dashboard__flow" aria-label="Planora workflow">
+            <span>Add</span>
+            <span aria-hidden="true">→</span>
+            <span>Plan</span>
+            <span aria-hidden="true">→</span>
+            <span>Adjust</span>
+          </div>
+
+          <p className="empty-dashboard__note">
+            🌱 A good plan is one you can actually follow.
+          </p>
+        </div>
+      </section>
+    )}
+
+  {hasPlanned && (
               <section
                 className="plan-panel"
                 id="today-plan"
@@ -750,14 +835,15 @@ return (
           </main>
 
           <DashboardRail
-            recommendation={recommendation}
-            onRecommend={handleRecommend}
-            plannedMinutes={plannedMinutes}
-            availableMinutes={availableMinutes}
-            plannedCount={currentPlannedTasks.length}
-            progress={progress}
-            reflection={reflection}
-          />
+  recommendation={recommendation}
+  onRecommend={handleRecommend}
+  plannedMinutes={plannedMinutes}
+  availableMinutes={availableMinutes}
+  plannedCount={currentPlannedTasks.length}
+  progress={progress}
+  reflection={reflection}
+  hasActiveTasks={incompleteTasks.length > 0}
+/>
         </div>
       </section>
 

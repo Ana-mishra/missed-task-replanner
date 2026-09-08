@@ -12,6 +12,12 @@ class WeeklyReflectionResponse(BaseModel):
     tasks_missed: int
     tasks_replanned: int
     tasks_recovered: int
+    tasks_scheduled: int
+    tasks_scheduled_completed: int
+    plan_stability: dict[str, int]
+    recovery_overview_missed: int
+    recovery_overview_recovered: int
+    deadline_behavior: dict[str, int]
     completion_rate: float
     estimated_completed_minutes: int
     actual_completed_minutes: int
@@ -19,6 +25,7 @@ class WeeklyReflectionResponse(BaseModel):
     postponement_cycles: int
     most_productive_day: date | None
     daily_completed_tasks: dict[str, int]
+    daily_scheduled_completed_tasks: dict[str, int] = Field(default_factory=dict)
     daily_planned_minutes: dict[str, int]
     daily_estimated_minutes: dict[str, int]
     daily_actual_minutes: dict[str, int]

@@ -70,4 +70,7 @@ class ReflectionEndpointTests(unittest.TestCase):
         self.assertEqual(response.json()["week_start"], "2026-08-10")
         self.assertEqual(response.json()["week_end"], "2026-08-16")
         self.assertEqual(response.json()["tasks_completed"], 1)
+        self.assertEqual(response.json()["recovery_overview_missed"], 0)
+        self.assertEqual(response.json()["recovery_overview_recovered"], 0)
         self.assertEqual(len(response.json()["daily_completed_tasks"]), 7)
+        self.assertEqual(len(response.json()["daily_scheduled_completed_tasks"]), 7)

@@ -45,8 +45,6 @@ const [calendarMonth, setCalendarMonth] = useState(() => new Date());
 const calendarYear = calendarMonth.getFullYear();
 const calendarMonthIndex = calendarMonth.getMonth();
 
-const today = new Date();
-today.setHours(0, 0, 0, 0);
 const todayValue = localDateValue();
 
 const firstDay = new Date(
@@ -235,18 +233,14 @@ window.setTimeout(() => {
       <div className="reflection-calendar__header">
         <button
   type="button"
-  disabled={
-    calendarYear === today.getFullYear() &&
-    calendarMonthIndex === today.getMonth()
-  }
   onClick={() =>
     setCalendarMonth(
-      new Date(calendarYear, calendarMonthIndex + 1, 1),
+      new Date(calendarYear, calendarMonthIndex - 1, 1),
     )
   }
-  aria-label="Next month"
+  aria-label="Previous month"
 >
-  ›
+  ‹
 </button>
 
         <strong>
