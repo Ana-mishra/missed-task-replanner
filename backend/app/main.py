@@ -10,6 +10,7 @@ from app.api.tasks import router as tasks_router
 from app.api.task_history import router as task_history_router
 from app.api.history import router as history_router
 from app.api.auth import router as auth_router
+from app.config import FRONTEND_ORIGIN
 from app.database import (
     Base,
     add_task_ownership_column,
@@ -27,7 +28,7 @@ app = FastAPI(title="Missed Task Replanner API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[FRONTEND_ORIGIN],
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],

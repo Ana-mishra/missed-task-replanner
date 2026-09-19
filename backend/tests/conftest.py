@@ -12,6 +12,10 @@ import os
 # database unless DATABASE_URL is explicitly provided. Production and local
 # development always use PostgreSQL via their own DATABASE_URL.
 os.environ.setdefault("DATABASE_URL", "sqlite:///./.pytest_app.db")
+# Test-only JWT secret. The application fails fast when JWT_SECRET_KEY is
+# unset; tests use this fixed non-production value unless JWT_SECRET_KEY is
+# explicitly provided.
+os.environ.setdefault("JWT_SECRET_KEY", "test-only-not-a-production-secret")
 
 import pytest
 from fastapi import Depends
