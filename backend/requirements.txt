@@ -1,6 +1,8 @@
 fastapi
 uvicorn[standard]
 sqlalchemy
+psycopg[binary]
+python-dotenv
 httpx
 pytest
 PyJWT

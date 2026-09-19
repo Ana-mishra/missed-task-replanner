@@ -5,6 +5,14 @@ on task behavior rather than login, so they run as one deterministic test
 account while the dedicated ownership tests exercise real JWT boundaries.
 """
 
+import os
+
+# Test-environment DATABASE_URL only. The application itself fails fast when
+# DATABASE_URL is unset; tests run against a disposable file-backed SQLite
+# database unless DATABASE_URL is explicitly provided. Production and local
+# development always use PostgreSQL via their own DATABASE_URL.
+os.environ.setdefault("DATABASE_URL", "sqlite:///./.pytest_app.db")
+
 import pytest
 from fastapi import Depends
 

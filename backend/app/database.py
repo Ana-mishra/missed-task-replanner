@@ -1,13 +1,50 @@
+import os
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./missed_task_replanner.db"
+# Load backend/.env for local development. In production the platform
+# supplies real environment variables; load_dotenv never overrides those.
+load_dotenv()
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not set. Set it to a PostgreSQL URL, e.g. "
+        "DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/planora "
+        "(see backend/.env.example)."
+    )
+
+# Hosting platforms commonly provide postgres:// or postgresql:// URLs.
+# Normalize to the psycopg (v3) driver used by this project.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL[len("postgres://"):]
+elif DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL[len("postgresql://"):]
+
+# SQLite needs check_same_thread=False for FastAPI/TestClient usage.
+# PostgreSQL (psycopg) must NOT receive this option.
+_connect_args = {} if not DATABASE_URL.startswith("sqlite") else {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def _is_postgresql() -> bool:
+    return engine.dialect.name == "postgresql"
+
+
+def _timestamp_type() -> str:
+    return "TIMESTAMP" if _is_postgresql() else "DATETIME"
+
+
+def _boolean_false_literal() -> str:
+    return "FALSE" if _is_postgresql() else "0"
+
+
+def _boolean_true_literal() -> str:
+    return "TRUE" if _is_postgresql() else "1"
 
 
 class Base(DeclarativeBase):
@@ -24,21 +61,24 @@ def get_db():
 
 
 def add_task_planning_columns():
-    """Add new Task columns when upgrading an existing SQLite database."""
+    """Add new Task columns when upgrading an existing database."""
     inspector = inspect(engine)
     if "tasks" not in inspector.get_table_names():
         return
 
+    timestamp = _timestamp_type()
+    false_literal = _boolean_false_literal()
+    true_literal = _boolean_true_literal()
     existing_columns = {column["name"] for column in inspector.get_columns("tasks")}
     columns_to_add = {
         "status": "VARCHAR NOT NULL DEFAULT 'pending'",
-        "scheduled_start": "DATETIME",
-        "scheduled_end": "DATETIME",
+        "scheduled_start": timestamp,
+        "scheduled_end": timestamp,
         "energy_level": "VARCHAR NOT NULL DEFAULT 'medium'",
         "actual_duration_minutes": "INTEGER",
-        "completed_at": "DATETIME",
-        "deadline_conflicted": "BOOLEAN NOT NULL DEFAULT 0",
-        "schedule_needs_refresh": "BOOLEAN NOT NULL DEFAULT 1",
+        "completed_at": timestamp,
+        "deadline_conflicted": f"BOOLEAN NOT NULL DEFAULT {false_literal}",
+        "schedule_needs_refresh": f"BOOLEAN NOT NULL DEFAULT {true_literal}",
         "schedule_refresh_reason": "VARCHAR",
     }
 
@@ -49,12 +89,10 @@ def add_task_planning_columns():
 
 
 def add_task_ownership_column():
-    """Safely attach pre-auth SQLite tasks to one deterministic dev account.
+    """Safely attach pre-auth tasks to one deterministic dev account.
 
-    SQLite cannot add a non-null foreign-key column to a populated table in a
-    single ALTER statement.  The application model requires ownership for all
-    new rows; existing rows are first given a nullable column and then
-    backfilled without deleting or rewriting task/history records.
+    Existing rows are first given a nullable column and then backfilled
+    without deleting or rewriting task/history records.
     """
     inspector = inspect(engine)
     if "tasks" not in inspector.get_table_names() or "users" not in inspector.get_table_names():
@@ -70,20 +108,39 @@ def add_task_ownership_column():
             text("SELECT id FROM users WHERE email = :email"), {"email": legacy_email}
         ).scalar()
         if legacy_user_id is None:
-            result = connection.execute(
-                text(
-                    "INSERT INTO users (name, email, password_hash) "
-                    "VALUES (:name, :email, :password_hash)"
-                ),
-                {
-                    "name": "Legacy Development Data",
-                    "email": legacy_email,
-                    # Deliberately not a usable password. This account is only
-                    # a deterministic owner for rows created before accounts.
-                    "password_hash": "legacy-development-data-no-login",
-                },
-            )
-            legacy_user_id = result.lastrowid
+            user_columns = {column["name"] for column in inspector.get_columns("users")}
+            if "name_confirmed" in user_columns:
+                connection.execute(
+                    text(
+                        "INSERT INTO users (name, email, password_hash, name_confirmed) "
+                        "VALUES (:name, :email, :password_hash, "
+                        f"{_boolean_false_literal()})"
+                    ),
+                    {
+                        "name": "Legacy Development Data",
+                        "email": legacy_email,
+                        # Deliberately not a usable password. This account is only
+                        # a deterministic owner for rows created before accounts.
+                        "password_hash": "legacy-development-data-no-login",
+                    },
+                )
+            else:
+                connection.execute(
+                    text(
+                        "INSERT INTO users (name, email, password_hash) "
+                        "VALUES (:name, :email, :password_hash)"
+                    ),
+                    {
+                        "name": "Legacy Development Data",
+                        "email": legacy_email,
+                        # Deliberately not a usable password. This account is only
+                        # a deterministic owner for rows created before accounts.
+                        "password_hash": "legacy-development-data-no-login",
+                    },
+                )
+            legacy_user_id = connection.execute(
+                text("SELECT id FROM users WHERE email = :email"), {"email": legacy_email}
+            ).scalar()
 
         connection.execute(
             text("UPDATE tasks SET user_id = :user_id WHERE user_id IS NULL"),
@@ -110,11 +167,32 @@ def add_task_ownership_column():
             )
 
 
+def _history_constraint_is_current(inspector, connection) -> bool:
+    """Return True when the history CHECK constraint already allows all events."""
+    try:
+        checks = inspector.get_check_constraints("task_history")
+    except NotImplementedError:
+        checks = []
+    for check in checks:
+        sql = str(check.get("sqltext", ""))
+        if "rescheduled" in sql and "recovered" in sql and "overdue" in sql:
+            return True
+    if checks:
+        return False
+    # SQLite fallback for dialects/drivers without check-constraint reflection.
+    if engine.dialect.name == "sqlite":
+        table_sql = connection.execute(
+            text("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_history'")
+        ).scalar() or ""
+        return "rescheduled" in table_sql and "recovered" in table_sql and "overdue" in table_sql
+    return False
+
+
 def upgrade_task_history_table():
     """Safely expand the append-only history table without losing existing rows.
 
-    SQLite cannot alter a CHECK constraint in place.  Older installations only
-    allow the original lifecycle event types, so their table is rebuilt once
+    CHECK constraints cannot be altered in place, so older installations that
+    only allow the original lifecycle event types have their table rebuilt once
     with the expanded constraint after copying every historical record.
     """
     inspector = inspect(engine)
@@ -122,45 +200,44 @@ def upgrade_task_history_table():
         return
 
     existing_columns = {column["name"] for column in inspector.get_columns("task_history")}
+    timestamp = _timestamp_type()
     new_columns = {
-    "old_start": "DATETIME",
-    "old_end": "DATETIME",
-    "new_start": "DATETIME",
-    "new_end": "DATETIME",
+    "old_start": timestamp,
+    "old_end": timestamp,
+    "new_start": timestamp,
+    "new_end": timestamp,
     "reason": "VARCHAR",
-    "completed_at": "DATETIME",
+    "completed_at": timestamp,
 }
     with engine.begin() as connection:
         for name, definition in new_columns.items():
             if name not in existing_columns:
                 connection.execute(text(f"ALTER TABLE task_history ADD COLUMN {name} {definition}"))
 
-        table_sql = connection.execute(
-            text("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_history'")
-        ).scalar() or ""
-        if (
-    "rescheduled" in table_sql
-    and "recovered" in table_sql
-    and "overdue" in table_sql
-):
+        if _history_constraint_is_current(inspector, connection):
          return
 
+        id_definition = (
+            "INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY"
+            if _is_postgresql()
+            else "INTEGER NOT NULL PRIMARY KEY"
+        )
         connection.execute(
             text(
-                """
+                f"""
                 CREATE TABLE task_history__upgrade (
-                    id INTEGER NOT NULL PRIMARY KEY,
+                    id {id_definition},
                     task_id INTEGER NOT NULL,
                     user_id INTEGER,
                     event_type VARCHAR NOT NULL,
-                    timestamp DATETIME NOT NULL,
-                    scheduled_start DATETIME,
-                    scheduled_end DATETIME,
-                    completed_at DATETIME,
-                    old_start DATETIME,
-                    old_end DATETIME,
-                    new_start DATETIME,
-                    new_end DATETIME,
+                    timestamp {timestamp} NOT NULL,
+                    scheduled_start {timestamp},
+                    scheduled_end {timestamp},
+                    completed_at {timestamp},
+                    old_start {timestamp},
+                    old_end {timestamp},
+                    new_start {timestamp},
+                    new_end {timestamp},
                     reason VARCHAR,
                     CONSTRAINT valid_task_history_event_type CHECK (
                         event_type IN (
@@ -207,7 +284,7 @@ def add_user_name_confirmation_column():
         connection.execute(
             text(
                 "ALTER TABLE users "
-                "ADD COLUMN name_confirmed BOOLEAN NOT NULL DEFAULT 0"
+                f"ADD COLUMN name_confirmed BOOLEAN NOT NULL DEFAULT {_boolean_false_literal()}"
             )
         )        
            

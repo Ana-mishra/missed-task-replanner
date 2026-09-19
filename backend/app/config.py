@@ -1,5 +1,11 @@
 import os
 
+from dotenv import load_dotenv
+
+# Load backend/.env for local development. Production platforms provide
+# real environment variables, which always take precedence.
+load_dotenv()
+
 
 # Deployments should set JWT_SECRET_KEY. The fallback keeps local development
 # and tests usable without placing a secret in API route code.
