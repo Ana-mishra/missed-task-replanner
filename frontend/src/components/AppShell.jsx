@@ -174,7 +174,18 @@ function AppShell({
       setSettings(saved)
       if (field === 'theme') applyTheme(saved.theme)
       if (NOTIFICATION_FIELDS.includes(field)) {
-        await handleNotificationToggle(saved, field, value)
+        try {
+          await handleNotificationToggle(saved, field, value)
+        } catch (pushError) {
+          // The preference itself is already persisted above: a push-setup
+          // failure must not roll it back locally or masquerade as a save
+          // failure. Surface it in the notification notice area only, so
+          // the visible error names the operation that actually failed.
+          setBrowserNotice(
+            pushError?.message ||
+              'Could not enable browser notifications. Please try again.',
+          )
+        }
       }
     } catch {
       setSettings(previous)
@@ -227,8 +238,14 @@ function AppShell({
         setPushSubscriptionExists(true)
         setBrowserPermission(getBrowserPermission())
         setBrowserNotice('Browser notifications are enabled.')
-      } catch {
-        throw new Error('Could not enable browser notifications. Please try again.')
+      } catch (pushError) {
+        // TEMPORARY diagnostic: surface the stage-tagged message from
+        // ensurePushSubscription (safe fields only) instead of the generic
+        // text, so the failing stage is visible in the notice area.
+        throw new Error(
+          pushError?.message ||
+            'Could not enable browser notifications. Please try again.',
+        )
       }
       return
     }
