@@ -3,6 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.task import Task
+from app.models.user_settings import UserSettings
 
 
 class User(Base):
@@ -16,3 +17,6 @@ class User(Base):
     email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     tasks: Mapped[list["Task"]] = relationship(back_populates="owner")
+    settings: Mapped["UserSettings | None"] = relationship(
+        back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
