@@ -7,3 +7,5 @@ httpx
 pytest
 PyJWT
 pwdlib[argon2]
+pywebpush
+tzdata

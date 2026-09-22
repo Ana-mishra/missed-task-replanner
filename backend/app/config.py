@@ -23,3 +23,13 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 # Frontend origin for CORS. Defaults to the local Vite dev server, preserving
 # existing behavior; production supplies the deployed frontend URL.
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+
+# Web Push (VAPID) keys for browser notifications. The public key is exposed
+# to authenticated frontends so they can subscribe via pushManager; the
+# private key never leaves the server and is used when sending pushes.
+# Empty until the operator generates a pair (see .env.example). Push
+# subscription storage works without keys; actual delivery is enabled once
+# keys are configured.
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@planora.local")
