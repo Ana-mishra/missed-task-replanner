@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getHistory, getHistorySummary } from "../services/api.js";
+import { getHistory } from "../services/api.js";
 
 const PAGE_SIZE = 10;
 const FILTERS = [
@@ -204,14 +204,11 @@ function EventDetail({ event }) {
   );
 }
 
+// No module-level cache: every mount fetches fresh. The page shell
+// (header, controls, summary) renders immediately from local state so
+// navigation paints instantly; the feed below fills in when data arrives.
 function HistoryPage() {
   const [history, setHistory] = useState([]);
-  const [summary, setSummary] = useState({
-  completed: 0,
-  missed: 0,
-  recovered: 0,
-  rescheduled: 0,
-});
   const [filter, setFilter] = useState("all");
   const [isRangeOpen, setIsRangeOpen] = useState(false);
   const rangeDropdownRef = useRef(null);
@@ -240,17 +237,16 @@ function HistoryPage() {
 
   useEffect(() => {
   setLoading(true);
+  setError(null);
 
   getHistory({ range })
-    .then(setHistory)
-    .catch((requestError) => setError(requestError.message))
+    .then((data) => {
+      setHistory(data);
+    })
+    .catch((requestError) => {
+      setError(requestError.message);
+    })
     .finally(() => setLoading(false));
-}, [range]);
-
-useEffect(() => {
-  getHistorySummary({ range })
-    .then(setSummary)
-    .catch((requestError) => setError(requestError.message));
 }, [range]);
 
   const meaningfulHistory = history;
@@ -359,7 +355,7 @@ useEffect(() => {
   <span>✓</span>
   <div>
     <p>Completed events</p>
-    <strong>{summary.completed}</strong>
+    <strong>{filterCounts.completed}</strong>
     <small>Tasks you finished</small>
   </div>
 </article>
@@ -368,7 +364,7 @@ useEffect(() => {
   <span>!</span>
   <div>
     <p>Missed events</p>
-    <strong>{summary.missed}</strong>
+    <strong>{filterCounts.missed}</strong>
     <small>Tasks that weren&rsquo;t completed</small>
   </div>
 </article>
@@ -377,7 +373,7 @@ useEffect(() => {
   <span>↻</span>
   <div>
     <p>Recovery events</p>
-    <strong>{summary.recovered}</strong>
+    <strong>{filterCounts.recovered}</strong>
     <small>Tasks you brought back</small>
   </div>
 </article>
@@ -386,7 +382,7 @@ useEffect(() => {
   <span>↗</span>
   <div>
     <p>Reschedule events</p>
-    <strong>{summary.rescheduled}</strong>
+    <strong>{filterCounts.rescheduled}</strong>
     <small>Tasks you moved</small>
   </div>
 </article>
@@ -414,9 +410,13 @@ useEffect(() => {
 ))}
         </div>
       )}
-      {loading && <p className="state-message">Loading your history…</p>}
+      {loading && (
+        <p className="state-message" aria-live="polite">
+          Loading your history…
+        </p>
+      )}
       {error && <p className="state-message state-message--error">{error}</p>}
-      {!loading && !error && pageEvents.length === 0 && (
+      {!error && !loading && pageEvents.length === 0 && (
         <section className="history-empty history-empty--split">
           <div className="history-empty__art" aria-hidden="true">
             <svg width="300" height="220" viewBox="0 0 300 220" aria-hidden="true">
@@ -491,7 +491,7 @@ useEffect(() => {
           </div>
         </section>
       )}
-      {!loading && !error && pageEvents.length > 0 && (
+      {!error && pageEvents.length > 0 && (
         <section className="history-feed" aria-label="Task history timeline">
           {Object.entries(groupByDate(pageEvents)).map(([date, events]) => (
             <section className="history-day" key={date}>

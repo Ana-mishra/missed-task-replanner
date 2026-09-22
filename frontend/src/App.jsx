@@ -193,6 +193,15 @@ function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  // SPA navigation keeps the browser's scroll offset by default. A new
+  // page must always paint from the top: otherwise switching to/from a
+  // tall page (History/Stats grow when data arrives) lands the user
+  // mid-page or on a blank viewport, which reads as a navigation pause.
+  // Covers both sidebar navigation and browser back/forward.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activePage]);
+
   function navigateToPage(page) {
     if (!PLANORA_PAGES.has(page) || page === activePage) return;
     window.history.pushState({ planoraPage: page }, "", pageUrl(page));

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getHistory, getWeeklyReflection } from "../services/api.js";
 import { stabilitySegmentAtAngle, stabilityTooltip } from "../utils/stabilityTooltip.mjs";
 import {
@@ -206,7 +206,7 @@ function SummaryCard({ icon, label, value, detail, tone, detailTone }) {
   );
 }
 
-function CompletionTrend({ dailyCompletedTasks, period, historyRecords }) {
+function CompletionTrend({ dailyCompletedTasks, period, historyRecords, onNeedDetails }) {
   const entries = chartEntries(dailyCompletedTasks, period);
   const hasCompletedTasks = entries.some(([, count]) => count > 0);
   const maximum = Math.max(1, ...entries.map(([, count]) => count));
@@ -307,9 +307,15 @@ function CompletionTrend({ dailyCompletedTasks, period, historyRecords }) {
                 tabIndex={0}
                 aria-expanded={activeDay === day}
                 aria-label={`${chartLabel(day, period)}: ${count} created tasks completed. Activate for details.`}
-                onMouseEnter={() => setActiveDay(day)}
+                onMouseEnter={() => {
+                  onNeedDetails?.();
+                  setActiveDay(day);
+                }}
                 onMouseLeave={() => setActiveDay(null)}
-                onFocus={() => setActiveDay(day)}
+                onFocus={() => {
+                  onNeedDetails?.();
+                  setActiveDay(day);
+                }}
                 onBlur={() => setActiveDay(null)}
                 onClick={() => setActiveDay((current) => (current === day ? null : day))}
                 onKeyDown={(event) => {
@@ -796,6 +802,9 @@ function NewWeekNotification({ visible, onClose }) {
   );
 }
 
+// No module-level reflection cache: every mount fetches fresh. The page
+// shell (header, summary, panels) renders immediately from null-safe
+// defaults so navigation paints instantly; values fill in when data arrives.
 function StatsPage() {
   const [reflection, setReflection] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -826,7 +835,6 @@ function StatsPage() {
     getWeeklyReflection(period)
       .then((data) => {
         if (cancelled) return;
-        console.log("STATS REFLECTION DATA:", data);
         setReflection(data);
         if (period === "week") {
           const now = new Date();
@@ -852,7 +860,9 @@ function StatsPage() {
         }
       })
       .catch((requestError) => {
-        if (!cancelled) setError(requestError.message);
+        if (!cancelled) {
+          setError(requestError.message);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -863,23 +873,40 @@ function StatsPage() {
     };
   }, [period]);
 
-  // Event-level history for the trend tooltip. Loaded separately from the
-  // aggregates above; if it fails the tooltip degrades to day + count.
+  // Event-level history for the trend tooltip. Fetched lazily on the
+  // first bar interaction (not on mount) and cached per period, so Stats
+  // never downloads the full event stream for tooltips nobody opens.
+  const trendCacheRef = useRef(new Map());
+  const trendInflightRef = useRef(new Set());
+  const periodRef = useRef(period);
+  periodRef.current = period;
   const [trendRecords, setTrendRecords] = useState(undefined);
   useEffect(() => {
-    let cancelled = false;
     setTrendRecords(undefined);
-    getHistory({ range: period })
+  }, [period]);
+  const ensureTrendRecords = useCallback(() => {
+    const key = periodRef.current;
+    if (trendCacheRef.current.has(key)) {
+      const cached = trendCacheRef.current.get(key);
+      setTrendRecords((current) => (current === undefined ? cached : current));
+      return;
+    }
+    if (trendInflightRef.current.has(key)) return;
+    trendInflightRef.current.add(key);
+    getHistory({ range: key })
       .then((data) => {
-        if (!cancelled) setTrendRecords(Array.isArray(data) ? data : []);
+        const records = Array.isArray(data) ? data : [];
+        trendCacheRef.current.set(key, records);
+        if (periodRef.current === key) setTrendRecords(records);
       })
       .catch(() => {
-        if (!cancelled) setTrendRecords(null);
+        trendCacheRef.current.set(key, null);
+        if (periodRef.current === key) setTrendRecords(null);
+      })
+      .finally(() => {
+        trendInflightRef.current.delete(key);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [period]);
+  }, []);
 
   const recoveryOverviewMissed = reflection?.recovery_overview_missed ?? 0;
   const recoveryOverviewRecovered =
@@ -1065,9 +1092,15 @@ function StatsPage() {
         </div>
       </header>
 
-      {loading && <p className="state-message">Gathering your progress...</p>}
-      {error && <p className="state-message state-message--error">{error}</p>}
-      {!loading && !error && (
+      {loading && (
+        <p className="state-message" aria-live="polite">
+          Gathering your progress...
+        </p>
+      )}
+      {error && !reflection && (
+        <p className="state-message state-message--error">{error}</p>
+      )}
+      {!(!reflection && error) && (
         <>
           <section className="stats-target-summary" aria-label="Stats summary">
             <SummaryCard
@@ -1148,6 +1181,7 @@ function StatsPage() {
                     dailyCompletedTasks={reflection?.daily_scheduled_completed_tasks}
                     period={period}
                     historyRecords={trendRecords}
+                    onNeedDetails={ensureTrendRecords}
                   />
                 </article>
                 <article className="stats-target-panel stats-target-panel--work">
