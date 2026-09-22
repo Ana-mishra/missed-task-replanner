@@ -73,6 +73,53 @@ export async function updateCurrentUser(name) {
   return response.json()
 }
 
+export async function getSettings() {
+  const response = await apiFetch('/settings')
+  if (!response.ok) {
+    throw new Error(await readError(response, 'Could not load your settings.'))
+  }
+  return response.json()
+}
+
+export async function updateSettings(values) {
+  const response = await apiFetch('/settings', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(values),
+  })
+  if (!response.ok) {
+    throw new Error(await readError(response, 'Could not save that setting.'))
+  }
+  return response.json()
+}
+
+export async function getVapidPublicKey() {
+  const response = await apiFetch('/notifications/push/vapid-public-key')
+  if (!response.ok) {
+    throw new Error(await readError(response, 'Could not load push configuration.'))
+  }
+  return response.json()
+}
+
+export async function savePushSubscription(subscription) {
+  const response = await apiFetch('/notifications/push/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(subscription),
+  })
+  if (!response.ok) {
+    throw new Error(await readError(response, 'Could not enable browser notifications.'))
+  }
+  return response.json()
+}
+
+export async function deletePushSubscription() {
+  const response = await apiFetch('/notifications/push/subscribe', { method: 'DELETE' })
+  if (!response.ok) {
+    throw new Error(await readError(response, 'Could not disable browser notifications.'))
+  }
+}
+
 export async function login(credentials) {
   const response = await apiFetch('/auth/login', {
     method: 'POST',
@@ -205,6 +252,10 @@ export function getWeeklyReflection(period = 'week') {
 
 export function getDailyReflection(date) {
   return getAnalytics(`reflection/daily?reflection_date=${encodeURIComponent(date)}`, 'Could not load this reflection.')
+}
+
+export function getReflectionNotes() {
+  return getAnalytics('reflection/notes', 'Could not load your notes.')
 }
 
 export async function saveDailyReflection(date, reflection) {

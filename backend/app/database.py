@@ -1,7 +1,8 @@
 import os
+import re
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, exc as sa_exc, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # Load backend/.env for local development. In production the platform
@@ -85,6 +86,47 @@ class Base(DeclarativeBase):
     """Base class for all database models."""
 
 
+def _timeout_setting(name: str, default: str) -> str:
+    """Return a validated PostgreSQL timeout setting (e.g. ``'15s'``).
+
+    Falls back to the default when the environment override is malformed,
+    so a typo can never brick application startup.
+    """
+    value = os.getenv(name, default)
+    if re.fullmatch(r"\d+(ms|s|min|h)?", value or ""):
+        return value
+    return default
+
+
+# Bounded migration timeouts (PostgreSQL only): a blocked deployment must
+# fail fast with an explicit error, never hang forever inside app import.
+_MIGRATION_LOCK_TIMEOUT = _timeout_setting("PLANORA_MIGRATION_LOCK_TIMEOUT", "15s")
+_MIGRATION_STATEMENT_TIMEOUT = _timeout_setting(
+    "PLANORA_MIGRATION_STATEMENT_TIMEOUT", "120s"
+)
+_MIGRATION_READ_TIMEOUT = _timeout_setting("PLANORA_MIGRATION_READ_TIMEOUT", "30s")
+
+# Advisory-lock key serializing the task_history rebuild across instances.
+_TASK_HISTORY_UPGRADE_LOCK = "planora_task_history_upgrade"
+
+
+def _migration_timeouts(connection) -> None:
+    """Bound DDL/DML in a migration transaction (PostgreSQL only).
+
+    Must be the first statement(s) of the transaction so every later
+    statement inherits the bounds.
+    """
+    if not _is_postgresql():
+        return
+    connection.execute(text(f"SET LOCAL lock_timeout = '{_MIGRATION_LOCK_TIMEOUT}'"))
+    connection.execute(text(f"SET LOCAL statement_timeout = '{_MIGRATION_STATEMENT_TIMEOUT}'"))
+
+
+def _add_column_if_supported() -> str:
+    """Return ``IF NOT EXISTS`` for dialects supporting it on ADD COLUMN."""
+    return "IF NOT EXISTS " if _is_postgresql() else ""
+
+
 def get_db():
     """Provide one database session for each request."""
     db = SessionLocal()
@@ -117,9 +159,11 @@ def add_task_planning_columns():
     }
 
     with engine.begin() as connection:
+        _migration_timeouts(connection)
+        maybe_exists = _add_column_if_supported()
         for name, definition in columns_to_add.items():
             if name not in existing_columns:
-                connection.execute(text(f"ALTER TABLE tasks ADD COLUMN {name} {definition}"))
+                connection.execute(text(f"ALTER TABLE tasks ADD COLUMN {maybe_exists}{name} {definition}"))
 
 
 def add_task_ownership_column():
@@ -134,8 +178,10 @@ def add_task_ownership_column():
 
     existing_columns = {column["name"] for column in inspector.get_columns("tasks")}
     with engine.begin() as connection:
+        _migration_timeouts(connection)
+        maybe_exists = _add_column_if_supported()
         if "user_id" not in existing_columns:
-            connection.execute(text("ALTER TABLE tasks ADD COLUMN user_id INTEGER"))
+            connection.execute(text(f"ALTER TABLE tasks ADD COLUMN {maybe_exists}user_id INTEGER"))
 
         legacy_email = "legacy-development@planora.local"
         legacy_user_id = connection.execute(
@@ -187,7 +233,9 @@ def add_task_ownership_column():
                 column["name"] for column in inspector.get_columns("task_history")
             }
             if "user_id" not in history_columns:
-                connection.execute(text("ALTER TABLE task_history ADD COLUMN user_id INTEGER"))
+                connection.execute(
+                    text(f"ALTER TABLE task_history ADD COLUMN {maybe_exists}user_id INTEGER")
+                )
             connection.execute(
                 text(
                     "UPDATE task_history SET user_id = COALESCE("
@@ -201,25 +249,55 @@ def add_task_ownership_column():
             )
 
 
-def _history_constraint_is_current(inspector, connection) -> bool:
-    """Return True when the history CHECK constraint already allows all events."""
-    try:
-        checks = inspector.get_check_constraints("task_history")
-    except NotImplementedError:
-        checks = []
-    for check in checks:
-        sql = str(check.get("sqltext", ""))
-        if "rescheduled" in sql and "recovered" in sql and "overdue" in sql:
-            return True
-    if checks:
-        return False
-    # SQLite fallback for dialects/drivers without check-constraint reflection.
+def _task_history_columns() -> set[str]:
+    """Return the current task_history column names (fresh read, no writes)."""
+    inspector = inspect(engine)
+    if "task_history" not in inspector.get_table_names():
+        return set()
+    return {column["name"] for column in inspector.get_columns("task_history")}
+
+
+def _fetch_constraint_definition(connection) -> str | None:
+    """Fetch this table's CHECK definition on the given connection.
+
+    A single targeted pg_catalog lookup for the one named constraint —
+    never the broad ``Inspector.get_check_constraints()`` reflection,
+    whose ``pg_get_constraintdef`` evaluation runs on a separate pooled
+    connection and blocks behind table locks.
+    """
     if engine.dialect.name == "sqlite":
-        table_sql = connection.execute(
+        return connection.execute(
             text("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task_history'")
         ).scalar() or ""
-        return "rescheduled" in table_sql and "recovered" in table_sql and "overdue" in table_sql
-    return False
+    return connection.execute(
+        text(
+            "SELECT pg_get_constraintdef(c.oid, true) "
+            "FROM pg_catalog.pg_constraint c "
+            "JOIN pg_catalog.pg_class t ON t.oid = c.conrelid "
+            "WHERE t.relname = 'task_history' "
+            "AND c.conname = 'valid_task_history_event_type'"
+        )
+    ).scalar()
+
+
+def _definition_is_current(definition: str | None) -> bool:
+    if not definition:
+        return False
+    return "rescheduled" in definition and "recovered" in definition and "overdue" in definition
+
+
+def _history_constraint_is_current() -> bool:
+    """Return True when the history CHECK constraint already allows all events.
+
+    Runs on its own short-lived connection with a bounded statement
+    timeout — never inside a write transaction holding DDL locks.
+    """
+    if engine.dialect.name == "sqlite":
+        with engine.connect() as connection:
+            return _definition_is_current(_fetch_constraint_definition(connection))
+    with engine.begin() as connection:
+        connection.execute(text(f"SET LOCAL statement_timeout = '{_MIGRATION_READ_TIMEOUT}'"))
+        return _definition_is_current(_fetch_constraint_definition(connection))
 
 
 def upgrade_task_history_table():
@@ -228,12 +306,17 @@ def upgrade_task_history_table():
     CHECK constraints cannot be altered in place, so older installations that
     only allow the original lifecycle event types have their table rebuilt once
     with the expanded constraint after copying every historical record.
+
+    All schema reads happen before any write transaction opens: reflecting
+    from inside a transaction that already holds DDL locks self-deadlocks,
+    because ``pg_get_constraintdef`` needs a lock on the very table the
+    transaction is altering. Healthy databases therefore perform reads only
+    and open no write transaction at all.
     """
     inspector = inspect(engine)
     if "task_history" not in inspector.get_table_names():
         return
 
-    existing_columns = {column["name"] for column in inspector.get_columns("task_history")}
     timestamp = _timestamp_type()
     new_columns = {
     "old_start": timestamp,
@@ -242,64 +325,120 @@ def upgrade_task_history_table():
     "new_end": timestamp,
     "reason": "VARCHAR",
     "completed_at": timestamp,
+    "task_title": "VARCHAR",
 }
-    with engine.begin() as connection:
-        for name, definition in new_columns.items():
-            if name not in existing_columns:
-                connection.execute(text(f"ALTER TABLE task_history ADD COLUMN {name} {definition}"))
+    existing_columns = _task_history_columns()
+    missing_columns = {
+        name: definition for name, definition in new_columns.items() if name not in existing_columns
+    }
+    needs_rebuild = not _history_constraint_is_current()
+    if not missing_columns and not needs_rebuild:
+        # Healthy database: reads only, no write transaction at all.
+        return
 
-        if _history_constraint_is_current(inspector, connection):
-         return
-
-        id_definition = (
-            "INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY"
-            if _is_postgresql()
-            else "INTEGER NOT NULL PRIMARY KEY"
-        )
-        connection.execute(
-            text(
-                f"""
-                CREATE TABLE task_history__upgrade (
-                    id {id_definition},
-                    task_id INTEGER NOT NULL,
-                    user_id INTEGER,
-                    event_type VARCHAR NOT NULL,
-                    timestamp {timestamp} NOT NULL,
-                    scheduled_start {timestamp},
-                    scheduled_end {timestamp},
-                    completed_at {timestamp},
-                    old_start {timestamp},
-                    old_end {timestamp},
-                    new_start {timestamp},
-                    new_end {timestamp},
-                    reason VARCHAR,
-                    CONSTRAINT valid_task_history_event_type CHECK (
-                        event_type IN (
-    'created', 'scheduled', 'missed', 'overdue', 'completed',
-    'replanned', 'rescheduled', 'recovered', 'deleted'
-)
-                    ),
-                    FOREIGN KEY(task_id) REFERENCES tasks (id),
-                    FOREIGN KEY(user_id) REFERENCES users (id)
+    try:
+        with engine.begin() as connection:
+            _migration_timeouts(connection)
+            maybe_exists = _add_column_if_supported()
+            for name, definition in missing_columns.items():
+                connection.execute(
+                    text(f"ALTER TABLE task_history ADD COLUMN {maybe_exists}{name} {definition}")
                 )
-                """
+
+            if not needs_rebuild:
+                return
+            if _is_postgresql():
+                # Serialize concurrent rebuilders; released at commit/rollback.
+                # The re-check below runs on this same connection, so it can
+                # never block on locks held by this transaction itself.
+                connection.execute(
+                    text(f"SELECT pg_advisory_xact_lock(hashtext('{_TASK_HISTORY_UPGRADE_LOCK}'))")
+                )
+                if _definition_is_current(_fetch_constraint_definition(connection)):
+                    return
+
+            id_definition = (
+                "INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY"
+                if _is_postgresql()
+                else "INTEGER NOT NULL PRIMARY KEY"
             )
-        )
-        connection.execute(
-            text(
-                """
-                INSERT INTO task_history__upgrade (
-    id, task_id, user_id, event_type, timestamp, scheduled_start,
-    scheduled_end, completed_at, old_start, old_end, new_start, new_end, reason
-)
-                SELECT id, task_id, user_id, event_type, timestamp, scheduled_start,
-    scheduled_end, completed_at, old_start, old_end, new_start, new_end, reason
-FROM task_history
-                """
+            connection.execute(
+                text(
+                    f"""
+                    CREATE TABLE task_history__upgrade (
+                        id {id_definition},
+                        task_id INTEGER NOT NULL,
+                        user_id INTEGER,
+                        event_type VARCHAR NOT NULL,
+                        timestamp {timestamp} NOT NULL,
+                        scheduled_start {timestamp},
+                        scheduled_end {timestamp},
+                        completed_at {timestamp},
+                        old_start {timestamp},
+                        old_end {timestamp},
+                        new_start {timestamp},
+                        new_end {timestamp},
+                        reason VARCHAR,
+                        task_title VARCHAR,
+                        CONSTRAINT valid_task_history_event_type CHECK (
+                            event_type IN (
+        'created', 'scheduled', 'missed', 'overdue', 'completed',
+        'replanned', 'rescheduled', 'recovered', 'deleted'
+    )
+                        ),
+                        FOREIGN KEY(task_id) REFERENCES tasks (id),
+                        FOREIGN KEY(user_id) REFERENCES users (id)
+                    )
+                    """
+                )
             )
-        )
-        connection.execute(text("DROP TABLE task_history"))
-        connection.execute(text("ALTER TABLE task_history__upgrade RENAME TO task_history"))
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO task_history__upgrade (
+        id, task_id, user_id, event_type, timestamp, scheduled_start,
+        scheduled_end, completed_at, old_start, old_end, new_start, new_end, reason,
+        task_title
+    )
+                    SELECT id, task_id, user_id, event_type, timestamp, scheduled_start,
+        scheduled_end, completed_at, old_start, old_end, new_start, new_end, reason,
+        task_title
+    FROM task_history
+                    """
+                )
+            )
+            connection.execute(text("DROP TABLE task_history"))
+            connection.execute(text("ALTER TABLE task_history__upgrade RENAME TO task_history"))
+            if _is_postgresql():
+                # Explicit-id copies do not advance the identity sequence;
+                # without this the next history write would collide.
+                connection.execute(
+                    text(
+                        "SELECT setval(pg_get_serial_sequence('task_history', 'id'), "
+                        "COALESCE(MAX(id), 0)) FROM task_history"
+                    )
+                )
+    except sa_exc.DBAPIError:
+        # A concurrent instance may have won a DDL race (duplicate column /
+        # table). Re-verify the desired end state: if another instance
+        # completed the upgrade, there is nothing left to do.
+        if _task_history_fully_upgraded():
+            return
+        raise
+
+
+def _task_history_fully_upgraded() -> bool:
+    """Return True when task_history needs no further upgrade work."""
+    expected = {
+        "old_start",
+        "old_end",
+        "new_start",
+        "new_end",
+        "reason",
+        "completed_at",
+        "task_title",
+    }
+    return expected <= _task_history_columns() and _history_constraint_is_current()
 def add_user_name_confirmation_column():
     """Add name confirmation state to existing user accounts."""
     inspector = inspect(engine)
@@ -315,10 +454,12 @@ def add_user_name_confirmation_column():
         return
 
     with engine.begin() as connection:
+        _migration_timeouts(connection)
+        maybe_exists = _add_column_if_supported()
         connection.execute(
             text(
                 "ALTER TABLE users "
-                f"ADD COLUMN name_confirmed BOOLEAN NOT NULL DEFAULT {_boolean_false_literal()}"
+                f"ADD COLUMN {maybe_exists}name_confirmed BOOLEAN NOT NULL DEFAULT {_boolean_false_literal()}"
             )
         )
 
@@ -358,10 +499,11 @@ def upgrade_task_history_task_fk():
         return
 
     with engine.begin() as connection:
+        _migration_timeouts(connection)
         for name in fk_names:
             if name:
                 connection.execute(
-                    text(f'ALTER TABLE task_history DROP CONSTRAINT "{name}"')
+                    text(f'ALTER TABLE task_history DROP CONSTRAINT IF EXISTS "{name}"')
                 )
         connection.execute(text("ALTER TABLE task_history ALTER COLUMN task_id DROP NOT NULL"))
         connection.execute(

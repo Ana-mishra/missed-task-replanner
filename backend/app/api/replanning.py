@@ -57,6 +57,7 @@ def replan_task(
                 task_id=missed_task.id,
                 user_id=current_user.id,
                 event_type="missed",
+                task_title=missed_task.title,
                 scheduled_start=missed_task.scheduled_start,
                 scheduled_end=missed_task.scheduled_end,
                 old_start=missed_start,

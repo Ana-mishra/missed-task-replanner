@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import AppShell from "./components/AppShell.jsx";
-import TaskCard from "./components/TaskCard.jsx";
+import DaySheet from "./components/DaySheet.jsx";
+import PlanPage from "./components/PlanPage.jsx";
 import TaskForm from "./components/TaskForm.jsx";
-import AvailableTimeCard from "./components/AvailableTimeCard.jsx";
-import DashboardRail from "./components/DashboardRail.jsx";
 import HistoryPage from "./components/HistoryPage.jsx";
 import StatsPage from "./components/StatsPage.jsx";
 import ReflectionPage from "./components/ReflectionPage.jsx";
 import AuthPage from "./components/AuthPage.jsx";
-import { formatDuration } from "./utils/duration.mjs";
 
 import {
   createTask,
@@ -18,6 +16,7 @@ import {
   updateCurrentUser,
    getTaskHistory,
   planDay,
+  replanTask,
   getProgress,
   recommendTask,
   updateTask,
@@ -27,11 +26,11 @@ import {
 } from "./services/api.js";
 import {
   DEFAULT_AVAILABLE_MINUTES,
-  getTodayOverloadStatus,
 } from "./utils/workload.mjs";
+import { createRecoveryLock, runRecoverySequence } from "./utils/recovery.mjs";
 
 const LAST_PLANNED_AVAILABLE_MINUTES_KEY = "planora.lastPlannedAvailableMinutes";
-const PLANORA_PAGES = new Set(["today", "history", "stats", "reflection"]);
+const PLANORA_PAGES = new Set(["today", "plan", "history", "stats", "reflection"]);
 
 function pageFromLocation() {
   const page = new URLSearchParams(window.location.search).get("page");
@@ -46,34 +45,6 @@ function pageUrl(page) {
     url.searchParams.set("page", page);
   }
   return `${url.pathname}${url.search}${url.hash}`;
-}
-
-function formatDeadline(deadline) {
-  return new Date(deadline).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function getGreeting() {
-  const hour = new Date().getHours();
-
-  if (hour < 12) {
-    return "Good morning";
-  }
-
-  if (hour < 17) {
-    return "Good afternoon";
-  }
-
-  if (hour < 21) {
-    return "Good evening";
-  }
-
-  return "Good night";
 }
 
 function getTodayCompletedTaskIds(history) {
@@ -113,10 +84,18 @@ function App() {
   const [planIsOverloaded, setPlanIsOverloaded] = useState(false);
   const [unscheduledMinutes, setUnscheduledMinutes] = useState(0);
   const [recommendation, setRecommendation] = useState(null);
+  const [recoveringId, setRecoveringId] = useState(null);
+  const [completingId, setCompletingId] = useState(null);
   const [progress, setProgress] = useState(null);
   const [reflection, setReflection] = useState(null);
   const [replanNotice, setReplanNotice] = useState(null);
   const replanNoticeRef = useRef(null);
+  // Synchronous backstop under the `recoveringId` UI guard: ref updates are
+  // visible immediately, so two same-tick invocations cannot both proceed.
+  const recoveryLockRef = useRef(null);
+  if (recoveryLockRef.current === null) {
+    recoveryLockRef.current = createRecoveryLock();
+  }
   const planIsStaleRef = useRef(false);
   const lastPlannedAvailableMinutesRef = useRef(
     Number(localStorage.getItem(LAST_PLANNED_AVAILABLE_MINUTES_KEY)) || null,
@@ -228,28 +207,9 @@ function App() {
     (total, task) => total + task.duration_minutes,
     0,
   );
-  const currentPlannedTasks = plannedTasks
-    .map((plannedTask) =>
-      tasks.find((task) => String(task.id) === String(plannedTask.id)),
-    )
-    .filter((task) => task && !isCompletedTask(task));
-const todayPlannedTasks = todayPlanTaskIds
-  .map((id) =>
-    tasks.find((task) => String(task.id) === String(id)),
-  )
-  .filter(Boolean);
-
 const completedTodayTasks = tasks.filter((task) =>
   isCompletedTask(task) && todayCompletedTaskIds.includes(String(task.id)),
 );
-const completedTodayPlannedTasks = todayPlannedTasks.filter((task) =>
-  todayCompletedTaskIds.includes(String(task.id)),
-);
-const isDashboardEmpty =
-  !loading &&
-  incompleteTasks.length === 0 &&
-  completedTodayTasks.length === 0 &&
-  !hasPlanned;
   function openForm(nextMode, task = null) {
     setSelected(task);
     setMode(nextMode);
@@ -298,6 +258,39 @@ const isDashboardEmpty =
       setFormError(requestError.message);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function completeTaskDirectly(task) {
+    // Immediate completion without the actual-duration prompt. Reuses the
+    // same backend update flow as the form; the backend records the
+    // `completed` history event and the same refresh follows on success.
+    if (!task || completingId) return;
+    setCompletingId(task.id);
+    setError(null);
+
+    try {
+      const saved = await updateTask(task.id, {
+        ...task,
+        completed: true,
+        status: "completed",
+      });
+      setTasks((all) =>
+        all.map((t) => (t.id === saved.id ? saved : t)),
+      );
+      setTodayCompletedTaskIds((ids) => [
+        ...new Set([...ids, String(saved.id)]),
+      ]);
+      getTaskHistory()
+        .then((history) => setTodayCompletedTaskIds(getTodayCompletedTaskIds(history)))
+        .catch(() => {
+          // The successful update above remains the immediate UI source.
+        });
+      planIsStaleRef.current = true;
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setCompletingId(null);
     }
   }
 
@@ -369,6 +362,57 @@ setHasPlanned(true);
       setPlanning(false);
     }
   }
+  async function handleRecover(task) {
+    // Genuine recovery flow: open/refresh the missed cycle via /replan,
+    // then persist it into today's plan via /plan. The backend records
+    // the `recovered` history event; the task itself returns to pending.
+    if (!task || recoveringId) return;
+    setRecoveringId(task.id);
+    setError(null);
+
+    try {
+      const now = new Date();
+      const window = {
+        available_start: now.toISOString(),
+        available_end: new Date(
+          now.getTime() + availableMinutes * 60 * 1000,
+        ).toISOString(),
+      };
+      const result = await runRecoverySequence({
+        lock: recoveryLockRef.current,
+        taskId: task.id,
+        window,
+        isBusy: () => recoveringId,
+        replanTask,
+        planDay: () => handlePlanDay(),
+        getTasks,
+      });
+      if (!result.started) return;
+      const updated = result.tasks;
+      const recovered = updated.find((item) => item.id === task.id);
+      if (recovered && (recovered.completed || recovered.status === "completed")) {
+        setReplanNotice({
+          title: "Recovered",
+          message: `${task.title} was recovered and is now marked completed.`,
+        });
+      } else if (recovered && recovered.scheduled_start) {
+        setReplanNotice({
+          title: "Recovered",
+          message: `${task.title} is back in today's plan.`,
+        });
+      } else {
+        setReplanNotice({
+          title: "Not recovered yet",
+          message: `${task.title} is still missed. Try planning with more available time.`,
+        });
+      }
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setRecoveringId(null);
+    }
+  }
+
   async function handleRecommend() {
     setError(null);
 
@@ -403,39 +447,11 @@ setHasPlanned(true);
   }
 }
 
-  function planReason(task, scheduledTasks) {
-    const deadline = new Date(task.deadline);
-    if (deadline < new Date()) {
-      return "Overdue";
-    }
-
-    const upcomingDeadlines = scheduledTasks
-      .filter((scheduledTask) => new Date(scheduledTask.deadline) >= new Date())
-      .map((scheduledTask) => new Date(scheduledTask.deadline).getTime());
-    const earliestUpcomingDeadline = Math.min(...upcomingDeadlines);
-
-    if (deadline.getTime() === earliestUpcomingDeadline) {
-      return "Closest upcoming deadline";
-    }
-
-    if (task.priority === "high") {
-      return "High priority";
-    }
-    return "Closest upcoming deadline";
+  async function handleProfileUpdate(name) {
+    const updatedUser = await updateCurrentUser(name);
+    setCurrentUser(updatedUser);
+    return updatedUser;
   }
-
-  const plannedMinutes = currentPlannedTasks.reduce(
-    (total, task) => total + task.duration_minutes,
-    0,
-  );
-  const overloadStatus = getTodayOverloadStatus(tasks, availableMinutes);
-  const displayedIsOverloaded = hasPlanned
-  ? planIsOverloaded
-  : overloadStatus.isOverloaded;
-
-const displayedOverloadedMinutes = hasPlanned
-  ? unscheduledMinutes
-  : overloadStatus.overloadedByMinutes;
 
   function handleLogout() {
     clearAccessToken();
@@ -512,341 +528,61 @@ return (
       activePage={activePage}
       onNavigate={navigateToPage}
   onLogout={handleLogout}
+  onUpdateCurrentUser={handleProfileUpdate}
   progress={progress}
   currentUser={currentUser}
 >
-      {activePage === "history" ? <HistoryPage /> : activePage === "stats" ? <StatsPage /> : activePage === "reflection" ? <ReflectionPage availableMinutes={availableMinutes} /> : <>
-      <section className="welcome">
-  <div>
-    <p className="eyebrow">Your gentle reset</p>
-    <h1>{getGreeting()}, {currentUser.name}! 🌿</h1>
-    <p className="welcome__copy">
-      Let’s plan a balanced and meaningful day.
-    </p>
-  </div>
-</section>
-
-      <section className="summary">
-        <div className="summary__item">
-          <span className="summary__sign summary__sign--tasks" aria-hidden="true">
-          </span>
-          <span className="summary__label">
-  {hasPlanned ? "Tasks Today" : "Tasks to Plan"}
-</span>
-
-<span className="summary__value">
-  {hasPlanned ? todayPlannedTasks.length : incompleteTasks.length}
-</span>
-
-<span className="summary__detail">
-  {hasPlanned
-    ? `${completedTodayPlannedTasks.length} completed`
-    : `${incompleteTasks.length} available`}
-</span>
-        </div>
-
-        <div className="summary__item summary__item--time">
-          <span className="summary__sign summary__sign--time" aria-hidden="true">
-          </span>
-          <span className="summary__label">Available Time</span>
-          <span className="summary__value">
-            {formatDuration(availableMinutes)}
-          </span>
-          <span className="summary__detail">available today</span>
-        </div>
-
-        <div className="summary__item summary__item--planned">
-          <span className="summary__sign summary__sign--planned" aria-hidden="true">
-            ↗
-          </span>
-          <span className="summary__label">Scheduled Work</span>
-          <span className="summary__value">
-            {formatDuration(plannedMinutes)}
-          </span>
-          <span className="summary__detail">
-            {currentPlannedTasks.length} scheduled
-          </span>
-        </div>
-
-        <div
-          className={`summary__item ${
-  displayedIsOverloaded
-    ? "summary__item--overloaded"
-    : "summary__item--on-track"
-}`}
+      {activePage === "history" ? <HistoryPage /> : activePage === "stats" ? <StatsPage /> : activePage === "reflection" ? <ReflectionPage availableMinutes={availableMinutes}       /> : activePage === "plan" ? <PlanPage
+        tasks={tasks}
+        availableMinutes={availableMinutes}
+        onSaveAvailableMinutes={setAvailableMinutes}
+        planning={planning}
+        hasPlanned={hasPlanned}
+        planIsOverloaded={planIsOverloaded}
+        unscheduledMinutes={unscheduledMinutes}
+        onPlanDay={handlePlanDay}
+        onHidePlan={handleHidePlan}
+        onGoToToday={() => navigateToPage("today")}
+        onEditTask={(task) => openForm("edit", task)}
+        onCompleteTask={(task) => completeTaskDirectly(task)}
+        onDeleteTask={(task) => setTaskToDelete(task)}
+      /> : <>
+      {replanNotice && (
+        <section
+          ref={replanNoticeRef}
+          className="replan-notice"
+          aria-live="polite"
         >
-          <span className="summary__sign summary__sign--status" aria-hidden="true">
-            <span className="summary__shield" />
-          </span>
-          <span className="summary__label">Overload Status</span>
-
-          <span className="summary__value">
-            {displayedIsOverloaded ? "Overloaded" : "On Track"}
-          </span>
-
-          <span className="summary__detail">
-            {displayedIsOverloaded
-  ? `${formatDuration(displayedOverloadedMinutes)} left for later`
-  : "You’re doing great!"}
-          </span>
-        </div>
-      </section>
-
-      <section className="tasks-section">
-        {replanNotice && (
-          <section
-            ref={replanNoticeRef}
-            className="replan-notice"
-            aria-live="polite"
-          >
-            <div className="replan-notice__copy">
-              <p className="replan-notice__eyebrow">🌱 GENTLE RESET</p>
-              <h3>{replanNotice.title}</h3>
-              <p>{replanNotice.message}</p>
-            </div>
-
-            <button
-              className="button button--quiet replan-notice__dismiss"
-              type="button"
-              onClick={() => setReplanNotice(null)}
-            >
-              Dismiss
-            </button>
-          </section>
-        )}
-        {!isDashboardEmpty && (
-  <div className="section-heading">
-    <h2>Today’s tasks</h2>
-  </div>
-)}
-
-        <AvailableTimeCard
-          availableMinutes={availableMinutes}
-          onSave={setAvailableMinutes}
-        />
-
-        {!isDashboardEmpty && (
-  <div className="task-list-actions">
-    <button
-      className="button button--quiet"
-      onClick={handlePlanDay}
-      disabled={planning}
-    >
-      {planning ? "Planning…" : "Plan my day"}
-    </button>
-
-    {hasPlanned && (
-      <button
-        className="button button--quiet button--plan-open"
-        type="button"
-        onClick={handleHidePlan}
-        aria-expanded="true"
-        aria-controls="today-plan"
-      >
-        Hide plan ×
-      </button>
-    )}
-
-    <button
-      className="button button--primary"
-      onClick={() => openForm("create")}
-    >
-      Add task
-    </button>
-  </div>
-)}
-
-        {!isDashboardEmpty && overloadStatus.isOverloaded && (
-          <section
-            className="overload-notice"
-            aria-labelledby="overload-heading"
-          >
-            <div className="overload-notice__copy">
-              <p className="overload-notice__eyebrow">Your day looks full</p>
-              <h3 id="overload-heading">
-                More needs attention than fits today.
-              </h3>
-              <p className="overload-notice__support">
-                Plan My Day will prioritize what matters most and leave the rest
-                for later.
-              </p>
-            </div>
-            <div
-              className="overload-notice__limits"
-              aria-label="Daily workload limits"
-            >
-              <span className="overload-limit">
-                {formatDuration(overloadStatus.availableMinutes)}{" "}
-                available
-              </span>
-              <span className="overload-limit">
-                {formatDuration(overloadStatus.totalTodayMinutes)} of
-                tasks
-              </span>
-              <span className="overload-limit overload-limit--exceeded">
-                {formatDuration(overloadStatus.overloadedByMinutes)} over
-                capacity
-              </span>
-            </div>
-          </section>
-        )}
-
-        <div className="dashboard-grid">
-          <main className="dashboard-main">
-            
-  {isDashboardEmpty && (
-      <section
-        className="empty-dashboard"
-        aria-labelledby="empty-dashboard-heading"
-      >
-        <div className="empty-dashboard__content">
-          <p className="empty-dashboard__eyebrow">YOUR DAY IS OPEN</p>
-
-          <h2 id="empty-dashboard-heading">
-            What would make today feel productive?
-          </h2>
-
-          <p className="empty-dashboard__copy">
-            You don't need to plan everything. Add what matters, and Planora
-            will help you find a realistic place for it.
-          </p>
-
-          <button
-            className="button button--primary"
-            type="button"
-            onClick={() => openForm("create")}
-          >
-            Add a task
-          </button>
-
-          <div className="empty-dashboard__flow" aria-label="Planora workflow">
-            <span>Add</span>
-            <span aria-hidden="true">→</span>
-            <span>Plan</span>
-            <span aria-hidden="true">→</span>
-            <span>Adjust</span>
+          <div className="replan-notice__copy">
+            <p className="replan-notice__eyebrow">Recovery</p>
+            <h3>{replanNotice.title}</h3>
+            <p>{replanNotice.message}</p>
           </div>
 
-          <p className="empty-dashboard__note">
-            🌱 A good plan is one you can actually follow.
-          </p>
-        </div>
-      </section>
-    )}
-
-  {hasPlanned && (
-              <section
-                className="plan-panel"
-                id="today-plan"
-                aria-live="polite"
-              >
-                <div className="plan-panel__header">
-                  <div>
-                    <p className="plan-panel__eyebrow">Daily roadmap</p>
-                    <h3>Your plan for today</h3>
-                    <p className="plan-panel__subtitle">
-                      Your clearest path through today’s priorities.
-                    </p>
-                  </div>
-                </div>
-
-                {currentPlannedTasks.length === 0 ? (
-                  <p className="plan-panel__clear">
-                    {incompleteTasks.length === 0
-                      ? "You’re all clear for today."
-                      : "No pending task fits into the remaining time today."}
-                  </p>
-                ) : (
-                  <>
-                    <ol className="plan-panel__list">
-                      {currentPlannedTasks.map((task, index) => (
-                        <li className="plan-panel__item" key={task.id}>
-                          <span className="plan-panel__number">
-                            {index + 1}
-                          </span>
-                          <div>
-                            <strong>{task.title}</strong>
-                            <span className="plan-panel__meta">
-                              {formatDuration(task.duration_minutes)} ·{" "}
-                              {task.priority} priority · Due{" "}
-                              {formatDeadline(task.deadline)}
-                            </span>
-                            <span className="plan-panel__reason">
-                              <span className="plan-panel__reason-label">
-                                Why now
-                              </span>
-                              {planReason(task, currentPlannedTasks)}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-
-                    <p className="plan-panel__summary">
-                      {currentPlannedTasks.length}{" "}
-                      {currentPlannedTasks.length === 1 ? "task" : "tasks"} ·{" "}
-                      {formatDuration(plannedMinutes)} planned
-                      {plannedMinutes < availableMinutes &&
-                        ` · ${formatDuration(availableMinutes - plannedMinutes)} remaining`}
-                    </p>
-                  </>
-                )}
-              </section>
-            )}
-
-            {loading && <p className="state-message">Loading your tasks…</p>}
-
-            {error && (
-              <p className="state-message state-message--error">{error}</p>
-            )}
-
-            {incompleteTasks.length > 0 && (
-              <div className="task-list">
-                {incompleteTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onEdit={() => openForm("edit", task)}
-                    onComplete={() => openForm("complete", task)}
-                    onDelete={() => setTaskToDelete(task)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {completedTodayTasks.length > 0 && (
-  <section className="completed-section">
-    <h2>Completed · Finished for now</h2>
-
-    <div className="task-list">
-      {completedTodayTasks.map((task) => (
-        <TaskCard
-          key={task.id}
-          task={task}
-          onEdit={() => openForm("edit", task)}
-          onComplete={() => openForm("complete", task)}
-          onDelete={() => setTaskToDelete(task)}
-        />
-      ))}
-    </div>
-  </section>
-)}
-
-          </main>
-
-          <DashboardRail
-  recommendation={recommendation}
-  onRecommend={handleRecommend}
-  plannedMinutes={plannedMinutes}
-  availableMinutes={availableMinutes}
-  plannedCount={currentPlannedTasks.length}
-  progress={progress}
-  reflection={reflection}
-  hasActiveTasks={incompleteTasks.length > 0}
-/>
-        </div>
-      </section>
-
+          <button
+            className="button button--quiet replan-notice__dismiss"
+            type="button"
+            onClick={() => setReplanNotice(null)}
+          >
+            Dismiss
+          </button>
+        </section>
+      )}
+      <DaySheet
+        tasks={tasks}
+        incompleteTasks={incompleteTasks}
+        completedTodayTasks={completedTodayTasks}
+        currentUser={currentUser}
+        loading={loading}
+        error={error}
+        onCreate={() => openForm("create")}
+        onEdit={(task) => openForm("edit", task)}
+        onComplete={(task) => completeTaskDirectly(task)}
+        onDelete={(task) => setTaskToDelete(task)}
+        onRecover={handleRecover}
+        recoveringId={recoveringId}
+      />
+      </>}
       {mode && (
         <TaskForm
           key={`${mode}-${selected?.id ?? "new"}`}
@@ -885,7 +621,6 @@ return (
           </section>
         </div>
       )}
-      </>}
     </AppShell>
   );
 }

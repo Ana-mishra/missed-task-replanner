@@ -78,6 +78,7 @@ def create_task(
             task_id=task.id,
             user_id=current_user.id,
             event_type="created",
+            task_title=task.title,
         )
     )
 
@@ -142,6 +143,7 @@ def update_task(
                 task_id=task.id,
                 user_id=current_user.id,
                 event_type="completed",
+                task_title=task.title,
                 scheduled_start=task.scheduled_start,
                 scheduled_end=task.scheduled_end,
                 old_start=task.scheduled_start,
@@ -160,16 +162,20 @@ def delete_task(
     task_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     task = get_task_or_404(task_id, db, current_user.id)
+    # One transaction: the audit row and the delete commit together, so a
+    # failed delete can never leave a phantom history row behind.  The
+    # database clears the surviving rows' task_id (ON DELETE SET NULL)
+    # while user_id keeps them private to their owner.
     db.add(
         TaskHistory(
             task_id=task.id,
             user_id=current_user.id,
             event_type="deleted",
+            task_title=task.title,
             scheduled_start=task.scheduled_start,
             scheduled_end=task.scheduled_end,
         )
     )
-    db.commit()
     db.delete(task)
     for remaining_task in (
         db.query(Task)

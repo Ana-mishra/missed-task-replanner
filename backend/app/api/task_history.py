@@ -37,7 +37,7 @@ def list_task_history(
         TaskHistoryResponse(
             id=event.id,
             task_id=event.task_id,
-            task_title=title,
+            task_title=title or event.task_title,
             event_type=event.event_type,
             timestamp=event.timestamp,
             scheduled_start=event.scheduled_start,

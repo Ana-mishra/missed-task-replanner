@@ -1,0 +1,1207 @@
+/* Day Sheet prototype (Today only). Isolated from the legacy dashboard styles.
+   Direction A: paper, hairlines, whitespace, restrained color. */
+
+.day-sheet {
+  --sheet-ink: var(--text);
+  --sheet-muted: var(--muted);
+  --sheet-rule: var(--border);
+  --sheet-paper: var(--surface);
+  --sheet-missed: var(--danger);
+  --sheet-overdue: var(--warning);
+  --sheet-ok: var(--success);
+  --sheet-accent: var(--primary);
+  --t-quick: 120ms ease-out;
+  --t-calm: 280ms ease-out;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding: 0 0 4rem;
+  color: var(--sheet-ink);
+}
+
+.sheet-eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sheet-muted);
+}
+
+/* Today section eyebrows share the Task Details orange accent via the
+   existing secondary token (re-mapped per theme, so no dark override).
+   Serif titles, hints, and all other eyebrows are untouched. */
+section[aria-label="Open loops"] .sheet-section__head .sheet-eyebrow,
+section[aria-label="The day's plan"] .sheet-section__head .sheet-eyebrow,
+section[aria-label="Completed"] > .sheet-eyebrow {
+  color: var(--secondary);
+  font-weight: 750;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--sheet-rule);
+  margin-bottom: 1.25rem;
+}
+
+.sheet-head__add {
+  flex: none;
+  margin-top: 0.35rem;
+  white-space: nowrap;
+}
+
+.sheet-title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: var(--text-page-title);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--primary);
+}
+
+.sheet-title span {
+  color: #D9A13B;
+  font-family: inherit;
+  font-size: 0.7em;
+}
+
+/* Two-column workspace: schedule content + sticky inline detail panel. */
+.day-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .day-layout:has(.day-detail) {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+  }
+}
+
+.day-detail {
+  min-width: 0;
+}
+
+.inspector--inline {
+  width: auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  animation: none;
+}
+
+@media (min-width: 1024px) {
+  .inspector--inline {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.inspector__now {
+  display: inline-block;
+  padding: 0.22rem 0.6rem;
+  border-radius: 99px;
+  background: #e9f5e8;
+  color: var(--success);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.inspector__chip {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 99px;
+  background: #fff0d7;
+  color: #ad6817;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* Unscheduled group header: count pill + plan action. */
+.sheet-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1rem 0 0.25rem;
+}
+
+.sheet-subhead .sheet-eyebrow {
+  margin: 0;
+}
+
+.sheet-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  margin-left: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  background: var(--surface);
+  font-size: 0.7rem;
+  vertical-align: 0.1em;
+}
+
+/* Today glance strip reuses the shared summary-card pattern. */
+.day-sheet .history-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 1.25rem 0 0;
+}
+
+/* Whisper-quiet washes so the three cards read as one system.
+   Borders, radius, spacing, and dimensions are untouched. */
+.day-sheet .history-summary__card--completed {
+  background: linear-gradient(135deg, #edf4ec 0%, #fffdf9 75%);
+}
+
+.day-sheet .history-summary__card--missed {
+  background: linear-gradient(135deg, #f9ece5 0%, #fffdf9 75%);
+}
+
+.day-sheet .history-summary__card--unscheduled {
+  background: linear-gradient(135deg, #e9effa 0%, #fffdf9 75%);
+}
+
+/* Needs-decision bell matches the amber overdue-row bell below. */
+.day-sheet .history-summary__card--missed > span {
+  background: #f5e9c7;
+  color: #8a6a1f;
+}
+
+/* Unscheduled uses the same card structure as its siblings, with a calm
+   blue/indigo marker treatment distinct from Scheduled green and
+   Needs-decision red. */
+.day-sheet .history-summary__card--unscheduled > span {
+  background: #e9eff9;
+  color: #465e96;
+}
+
+.sheet-standfirst {
+  margin: 0.6rem 0 0;
+  font-size: 1rem;
+  color: var(--sheet-muted);
+}
+
+.sheet-section {
+  padding: 1.25rem 0 0.5rem;
+}
+
+.sheet-section + .sheet-section {
+  border-top: 1px solid var(--sheet-rule);
+}
+
+.sheet-section__head {
+  margin-bottom: 0.85rem;
+}
+
+.sheet-section__title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.sheet-section__hint {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+  color: var(--sheet-muted);
+}
+
+.sheet-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Shared card container for Today groups — same surface language as the
+   rest of Planora: white surface, hairline border, product radius/shadow. */
+.day-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.day-card .sheet-row__body {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.day-card > .sheet-row:first-child,
+.day-card .sheet-daypart:first-child > .sheet-row:first-child {
+  border-top: none;
+}
+
+.day-card > .sheet-row:last-child,
+.day-card .sheet-daypart:last-child > .sheet-row:last-child {
+  border-bottom: none;
+}
+
+.day-card .sheet-row__foot {
+  padding-left: 3.4rem;
+  padding-right: 1rem;
+}
+
+.day-card .sheet-daypart {
+  padding: 0;
+}
+
+.day-card .sheet-daypart__label {
+  margin: 0;
+  padding: 0.85rem 1rem 0.1rem;
+}
+
+.day-card .sheet-daypart + .sheet-daypart,
+.day-card .sheet-nowline + .sheet-daypart {
+  border-top: 1px solid var(--border);
+}
+
+.day-card .sheet-nowline {
+  margin: 0.6rem 1rem;
+}
+
+.day-card .sheet-subhead {
+  padding: 0.85rem 1rem 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.day-card > .sheet-subhead:first-child {
+  border-top: none;
+}
+
+.day-card .sheet-subhead + .sheet-section__hint {
+  padding: 0 1rem;
+}
+
+/* Unscheduled rows sit below the subhead: keep them quieter than the
+   overdue/missed rows above so the exceptional item stays primary. */
+.day-card .sheet-subhead ~ .sheet-row .sheet-row__body {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+.day-card .sheet-subhead ~ .sheet-row .sheet-row__title {
+  font-weight: 550;
+}
+
+/* Small schedule gutter: start-time label + marker + content. No guide. */
+.sheet-rows--ruled .sheet-row__body {
+  display: grid;
+  grid-template-columns: 2.9rem auto minmax(0, 1fr) auto;
+  column-gap: 0.7rem;
+  align-items: start;
+}
+
+.sheet-row__time {
+  padding-top: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--sheet-muted);
+  white-space: nowrap;
+}
+
+.sheet-row {
+  border-bottom: 1px solid var(--sheet-rule);
+}
+
+.sheet-row:first-child {
+  border-top: 1px solid var(--sheet-rule);
+}
+
+.sheet-rows--ruled .sheet-daypart .sheet-row:first-child {
+  border-top: none;
+}
+
+.sheet-row__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 0.65rem 0.25rem;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--t-quick);
+}
+
+.sheet-row__body:hover {
+  background: rgb(40 92 77 / 4%);
+}
+
+.sheet-row--selected .sheet-row__body {
+  background: rgb(40 92 77 / 6%);
+  box-shadow: inset 2px 0 0 var(--sheet-accent);
+}
+
+/* Happening-now task: subtle green surface on the ruled row. */
+.sheet-row--now {
+  background: rgb(40 92 77 / 7%);
+  border-radius: 0.5rem;
+}
+
+.sheet-row__marker {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.1rem;
+  border: none;
+  border-radius: 50%;
+  background: #e8f0f7;
+  color: #3f6f8f;
+}
+
+.sheet-row--missed .sheet-row__marker {
+  background: #fde9e4;
+  color: var(--danger);
+}
+
+.sheet-row--overdue .sheet-row__marker {
+  background: #f5e9c7;
+  color: #8a6a1f;
+}
+
+.sheet-row--completed .sheet-row__marker {
+  background: #e9f5e8;
+  color: var(--success);
+}
+
+.sheet-row--unscheduled .sheet-row__marker {
+  background: #e9eff9;
+  color: #465e96;
+}
+
+.sheet-row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sheet-row__title {
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* Task titles lead their rows: one selective step up, secondary
+   metadata stays quiet. */
+.day-sheet .sheet-row__title {
+  font-weight: 650;
+}
+
+.sheet-row--completed .sheet-row__title {
+  font-weight: 450;
+  color: var(--sheet-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.sheet-row__sub {
+  font-size: 0.86rem;
+  color: var(--sheet-muted);
+}
+
+.sheet-row__slot {
+  font-variant-numeric: tabular-nums;
+  color: var(--sheet-ink);
+}
+
+.sheet-row--completed .sheet-row__slot {
+  color: var(--sheet-muted);
+}
+
+.sheet-row__slot--none {
+  font-style: italic;
+}
+
+.sheet-row__state {
+  font-weight: 600;
+}
+
+.sheet-row--missed .sheet-row__state {
+  color: var(--sheet-missed);
+}
+
+.sheet-row--overdue .sheet-row__state {
+  color: var(--sheet-overdue);
+}
+
+.sheet-row__open {
+  flex: none;
+  margin-top: 0.35rem;
+  color: var(--sheet-muted);
+}
+
+.sheet-row__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.25rem 0.85rem 2.9rem;
+}
+
+.sheet-row__loop {
+  font-size: 0.86rem;
+  font-style: italic;
+  color: var(--sheet-missed);
+}
+
+.sheet-recover {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--sheet-missed);
+  background: transparent;
+  color: var(--sheet-missed);
+  cursor: pointer;
+  transition: background var(--t-quick), color var(--t-quick);
+}
+
+.sheet-recover:hover:not(:disabled) {
+  background: var(--sheet-missed);
+  color: #fffefb;
+}
+
+.sheet-recover:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.sheet-daypart {
+  padding: 0.4rem 0 0.9rem;
+}
+
+.sheet-daypart__label {
+  margin: 0.9rem 0 0.1rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sheet-muted);
+}
+
+.sheet-nowline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.6rem 0;
+}
+
+.sheet-nowline__rule {
+  flex: 1;
+  height: 2px;
+  background: var(--sheet-accent);
+  opacity: 0.65;
+}
+
+.sheet-nowline__pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sheet-accent);
+  border: 1px solid var(--sheet-accent);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sheet-state {
+  padding: 1.5rem 0;
+  color: var(--sheet-muted);
+}
+
+.sheet-state--error {
+  color: var(--sheet-missed);
+}
+
+.sheet-empty {
+  padding: 3rem 0;
+  border-top: 1px solid var(--sheet-rule);
+}
+
+.sheet-empty h2 {
+  margin: 0 0 0.5rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+
+.sheet-empty p {
+  margin: 0 0 1.25rem;
+  color: var(--sheet-muted);
+}
+
+/* Polished zero-task empty state: contained cream card on the Planora
+   surface. Reuses existing sheet tokens only — no new visual language. */
+.sheet-empty--polished {
+  margin-top: 1.25rem;
+  padding: 3rem 2rem 2rem;
+  border: 1px solid var(--sheet-rule);
+  border-radius: var(--radius-lg);
+  background: var(--sheet-paper);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.sheet-empty__art {
+  display: block;
+  margin: 0 auto 1.5rem;
+  max-width: 100%;
+  height: auto;
+}
+
+.sheet-empty--polished .sheet-empty__eyebrow {
+  margin-bottom: 0.5rem;
+}
+
+.sheet-empty__title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--sheet-ink);
+}
+
+.sheet-empty__body {
+  margin: 0.6rem auto 0;
+  max-width: 30rem;
+  font-size: 1rem;
+  color: var(--sheet-muted);
+}
+
+.sheet-empty__cta {
+  margin-top: 1.5rem;
+}
+
+.sheet-empty__hints {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin: 2.5rem 0 0;
+  padding: 1.5rem 0 0;
+  border-top: 1px solid var(--sheet-rule);
+  list-style: none;
+  text-align: left;
+}
+
+.sheet-empty__hints li {
+  flex: 1 1 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  max-width: 22rem;
+  padding: 0 1.5rem;
+}
+
+.sheet-empty__hints li + li {
+  border-left: 1px solid var(--sheet-rule);
+}
+
+.sheet-empty__hint-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: #edf4e9;
+  color: var(--sheet-accent);
+}
+
+.sheet-empty__hints strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--sheet-ink);
+}
+
+.sheet-empty__hints small {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--sheet-muted);
+}
+
+/* Inspector: side panel on desktop, overlay sheet on small screens. */
+.inspector-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(35 49 45 / 28%);
+  display: flex;
+  justify-content: flex-end;
+  animation: sheet-fade var(--t-calm);
+}
+
+.inspector {
+  width: min(26rem, 100%);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--sheet-paper);
+  border-left: 1px solid var(--sheet-rule);
+  padding: 1.75rem 1.75rem 2.5rem;
+  animation: sheet-slide var(--t-calm);
+}
+
+@keyframes sheet-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sheet-slide {
+  from { transform: translateX(2rem); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.inspector__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.inspector__head .sheet-eyebrow {
+  margin: 0;
+}
+
+.inspector__title {
+  margin: 0 0 0.4rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.6rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.inspector__desc {
+  margin: 0 0 0.75rem;
+  color: var(--sheet-muted);
+}
+
+.inspector__state {
+  margin: 0 0 0.4rem;
+  font-weight: 700;
+}
+
+.inspector__recovered {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--sheet-ok);
+}
+
+.inspector__facts {
+  margin: 1.25rem 0 0;
+  border-top: 1px solid var(--sheet-rule);
+}
+
+.inspector__facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--sheet-rule);
+  font-size: 0.92rem;
+}
+
+.inspector__facts dt {
+  color: var(--sheet-muted);
+}
+
+.inspector__facts dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector__journey {
+  margin-top: 1.5rem;
+}
+
+.inspector__journey h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sheet-muted);
+}
+
+.inspector__journey ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 1px solid var(--sheet-rule);
+}
+
+.inspector__journey li {
+  position: relative;
+  padding: 0 0 0.7rem 1rem;
+  font-size: 0.9rem;
+}
+
+.inspector__journey li::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 0.45rem;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sheet-paper);
+  border: 1.5px solid var(--sheet-accent);
+}
+
+.inspector__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--sheet-rule);
+}
+
+.inspector__back {
+  margin: 1.25rem 0 0;
+}
+
+.inspector__back button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--sheet-muted);
+  cursor: pointer;
+}
+
+.inspector__back button:hover {
+  color: var(--sheet-accent);
+}
+
+/* Inspector polish: hierarchy, semantic icons, tactile rows, journey
+   timeline. All selectors are inspector-scoped; sheet tokens remap in
+   dark mode so both themes stay calm. */
+
+/* Title leads the panel in strong forest green after the eyebrow. */
+.inspector__title {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* Compact semantic status pill instead of plain text. */
+.inspector__state-row {
+  margin: 0 0 0.4rem;
+}
+
+.inspector__status {
+  display: inline-block;
+  padding: 0.24rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.inspector__status--completed {
+  background: #e9f5e8;
+  border-color: #c8ddca;
+  color: var(--success);
+}
+
+.inspector__status--missed {
+  background: #fde9e4;
+  border-color: #f2c9bd;
+  color: var(--danger);
+}
+
+.inspector__status--overdue {
+  background: #f5e9c7;
+  border-color: #e6d194;
+  color: #8a6a1f;
+}
+
+.inspector__status--pending {
+  background: #eef2ee;
+  border-color: var(--sheet-rule);
+  color: var(--sheet-ink);
+}
+
+/* Recovery: soft pale-green surface with icon and dark-green text. */
+.inspector__recovered {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0.65rem 0 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #c8ddca;
+  border-radius: 0.75rem;
+  background: #eff7ed;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--primary);
+}
+
+.inspector__recovered svg {
+  flex: none;
+  margin-top: 0.15rem;
+  color: var(--success);
+}
+
+/* Fact rows: icon + muted label + prominent value. Editable rows hint
+   interactivity on hover/focus without looking like form inputs. */
+.inspector__facts > div.inspector__fact {
+  align-items: center;
+  border-radius: 0.55rem;
+}
+
+.inspector__facts dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.inspector__facts dd {
+  font-weight: 600;
+  color: var(--sheet-ink);
+}
+
+.inspector__fact-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  border: 1px solid var(--sheet-rule);
+  background: var(--sheet-paper);
+}
+
+.inspector__fact-icon--scheduled {
+  color: #3f6f8f;
+  border-color: #c9dbe6;
+  background: #eef4f8;
+}
+
+.inspector__fact-icon--deadline {
+  color: var(--danger);
+  border-color: #f2c9bd;
+  background: #fdf0ec;
+}
+
+.inspector__fact-icon--duration {
+  color: var(--success);
+  border-color: #c8ddca;
+  background: #eff7ed;
+}
+
+.inspector__fact-icon--priority {
+  color: var(--warning);
+  border-color: #e6d194;
+  background: #faf3e2;
+}
+
+.inspector__fact-icon--energy {
+  color: #c06a35;
+  border-color: #eecfb8;
+  background: #fdf3ea;
+}
+
+.inspector__fact--editable {
+  cursor: pointer;
+  transition: background 160ms ease-out, border-color 160ms ease-out;
+}
+
+.inspector__fact--editable:hover {
+  background: rgb(40 92 77 / 5%);
+}
+
+.inspector__fact--editable:focus-visible {
+  outline: 2px solid var(--sheet-accent);
+  outline-offset: 2px;
+}
+
+/* Journey: icon heading + neutral count pill + semantic markers. */
+.inspector__journey-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.inspector__journey-head h3 {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--sheet-ink);
+}
+
+.inspector__journey-head h3 svg {
+  color: var(--sheet-accent);
+}
+
+.inspector__count {
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--sheet-rule);
+  border-radius: 99px;
+  background: var(--sheet-paper);
+  color: var(--sheet-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector__journey li {
+  border-radius: 0 0.55rem 0.55rem 0;
+  transition: background 160ms ease-out;
+}
+
+.inspector__journey li:hover {
+  background: rgb(40 92 77 / 5%);
+}
+
+.inspector__journey li strong {
+  font-weight: 650;
+  color: var(--sheet-ink);
+}
+
+.inspector__journey li span {
+  color: var(--sheet-muted);
+}
+
+/* Most recent event rests on a slightly stronger surface. History is
+   append-only chronological, so the last row is the current state. */
+.inspector__journey li:last-child {
+  background: rgb(40 92 77 / 5%);
+  border-radius: 0 0.55rem 0.55rem 0;
+}
+
+.inspector__event--recovered::before {
+  background: var(--success) !important;
+  border-color: var(--success) !important;
+}
+
+.inspector__event--missed::before {
+  background: #fde9e4 !important;
+  border-color: var(--danger) !important;
+}
+
+.inspector__event--overdue::before {
+  background: #f5e9c7 !important;
+  border-color: var(--warning) !important;
+}
+
+.inspector__event--rescheduled::before {
+  background: var(--sheet-paper);
+  border-color: var(--secondary, #d97a50) !important;
+}
+
+/* Actions: tactile primary, quiet secondaries, restrained danger. */
+.inspector__actions .button {
+  transition:
+    transform 170ms ease-out,
+    box-shadow 170ms ease-out,
+    background 170ms ease-out,
+    border-color 170ms ease-out,
+    color 170ms ease-out;
+}
+
+.inspector__actions .button--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.inspector__head .button {
+  transition: background 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out;
+}
+
+/* Back-to-today arrow drifts right on hover. */
+.inspector__back button svg {
+  transition: transform 170ms ease-out;
+}
+
+.inspector__back button:hover svg {
+  transform: translateX(3px);
+}
+
+/* Whisper-quiet botanical flourish closing the panel. */
+.inspector__flourish {
+  margin: 1.75rem 0 0;
+  text-align: center;
+  color: var(--success);
+  opacity: 0.35;
+}
+
+/* Dark theme: same hierarchy through translucent tints, no brightness lift. */
+:root[data-theme="dark"] .inspector__status--completed {
+  background: rgb(143 200 168 / 12%);
+  border-color: rgb(143 200 168 / 35%);
+  color: var(--dark-success);
+}
+
+:root[data-theme="dark"] .inspector__status--missed {
+  background: rgb(229 142 130 / 12%);
+  border-color: rgb(229 142 130 / 40%);
+  color: var(--dark-danger);
+}
+
+:root[data-theme="dark"] .inspector__status--overdue {
+  background: rgb(217 165 104 / 12%);
+  border-color: rgb(217 165 104 / 40%);
+  color: var(--dark-warning);
+}
+
+:root[data-theme="dark"] .inspector__status--pending {
+  background: rgb(255 255 255 / 6%);
+  border-color: var(--dark-border-strong);
+  color: var(--dark-text-secondary);
+}
+
+:root[data-theme="dark"] .inspector__recovered {
+  background: rgb(155 205 177 / 12%);
+  border-color: rgb(155 205 177 / 35%);
+  color: var(--dark-accent);
+}
+
+:root[data-theme="dark"] .inspector__fact-icon--scheduled {
+  color: #9dbbdd;
+  border-color: rgb(157 187 221 / 35%);
+  background: rgb(157 187 221 / 12%);
+}
+
+:root[data-theme="dark"] .inspector__fact-icon--deadline {
+  color: var(--dark-danger);
+  border-color: rgb(229 142 130 / 40%);
+  background: rgb(229 142 130 / 12%);
+}
+
+:root[data-theme="dark"] .inspector__fact-icon--duration {
+  color: var(--dark-success);
+  border-color: rgb(143 200 168 / 35%);
+  background: rgb(143 200 168 / 12%);
+}
+
+:root[data-theme="dark"] .inspector__fact-icon--priority {
+  color: var(--dark-warning);
+  border-color: rgb(217 165 104 / 40%);
+  background: rgb(217 165 104 / 12%);
+}
+
+:root[data-theme="dark"] .inspector__fact-icon--energy {
+  color: #d9986b;
+  border-color: rgb(217 152 107 / 40%);
+  background: rgb(217 152 107 / 12%);
+}
+
+@media (max-width: 640px) {
+  .sheet-head {
+    padding-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .sheet-head__add {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .inspector-backdrop {
+    align-items: flex-end;
+    justify-content: stretch;
+  }
+
+  .inspector {
+    width: 100%;
+    height: auto;
+    max-height: 88vh;
+    border-left: none;
+    border-top: 1px solid var(--sheet-rule);
+    border-radius: 1rem 1rem 0 0;
+    animation-name: sheet-rise;
+  }
+
+  @keyframes sheet-rise {
+    from { transform: translateY(2rem); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+
+  .sheet-rows--ruled .sheet-row__body {
+    grid-template-columns: 2.4rem auto minmax(0, 1fr) auto;
+    column-gap: 0.5rem;
+  }
+
+  .day-sheet .history-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .sheet-row__foot {
+    padding-left: 0.25rem;
+  }
+
+  .sheet-empty--polished {
+    padding: 2rem 1.25rem 1.5rem;
+  }
+
+  .sheet-empty__title {
+    font-size: 1.6rem;
+  }
+
+  .sheet-empty__hints {
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  .sheet-empty__hints li {
+    max-width: none;
+    padding: 0;
+  }
+
+  .sheet-empty__hints li + li {
+    border-left: none;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--sheet-rule);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-sheet *,
+  .day-sheet *::before,
+  .day-sheet *::after,
+  .inspector-backdrop,
+  .inspector {
+    animation: none !important;
+    transition: none !important;
+  }
+}

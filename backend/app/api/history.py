@@ -108,7 +108,7 @@ def load_meaningful_history(
             HistoryEventResponse(
                 id=record.id,
                 task_id=record.task_id,
-                task_title=title,
+                task_title=title or record.task_title,
                 event_type=resolved_type,
                 timestamp=record.timestamp,
                 deadline=deadline,

@@ -507,3 +507,130 @@ class ReflectionServiceTests(unittest.TestCase):
         self.assertIn(date(2026, 8, 1), result.daily_scheduled_completed_tasks)
         self.assertEqual(result.daily_scheduled_completed_tasks[date(2026, 5, 1)], 1)
         self.assertEqual(result.daily_scheduled_completed_tasks[date(2026, 8, 1)], 1)
+
+
+class PlanStabilityTaskListTests(unittest.TestCase):
+    """Display companions to the plan_stability counts share one pass."""
+
+    def setUp(self):
+        self.service = ReflectionService()
+        self.week_start = date(2026, 8, 10)
+        self.current_time = datetime(2026, 8, 16, 23, 59)
+
+    def task(self, task_id, title=None):
+        task = Task(
+            id=task_id,
+            title=title or f"Task {task_id}",
+            duration_minutes=30,
+            deadline=datetime(2026, 8, 20, 10, 0),
+            priority="medium",
+        )
+        return task
+
+    def event(self, event_id, task_id, event_type, event_time):
+        return TaskHistory(
+            id=event_id,
+            task_id=task_id,
+            event_type=event_type,
+            timestamp=event_time,
+        )
+
+    def test_task_lists_match_counts_with_real_titles(self):
+        tasks = [
+            self.task(1, "Book dentist appointment"),
+            self.task(2, "Compare standing desk options"),
+            self.task(3, "Learning French"),
+        ]
+        history = [
+            self.event(1, 1, "scheduled", datetime(2026, 8, 11, 9)),
+            self.event(2, 1, "completed", datetime(2026, 8, 11, 10)),
+            self.event(3, 2, "scheduled", datetime(2026, 8, 12, 9)),
+            self.event(4, 2, "rescheduled", datetime(2026, 8, 12, 10)),
+            self.event(5, 3, "scheduled", datetime(2026, 8, 13, 9)),
+            self.event(6, 3, "missed", datetime(2026, 8, 13, 10)),
+        ]
+        result = self.service.calculate(tasks, history, self.week_start, self.current_time)
+        self.assertEqual(result.plan_stability, {"stayed_as_planned": 1, "adjusted": 1, "missed": 1})
+        self.assertEqual(
+            [(item.id, item.title) for item in result.plan_stability_tasks["stayed_as_planned"]],
+            [(1, "Book dentist appointment")],
+        )
+        self.assertEqual(
+            [(item.id, item.title) for item in result.plan_stability_tasks["adjusted"]],
+            [(2, "Compare standing desk options")],
+        )
+        self.assertEqual(
+            [(item.id, item.title) for item in result.plan_stability_tasks["missed"]],
+            [(3, "Learning French")],
+        )
+
+    def test_missed_after_recovery_lists_task_as_missed_once(self):
+        tasks = [self.task(1, "Learning French")]
+        history = [
+            self.event(1, 1, "scheduled", datetime(2026, 8, 11, 9)),
+            self.event(2, 1, "missed", datetime(2026, 8, 11, 10)),
+            self.event(3, 1, "missed", datetime(2026, 8, 12, 10)),
+            self.event(4, 1, "recovered", datetime(2026, 8, 12, 11)),
+            self.event(5, 1, "completed", datetime(2026, 8, 12, 12)),
+        ]
+        result = self.service.calculate(tasks, history, self.week_start, self.current_time)
+        self.assertEqual(result.plan_stability["missed"], 1)
+        self.assertEqual(len(result.plan_stability_tasks["missed"]), 1)
+        self.assertEqual(result.plan_stability_tasks["missed"][0].title, "Learning French")
+        self.assertEqual(result.plan_stability_tasks["stayed_as_planned"], [])
+        self.assertEqual(result.plan_stability_tasks["adjusted"], [])
+
+    def test_unscheduled_and_comparison_period_tasks_are_excluded(self):
+        tasks = [self.task(1, "Current task")]
+        history = [
+            self.event(1, 1, "completed", datetime(2026, 8, 11, 10)),  # unscheduled
+            self.event(2, 2, "missed", datetime(2026, 8, 12, 10)),  # unscheduled
+            self.event(3, 3, "scheduled", datetime(2026, 8, 5, 9)),  # previous period
+            self.event(4, 3, "missed", datetime(2026, 8, 5, 10)),
+        ]
+        result = self.service.calculate(tasks, history, self.week_start, self.current_time)
+        self.assertEqual(result.plan_stability, {"stayed_as_planned": 0, "adjusted": 0, "missed": 0})
+        self.assertEqual(
+            result.plan_stability_tasks,
+            {"stayed_as_planned": [], "adjusted": [], "missed": []},
+        )
+
+    def test_deleted_task_keeps_title_through_history_snapshot(self):
+        # The task row is gone (ON DELETE SET NULL cleared task_id), but the
+        # events captured the title when written.
+        history = [
+            TaskHistory(
+                id=1, task_id=None, event_type="scheduled",
+                timestamp=datetime(2026, 8, 11, 9), task_title="Learning French",
+            ),
+            TaskHistory(
+                id=2, task_id=None, event_type="missed",
+                timestamp=datetime(2026, 8, 11, 10), task_title="Learning French",
+            ),
+        ]
+        result = self.service.calculate([], history, self.week_start, self.current_time)
+        self.assertEqual(result.plan_stability, {"stayed_as_planned": 0, "adjusted": 0, "missed": 1})
+        self.assertEqual(len(result.plan_stability_tasks["missed"]), 1)
+        self.assertIsNone(result.plan_stability_tasks["missed"][0].id)
+        self.assertEqual(result.plan_stability_tasks["missed"][0].title, "Learning French")
+
+    def test_live_task_prefers_current_title_over_stale_snapshot(self):
+        tasks = [self.task(1, "Renamed task")]
+        history = [
+            self.event(1, 1, "scheduled", datetime(2026, 8, 11, 9)),
+            self.event(2, 1, "completed", datetime(2026, 8, 11, 10)),
+        ]
+        history[0].task_title = "Old name"
+        history[1].task_title = "Old name"
+        result = self.service.calculate(tasks, history, self.week_start, self.current_time)
+        self.assertEqual(result.plan_stability_tasks["stayed_as_planned"][0].title, "Renamed task")
+
+    def test_genuinely_unavailable_title_is_omitted_gracefully(self):
+        # Old rows predate the snapshot column: NULL task_id and NULL title.
+        history = [
+            self.event(1, None, "scheduled", datetime(2026, 8, 11, 9)),
+            self.event(2, None, "missed", datetime(2026, 8, 11, 10)),
+        ]
+        result = self.service.calculate([], history, self.week_start, self.current_time)
+        self.assertEqual(result.plan_stability, {"stayed_as_planned": 0, "adjusted": 0, "missed": 1})
+        self.assertEqual(result.plan_stability_tasks["missed"], [])

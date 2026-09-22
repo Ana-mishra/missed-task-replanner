@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getDailyReflection, saveDailyReflection } from "../services/api.js";
+import {
+  getDailyReflection,
+  getReflectionNotes,
+  saveDailyReflection,
+} from "../services/api.js";
 import { formatDuration } from "../utils/duration.mjs";
+import { IconNote } from "./icons.jsx";
 
 const MOODS = [
   { value: "tough", face: "sad", label: "Tough" },
@@ -14,6 +19,30 @@ function localDateValue() {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60_000;
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function addCalendarDays(dateValue, days) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function startOfCurrentWeek() {
+  const today = new Date();
+  const day = today.getDay();
+  today.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+function formatNoteDate(dateValue) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString([], {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function initialForm(reflection) {
@@ -37,6 +66,14 @@ function ReflectionPage({ availableMinutes }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [previousIntention, setPreviousIntention] = useState("");
+  const [reminderDismissed, setReminderDismissed] = useState(false);
+  const [notesDrawerOpen, setNotesDrawerOpen] = useState(false);
+  const [notes, setNotes] = useState([]);
+  const [notesRange, setNotesRange] = useState("week");
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState(null);
+  const [notesRefreshKey, setNotesRefreshKey] = useState(0);
   const isToday = selectedDate === localDateValue();
   const isPastDate = selectedDate < localDateValue();
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -101,6 +138,28 @@ if (!hasSavedReflection && !isPastDate) {
   }, [selectedDate]);
 
   useEffect(() => {
+    let active = true;
+    const reminderKey = `planora.reflectionReminderDismissed.${selectedDate}`;
+    const previousDate = addCalendarDays(selectedDate, -1);
+
+    setPreviousIntention("");
+    setReminderDismissed(localStorage.getItem(reminderKey) === "true");
+
+    getDailyReflection(previousDate)
+      .then((result) => {
+        if (!active) return;
+        setPreviousIntention(result?.tomorrow_step?.trim() ?? "");
+      })
+      .catch(() => {
+        if (active) setPreviousIntention("");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedDate]);
+
+  useEffect(() => {
   function handleOutsideClick(event) {
     if (
       calendarRef.current &&
@@ -153,6 +212,7 @@ if (!hasSavedReflection && !isPastDate) {
       setReflection(saved)
 setForm(initialForm(saved))
 setIsEditing(false)
+    setNotesRefreshKey((current) => current + 1)
 setSuccess("Reflection saved.");
 window.setTimeout(() => {
   setSuccess(null);
@@ -173,6 +233,82 @@ window.setTimeout(() => {
   isEditingRef.current = true;
   setIsEditing(true);
 }
+
+  function dismissReminder() {
+    localStorage.setItem(
+      `planora.reflectionReminderDismissed.${selectedDate}`,
+      "true",
+    );
+    setReminderDismissed(true);
+  }
+
+  useEffect(() => {
+    if (!notesDrawerOpen) return undefined;
+
+    let active = true;
+    setNotesLoading(true);
+    setNotesError(null);
+    getReflectionNotes()
+      .then((result) => active && setNotes(Array.isArray(result) ? result : []))
+      .catch((requestError) => active && setNotesError(requestError.message))
+      .finally(() => active && setNotesLoading(false));
+
+    return () => {
+      active = false;
+    };
+  }, [notesDrawerOpen, notesRefreshKey]);
+
+  useEffect(() => {
+    if (!notesDrawerOpen) return undefined;
+
+    function handleEscape(event) {
+      if (event.key === "Escape") setNotesDrawerOpen(false);
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [notesDrawerOpen]);
+
+  const visibleNotes = useMemo(() => {
+    const today = localDateValue();
+    const start = notesRange === "week"
+      ? startOfCurrentWeek()
+      : notesRange === "month"
+        ? `${today.slice(0, 7)}-01`
+        : null;
+    return notes.filter((entry) => !start || entry.date >= start);
+  }, [notes, notesRange]);
+
+  const thisWeekStart = startOfCurrentWeek();
+  const currentNotes = notesRange === "week"
+    ? visibleNotes
+    : visibleNotes.filter((entry) => entry.date >= thisWeekStart);
+  const earlierNotes = notesRange === "week"
+    ? []
+    : visibleNotes.filter((entry) => entry.date < thisWeekStart);
+
+  function notesEmptyState() {
+    if (notesRange === "week") {
+      return {
+        title: "No notes this week",
+        body: "You haven't left yourself a note this week yet.",
+        prompt: 'Write one in "A note to yourself" on your Reflection page, and it\'ll appear here.',
+      };
+    }
+    if (notesRange === "month") {
+      return {
+        title: "No notes this month",
+        body: "You haven't left yourself a note this month yet.",
+        prompt: "Leave a note during your Reflection and it'll appear here.",
+      };
+    }
+    return {
+      title: "No notes yet",
+      body: "Your kind notes to yourself will live here.",
+      prompt: 'Start by leaving a note in "A note to yourself" on your Reflection page.',
+    };
+  }
+
   console.log("IS EDITING:", isEditing)
   const availableLabel = isToday
     ? formatDuration(availableMinutes)
@@ -281,7 +417,7 @@ window.setTimeout(() => {
             new Date(calendarYear, calendarMonthIndex, day);
 
           const dateValue = calendarDate
-            ? calendarDate.toISOString().slice(0, 10)
+            ? `${calendarYear}-${String(calendarMonthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
             : null;
 
           const isSelected = dateValue === selectedDate;
@@ -320,6 +456,35 @@ window.setTimeout(() => {
   )}
 </div>
       </header>
+
+      {previousIntention && !reminderDismissed && (
+        <aside className="reflection-reminder" aria-label="Reminder from yesterday">
+          <span className="reflection-reminder__icon" aria-hidden="true">
+            <span>↗</span>
+          </span>
+          <div className="reflection-reminder__content">
+            <h2>A note from yesterday</h2>
+            <p>You said you'd focus on:</p>
+            <strong>“{previousIntention}”</strong>
+            <p>Ready to make it happen today? <span aria-hidden="true">🌱</span></p>
+          </div>
+          <button
+            className="reflection-reminder__close"
+            type="button"
+            onClick={dismissReminder}
+            aria-label="Dismiss reminder"
+          >
+            ×
+          </button>
+          <button
+            className="button button--primary reflection-reminder__action"
+            type="button"
+            onClick={dismissReminder}
+          >
+            Got it
+          </button>
+        </aside>
+      )}
 
       <section className="reflection-intro">
         <span className="reflection-intro__quote" aria-hidden="true">
@@ -450,6 +615,13 @@ window.setTimeout(() => {
             <span className="reflection-writing__count">
               {form.note_to_self.length} / 500
             </span>
+            <button
+              className="reflection-note__view"
+              type="button"
+              onClick={() => setNotesDrawerOpen(true)}
+            >
+              View your notes →
+            </button>
           </section>
 
           <section className="reflection-surface reflection-streak">
@@ -522,6 +694,82 @@ window.setTimeout(() => {
           )}
         </footer>
       </form>
+
+      {notesDrawerOpen && (
+        <aside className="reflection-notes-drawer" aria-label="Your notes to yourself">
+          <header className="reflection-notes-drawer__header">
+            <div>
+              <h2>Your notes to yourself</h2>
+              <p>A collection of the kind things you've told yourself.</p>
+            </div>
+            <button
+              className="reflection-notes-drawer__close"
+              type="button"
+              onClick={() => setNotesDrawerOpen(false)}
+              aria-label="Close your notes"
+            >
+              ×
+            </button>
+          </header>
+          <div className="reflection-notes-drawer__filters" role="tablist" aria-label="Note date range">
+            {[["week", "This Week"], ["month", "This Month"], ["all", "All Time"]].map(([value, label]) => (
+              <button
+                key={value}
+                className={notesRange === value ? "reflection-notes-drawer__filter--active" : ""}
+                type="button"
+                role="tab"
+                aria-selected={notesRange === value}
+                onClick={() => setNotesRange(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {notesLoading && <p className="reflection-notes-drawer__state">Loading your notes…</p>}
+          {notesError && (
+            <p className="reflection-notes-drawer__state reflection-notes-drawer__state--error">
+              Could not load your notes right now. Please try again.
+            </p>
+          )}
+          {!notesLoading && !notesError && visibleNotes.length === 0 && (
+            <div className="reflection-notes-drawer__empty">
+              <span className="reflection-notes-drawer__empty-icon" aria-hidden="true"><IconNote width="20" height="20" /></span>
+              <h3>{notesEmptyState().title}</h3>
+              <p>{notesEmptyState().body}</p>
+              <p>{notesEmptyState().prompt}</p>
+              <button
+                className="reflection-notes-drawer__back"
+                type="button"
+                onClick={() => setNotesDrawerOpen(false)}
+              >
+                ← Back to Reflection
+              </button>
+            </div>
+          )}
+          {!notesLoading && !notesError && visibleNotes.length > 0 && (
+            <div className="reflection-notes-drawer__list">
+              <p className="reflection-notes-drawer__group">{notesRange === "week" ? "THIS WEEK" : "NOTES"}</p>
+              {currentNotes.map((entry) => (
+                <article className="reflection-note-entry" key={entry.date}>
+                  <time dateTime={entry.date}>{formatNoteDate(entry.date)}</time>
+                  <p>“{entry.note}”</p>
+                </article>
+              ))}
+              {earlierNotes.length > 0 && (
+                <>
+                  <p className="reflection-notes-drawer__group">EARLIER</p>
+                  {earlierNotes.map((entry) => (
+                    <article className="reflection-note-entry" key={entry.date}>
+                      <time dateTime={entry.date}>{formatNoteDate(entry.date)}</time>
+                      <p>“{entry.note}”</p>
+                    </article>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </aside>
+      )}
     </section>
   );
 }

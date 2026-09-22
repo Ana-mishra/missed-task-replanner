@@ -13,7 +13,13 @@ from app.services.estimation import EstimationService
 from app.schemas.progress import ProgressResponse
 from app.models.task_history import TaskHistory
 from app.services.progress import ProgressService
-from app.schemas.reflection import DailyReflectionInput, DailyReflectionResponse, WeeklyReflectionResponse
+from app.schemas.reflection import (
+    DailyReflectionInput,
+    DailyReflectionResponse,
+    PlanStabilityTask,
+    ReflectionNoteResponse,
+    WeeklyReflectionResponse,
+)
 from app.services.reflection import ReflectionService
 from app.models.daily_reflection import DailyReflection
 from app.schemas.personalization import PersonalizationInsightResponse, PersonalizationResponse
@@ -76,6 +82,21 @@ def get_daily_reflection(
     current_user: User = Depends(get_current_user),
 ):
     return _build_daily_reflection_response(db, current_user, reflection_date or datetime.now().date())
+
+
+@router.get("/reflection/notes", response_model=list[ReflectionNoteResponse])
+def get_reflection_notes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    reflections = db.query(DailyReflection).filter(
+        DailyReflection.user_id == current_user.id,
+        DailyReflection.note_to_self != "",
+    ).order_by(DailyReflection.reflection_date.desc()).all()
+    return [
+        ReflectionNoteResponse(date=reflection.reflection_date, note=reflection.note_to_self)
+        for reflection in reflections
+    ]
 
 
 @router.put("/reflection/daily", response_model=DailyReflectionResponse)
@@ -191,6 +212,10 @@ def get_weekly_reflection(
         tasks_scheduled=result.tasks_scheduled,
         tasks_scheduled_completed=result.tasks_scheduled_completed,
         plan_stability=result.plan_stability,
+        plan_stability_tasks={
+            bucket: [PlanStabilityTask(id=item.id, title=item.title) for item in items]
+            for bucket, items in result.plan_stability_tasks.items()
+        },
         recovery_overview_missed=result.recovery_overview_missed,
         recovery_overview_recovered=result.recovery_overview_recovered,
         deadline_behavior=result.deadline_behavior,

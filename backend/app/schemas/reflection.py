@@ -4,6 +4,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class PlanStabilityTask(BaseModel):
+    """One task in a Plan Stability bucket (display companion to the counts)."""
+
+    id: int | None
+    title: str
+
+
 class WeeklyReflectionResponse(BaseModel):
     week_start: date
     week_end: date
@@ -15,6 +22,7 @@ class WeeklyReflectionResponse(BaseModel):
     tasks_scheduled: int
     tasks_scheduled_completed: int
     plan_stability: dict[str, int]
+    plan_stability_tasks: dict[str, list[PlanStabilityTask]] = Field(default_factory=dict)
     recovery_overview_missed: int
     recovery_overview_recovered: int
     deadline_behavior: dict[str, int]
@@ -62,3 +70,8 @@ class DailyReflectionResponse(DailyReflectionInput):
     available_minutes: int | None = None
     streak_days: int
     recent_streak_days: list[ReflectionStreakDay]
+
+
+class ReflectionNoteResponse(BaseModel):
+    date: date
+    note: str

@@ -1,0 +1,349 @@
+/* Plan My Day: Git-era product language. Compact header, roadmap list,
+   one capacity story. Cards, buttons, banners, headings reuse globals.css. */
+
+.plan-page {
+  padding-bottom: 4rem;
+}
+
+/* Siblings (History/Stats/Reflection) use Georgia display titles; the plan
+   title is restrained to an operational scale. Section headings keep the
+   Git .section-heading convention untouched. */
+.plan-page .plan-head {
+  padding: 0;
+}
+
+.plan-page .plan-head h1 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  color: var(--primary);
+}
+
+.plan-page .plan-head h1 span {
+  color: #4f9b70;
+  font-size: 0.7em;
+}
+
+.plan-page .plan-head p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* Time card renders whole in its Git styling; the Plan action sits
+   directly below it, left-aligned, at natural button width. */
+.plan-page .available-time-card {
+  margin-top: var(--space-2);
+  margin-bottom: 0;
+}
+
+.plan-page .task-list-actions {
+  justify-content: flex-start;
+  margin: 0.75rem 0 0;
+}
+
+/* One-line capacity story shown after a plan exists. */
+.plan-page .plan-capacity {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.plan-page .overload-notice {
+  margin-top: var(--space-2);
+}
+
+.plan-page section[aria-label="Today's plan"] {
+  margin-top: var(--space-2);
+}
+
+/* Numbered roadmap: Git-era cards in plan order, tightened vertically. */
+.plan-page .plan-roadmap {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 2.6rem;
+  counter-reset: roadmap;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.plan-page .plan-roadmap__item {
+  counter-increment: roadmap;
+  position: relative;
+}
+
+.plan-page .plan-roadmap__item::before {
+  content: counter(roadmap);
+  position: absolute;
+  left: -2.6rem;
+  top: 0.65rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.plan-page .plan-roadmap__item .task-card {
+  margin: 0;
+  min-height: 0;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+.plan-page .plan-roadmap__item .task-card__meta {
+  margin-top: 0.45rem;
+  gap: 0.45rem 0.75rem;
+}
+
+.plan-page .plan-roadmap__item .task-card__side {
+  gap: 0.55rem;
+}
+
+.plan-page .plan-roadmap__item .task-card__deadline {
+  gap: 0.3rem;
+}
+
+.plan-page .plan-roadmap__item .task-card h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* Scoped Plan My Day visual hierarchy (CSS-only, no layout/content change).
+   Reading order by design: title → time range / status → secondary pills →
+   quiet metadata. All selectors are .plan-page-scoped so Today, History,
+   Stats, and Reflection keep their shared TaskCard styling untouched.
+   Light/dark adaption flows through the remapped --text/--muted/--primary
+   tokens, so no brightness lift is introduced in either theme. */
+
+/* Section heading matches the shared Planora section-heading treatment
+   exactly (same serif family/scale as Today); only the stack spacing is
+   tuned so the heading breathes below the plan actions. */
+.plan-page .section-heading {
+  margin-bottom: var(--space-2);
+}
+
+/* Available-time card: editorial hierarchy, not a KPI widget. The serif
+   duration figure is noticeable at its natural size/weight; supporting
+   lines recede into muted text. */
+.plan-page .available-time-card__eyebrow {
+  font-weight: 650;
+  letter-spacing: 0.1em;
+}
+
+.plan-page .available-time-card__caption {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.plan-page .available-time-card__help {
+  font-size: 0.75rem;
+}
+
+/* Roadmap order marker: quiet navigation aid, never a headline. */
+.plan-page .plan-roadmap__item::before {
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+/* PRIMARY: task title leads at the same 650 weight Today uses — strong
+   but not excessive. */
+.plan-page .plan-roadmap__item .task-card h3 {
+  font-size: 0.95rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+/* MEDIUM-STRONG: scheduled time range reads clearly without rivaling
+   the title; status keeps its existing semantic color treatment. */
+.plan-page .task-card__meta-item.task-card__slot {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.plan-page .task-card__state {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* SECONDARY: priority/duration/energy pills stay glance-readable but
+   step back from the title/time pair. */
+.plan-page .task-card__meta-item {
+  font-weight: 500;
+}
+
+.plan-page .task-card__meta-item.priority {
+  font-weight: 600;
+}
+
+/* Deadline column: the date/time outranks its tiny label, while the
+   whole column stays secondary to title/time/status. */
+.plan-page .task-card__deadline {
+  font-weight: 400;
+}
+
+.plan-page .task-card time {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.plan-page .task-card__deadline-label {
+  font-weight: 600;
+}
+
+/* RECOVERED keeps the established Planora green semantic treatment
+   (soft pale-green background, green border, green text from the shared
+   stylesheet). No override here by design: it stays recognizable as a
+   positive recovery state while its small size keeps it quieter than the
+   primary OVERDUE/PENDING status. */
+
+/* Actions: Complete is the identifiable primary task action; Edit and
+   Delete stay quiet. No size changes. */
+.plan-page .task-card__actions .button--complete {
+  font-weight: 700;
+}
+
+/* Hover stays restrained: the shared slight lift + stronger shadow from
+   globals.css is preserved with no scaling and no layout shift. */
+
+/* No-tasks empty state: restrained contained surface inside the existing
+   "Today's plan" section. Reuses Planora tokens only. No task creation here —
+   tasks are added on Today. */
+.plan-page .plan-empty {
+  padding: 2.25rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+/* Split variant for the zero-task state: illustration on the left, copy on
+   the right, separated by a hairline — per the approved reference. */
+.plan-page .plan-empty--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: 2rem;
+  padding: 2.5rem 2.5rem;
+  text-align: left;
+}
+
+.plan-page .plan-empty__art {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+}
+
+.plan-page .plan-empty__art svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.plan-page .plan-empty__caption {
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--primary);
+  text-align: center;
+}
+
+.plan-page .plan-empty__copy {
+  padding-left: 2rem;
+  border-left: 1px solid var(--border);
+}
+
+.plan-page .plan-empty__copy .button {
+  margin-top: 1.1rem;
+}
+
+@media (max-width: 700px) {
+  .plan-page .plan-empty--split {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 2rem 1.25rem;
+    text-align: center;
+  }
+
+  .plan-page .plan-empty__copy {
+    padding-left: 0;
+    padding-top: 1.5rem;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+.plan-page .plan-empty__eyebrow {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.plan-page .plan-empty__title {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--primary);
+}
+
+.plan-page .plan-empty__body {
+  max-width: 26rem;
+  margin: 0.5rem auto 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.plan-page .plan-empty .button {
+  margin-top: 1.1rem;
+}
+
+@media (max-width: 640px) {
+  .plan-page .task-list-actions {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .plan-page .task-list-actions .button {
+    width: 100%;
+  }
+
+  .plan-page .plan-roadmap {
+    padding-left: 0;
+  }
+
+  .plan-page .plan-roadmap__item::before {
+    position: static;
+    margin-bottom: 0.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-page *,
+  .plan-page *::before,
+  .plan-page *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

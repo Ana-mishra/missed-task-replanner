@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Missed Task Replanner</title>
+    <script>
+      // Apply the last-known theme before first paint to avoid a
+      // light-theme flash. The server value from /settings remains the
+      // source of truth and reconciles on load.
+      try {
+        var cachedTheme = localStorage.getItem('planora.theme') || 'light';
+        var resolved = cachedTheme === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : (cachedTheme === 'dark' ? 'dark' : 'light');
+        document.documentElement.dataset.theme = resolved;
+      } catch (error) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

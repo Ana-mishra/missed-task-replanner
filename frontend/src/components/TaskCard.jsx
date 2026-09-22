@@ -25,15 +25,31 @@ function formatDeadline(deadline) {
   })
 }
 
-function TaskCard({ task, onEdit, onComplete, onDelete }) {
+function formatSlot(start, end) {
+  if (!start) return null
+  const fmt = (value) =>
+    new Date(value).toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+  const startDate = new Date(start).toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  })
+  if (!end) return `${startDate}, ${fmt(start)}`
+  return `${startDate}, ${fmt(start)} – ${fmt(end)}`
+}
+
+function TaskCard({ task, onEdit, onComplete, onDelete, showSlot = false }) {
   const overdue = isOverdue(task)
   const urgency = getUrgency(task)
   const state = task.completed
     ? 'Completed'
     : overdue
-      ? 'Past due'
+      ? 'Overdue'
       : task.status === 'missed'
-        ? 'Needs a reset'
+        ? 'Missed'
         : 'Pending'
   const className = [
     'task-card',
@@ -53,6 +69,11 @@ function TaskCard({ task, onEdit, onComplete, onDelete }) {
           </div>
         </div>
         <div className="task-card__meta">
+          {showSlot && task.scheduled_start && task.scheduled_end && (
+            <span className="task-card__meta-item task-card__slot">
+              {formatSlot(task.scheduled_start, task.scheduled_end)}
+            </span>
+          )}
           <span className={`task-card__meta-item priority priority--${task.priority}`}>
             {task.priority} priority
           </span>

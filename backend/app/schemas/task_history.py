@@ -7,7 +7,7 @@ class TaskHistoryResponse(BaseModel):
     """A read-only lifecycle event for the History page."""
 
     id: int
-    task_id: int
+    task_id: int | None
     task_title: str | None = None
     event_type: str
     timestamp: datetime
@@ -24,7 +24,7 @@ class HistoryEventResponse(BaseModel):
     """A meaningful, frontend-ready event from the append-only history."""
 
     id: int
-    task_id: int
+    task_id: int | None
     task_title: str | None = None
     event_type: str
     timestamp: datetime

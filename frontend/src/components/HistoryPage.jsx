@@ -4,7 +4,7 @@ import { getHistory, getHistorySummary } from "../services/api.js";
 const PAGE_SIZE = 10;
 const FILTERS = [
   ["all", "All"],
-  ["scheduled", "Scheduled"],
+  ["scheduled", "Created"],
   ["completed", "Completed"],
   ["missed", "Missed"],
   ["overdue", "Overdue"],
@@ -217,7 +217,7 @@ function HistoryPage() {
   const rangeDropdownRef = useRef(null);
   const [query, setQuery] = useState("");
   const [range, setRange] = useState("week");
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -360,6 +360,7 @@ useEffect(() => {
   <div>
     <p>Completed events</p>
     <strong>{summary.completed}</strong>
+    <small>Tasks you finished</small>
   </div>
 </article>
 
@@ -368,6 +369,7 @@ useEffect(() => {
   <div>
     <p>Missed events</p>
     <strong>{summary.missed}</strong>
+    <small>Tasks that weren&rsquo;t completed</small>
   </div>
 </article>
 
@@ -376,6 +378,7 @@ useEffect(() => {
   <div>
     <p>Recovery events</p>
     <strong>{summary.recovered}</strong>
+    <small>Tasks you brought back</small>
   </div>
 </article>
 
@@ -384,6 +387,7 @@ useEffect(() => {
   <div>
     <p>Reschedule events</p>
     <strong>{summary.rescheduled}</strong>
+    <small>Tasks you moved</small>
   </div>
 </article>
       </section>
@@ -413,16 +417,78 @@ useEffect(() => {
       {loading && <p className="state-message">Loading your history…</p>}
       {error && <p className="state-message state-message--error">{error}</p>}
       {!loading && !error && pageEvents.length === 0 && (
-        <section className="history-empty">
-          <span aria-hidden="true">🌱</span>
-          <h2>
-            {range === "all"
-              ? "No history yet."
-              : "No history for this period yet."}
-          </h2>
-          <p>
-            Complete, miss, or replan a task and your journey will appear here.
-          </p>
+        <section className="history-empty history-empty--split">
+          <div className="history-empty__art" aria-hidden="true">
+            <svg width="300" height="220" viewBox="0 0 300 220" aria-hidden="true">
+              <path
+                d="M150 14c30-12 72-5 90 16s34 10 39 35-9 51-35 60-34 35-71 30-51 23-81 12-60 2-67-26-25-30-16-55 5-39 16-51 25-13 51-21z"
+                fill="#eaf2e7"
+              />
+              <ellipse cx="150" cy="200" rx="82" ry="10" fill="#e7ede4" />
+              <g transform="rotate(-5 108 112)">
+                <rect x="62" y="52" width="92" height="118" rx="8" fill="#fffdf9" stroke="#7d9b8a" strokeWidth="2.5" />
+                <rect x="92" y="42" width="32" height="16" rx="5" fill="#7d9b8a" />
+                <circle cx="74" cy="36" r="5" fill="none" stroke="#7d9b8a" strokeWidth="2.5" />
+                <circle cx="82" cy="86" r="8" fill="none" stroke="#7d9b8a" strokeWidth="2" />
+                <line x1="98" y1="86" x2="134" y2="86" stroke="#7d9b8a" strokeWidth="2.5" strokeLinecap="round" />
+                <circle cx="82" cy="114" r="8" fill="none" stroke="#7d9b8a" strokeWidth="2" />
+                <line x1="98" y1="114" x2="140" y2="114" stroke="#7d9b8a" strokeWidth="2.5" strokeLinecap="round" />
+                <circle cx="82" cy="142" r="8" fill="none" stroke="#7d9b8a" strokeWidth="2" />
+                <line x1="98" y1="142" x2="130" y2="142" stroke="#7d9b8a" strokeWidth="2.5" strokeLinecap="round" />
+              </g>
+              <path d="M158 128c22-8 34-22 38-44" fill="none" stroke="#7d9b8a" strokeWidth="2" strokeDasharray="5 5" strokeLinecap="round" />
+              <circle cx="202" cy="72" r="20" fill="#fffdf9" stroke="#7d9b8a" strokeWidth="2.5" />
+              <path d="M202 60v12l9 6" fill="none" stroke="#0b493b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <g>
+                <path d="M52 196c0-32 6-56 26-76 5 24-1 54-22 72" fill="#9dbd76" />
+                <path d="M52 196c-2-26 3-48 16-63 7 22 1 46-12 61" fill="#6ca578" />
+                <path d="M52 196c9-20 25-35 45-40 0 20-16 36-41 42" fill="#8fb584" />
+                <path d="M52 196l-1-44" stroke="#3f6b52" strokeWidth="2" strokeLinecap="round" />
+              </g>
+            </svg>
+          </div>
+          <div className="history-empty__copy">
+            <h2>
+              {range === "all"
+                ? "No history yet."
+                : "No history for this period yet."}
+            </h2>
+            <p>
+              As you complete, miss, reschedule, or recover tasks, they&rsquo;ll appear
+              here so you can see how your plans evolve over time.
+            </p>
+            <ul className="history-empty__hints">
+              <li>
+                <span className="history-empty__hint-icon history-empty__hint-icon--green" aria-hidden="true">✓</span>
+                <span>
+                  <strong>Track progress</strong>
+                  <small>See what you&rsquo;ve completed</small>
+                </span>
+              </li>
+              <li>
+                <span className="history-empty__hint-icon history-empty__hint-icon--purple" aria-hidden="true">↻</span>
+                <span>
+                  <strong>See adjustments</strong>
+                  <small>View missed, recovered, and rescheduled tasks</small>
+                </span>
+              </li>
+              <li>
+                <span className="history-empty__hint-icon history-empty__hint-icon--amber" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                    <line x1="2" y1="11" x2="12" y2="11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <line x1="4" y1="11" x2="4" y2="7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <line x1="7" y1="11" x2="7" y2="5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <line x1="10" y1="11" x2="10" y2="3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <span>
+                  <strong>Spot patterns</strong>
+                  <small>Understand your productivity over time</small>
+                </span>
+              </li>
+            </ul>
+            <p className="history-empty__foot">Keep going — your journey will build up here.</p>
+          </div>
         </section>
       )}
       {!loading && !error && pageEvents.length > 0 && (
@@ -439,7 +505,7 @@ useEffect(() => {
   overdue: "Overdue",
   rescheduled: "Rescheduled",
   recovered: "Recovered",
-  scheduled: "Scheduled",
+  scheduled: "Created",
 };
 
 const icons = {

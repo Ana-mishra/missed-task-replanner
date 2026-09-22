@@ -9,6 +9,18 @@ from app.services.progress import ProgressService
 
 
 @dataclass(frozen=True)
+class PlanStabilityTaskRef:
+    """One task in a Plan Stability bucket (display companion to the counts).
+
+    ``id`` is None for merged rows whose task reference was cleared when
+    the task was deleted; ``title`` then comes from a history snapshot.
+    """
+
+    id: int | None
+    title: str
+
+
+@dataclass(frozen=True)
 class WeeklyReflectionResult:
     week_start: date
     week_end: date
@@ -20,6 +32,7 @@ class WeeklyReflectionResult:
     tasks_scheduled: int
     tasks_scheduled_completed: int
     plan_stability: dict[str, int]
+    plan_stability_tasks: dict[str, list[PlanStabilityTaskRef]]
     recovery_overview_missed: int
     recovery_overview_recovered: int
     deadline_behavior: dict[str, int]
@@ -178,11 +191,27 @@ class ReflectionService:
             postponement_service.analyze(task_id, records).postponement_count
             for task_id, records in history_by_task.items()
         )
-        plan_stability = self._plan_stability(
+        plan_stability_buckets = self._classify_plan_stability(
             week_history,
             history_records,
             current_time,
         )
+        plan_stability = {
+            bucket: len(task_ids) for bucket, task_ids in plan_stability_buckets.items()
+        }
+        title_by_id = {task.id: task.title for task in tasks}
+        # Latest display title snapshot per task id, from the history rows
+        # themselves. Rows predate the snapshot column with NULL here.
+        snapshots: dict[int | None, list[tuple[datetime, int, str]]] = defaultdict(list)
+        for record in history_records:
+            if record.task_title:
+                snapshots[record.task_id].append(
+                    (record.timestamp, record.id or 0, record.task_title)
+                )
+        plan_stability_tasks = {
+            bucket: self._stability_titles(task_ids, title_by_id, snapshots)
+            for bucket, task_ids in plan_stability_buckets.items()
+        }
         recovery_overview_missed, recovery_overview_recovered = (
             self._recovery_overview(
                 week_history,
@@ -232,6 +261,7 @@ class ReflectionService:
             tasks_scheduled=tasks_scheduled,
             tasks_scheduled_completed=scheduled_completed,
             plan_stability=plan_stability,
+            plan_stability_tasks=plan_stability_tasks,
             recovery_overview_missed=recovery_overview_missed,
             recovery_overview_recovered=recovery_overview_recovered,
             deadline_behavior=deadline_behavior,
@@ -256,6 +286,37 @@ if tasks_scheduled
             previous_tasks_missed=previous_tasks_missed,
             previous_tasks_recovered=previous_tasks_recovered,
         )
+    @staticmethod
+    def _stability_titles(
+        task_ids: list[int | None],
+        title_by_id: dict[int, str],
+        snapshots: dict[int | None, list[tuple[datetime, int, str]]],
+    ) -> list[PlanStabilityTaskRef]:
+        """Resolve display titles for one stability bucket.
+
+        Live tasks use their current title. Deleted tasks fall back to the
+        latest title snapshot on their own history rows. Rows whose task_id
+        was cleared (ON DELETE SET NULL) share one merged group, so their
+        distinct snapshots are listed individually. Tasks with neither a
+        live row nor a snapshot are omitted (genuinely unrecoverable).
+        Counts are unaffected: this only feeds display lists.
+        """
+        items: list[PlanStabilityTaskRef] = []
+        seen_snapshots: set[str] = set()
+        for task_id in sorted(task_ids, key=lambda value: (value is None, value)):
+            if task_id is not None and task_id in title_by_id:
+                items.append(PlanStabilityTaskRef(id=task_id, title=title_by_id[task_id]))
+                continue
+            candidates = sorted(snapshots.get(task_id, []))
+            if task_id is None:
+                for _, _, title in candidates:
+                    if title not in seen_snapshots:
+                        seen_snapshots.add(title)
+                        items.append(PlanStabilityTaskRef(id=None, title=title))
+            elif candidates:
+                items.append(PlanStabilityTaskRef(id=task_id, title=candidates[-1][2]))
+        return items
+
     def _plan_stability(
         self,
         week_history: list[TaskHistory],
@@ -263,6 +324,22 @@ if tasks_scheduled
         current_time: datetime,
     ) -> dict[str, int]:
         """Classify each task from its selected-period scheduled lifecycle."""
+        buckets = self._classify_plan_stability(week_history, history_records, current_time)
+        return {bucket: len(task_ids) for bucket, task_ids in buckets.items()}
+
+    def _classify_plan_stability(
+        self,
+        week_history: list[TaskHistory],
+        history_records: list[TaskHistory],
+        current_time: datetime,
+    ) -> dict[str, list[int | None]]:
+        """Group selected-period scheduled task ids by stability outcome.
+
+        Single shared pass behind both the counts and the display task
+        lists, so the two can never diverge. Classification rules are
+        unchanged: missed wins over later recovery/completion, and each
+        task counts once.
+        """
 
         scheduled_events_by_task: dict[int, list[TaskHistory]] = defaultdict(list)
         for record in week_history:
@@ -274,9 +351,9 @@ if tasks_scheduled
             if record.timestamp <= current_time:
                 history_by_task[record.task_id].append(record)
 
-        stayed_as_planned = 0
-        adjusted = 0
-        missed = 0
+        stayed_as_planned: list[int | None] = []
+        adjusted: list[int | None] = []
+        missed: list[int | None] = []
 
         for task_id, scheduled_events in scheduled_events_by_task.items():
             anchor = min(scheduled_events, key=lambda record: (record.timestamp, record.id))
@@ -309,11 +386,11 @@ if tasks_scheduled
                     completed = True
 
             if had_missed:
-                missed += 1
+                missed.append(task_id)
             elif had_adjustment:
-                adjusted += 1
+                adjusted.append(task_id)
             elif completed:
-                stayed_as_planned += 1
+                stayed_as_planned.append(task_id)
 
         return {
             "stayed_as_planned": stayed_as_planned,

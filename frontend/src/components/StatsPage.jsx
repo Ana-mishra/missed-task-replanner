@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getWeeklyReflection } from "../services/api.js";
+import { getHistory, getWeeklyReflection } from "../services/api.js";
+import { stabilitySegmentAtAngle, stabilityTooltip } from "../utils/stabilityTooltip.mjs";
+import {
+  formatCompletionTime,
+  trendDetailsByDisplayKey,
+} from "../utils/completionDays.mjs";
 
 function percent(value) {
   return `${Math.round(value || 0)}%`;
@@ -201,11 +206,60 @@ function SummaryCard({ icon, label, value, detail, tone, detailTone }) {
   );
 }
 
-function CompletionTrend({ dailyCompletedTasks, period }) {
+function CompletionTrend({ dailyCompletedTasks, period, historyRecords }) {
   const entries = chartEntries(dailyCompletedTasks, period);
   const hasCompletedTasks = entries.some(([, count]) => count > 0);
   const maximum = Math.max(1, ...entries.map(([, count]) => count));
   const midpoint = maximum > 1 ? Math.ceil(maximum / 2) : null;
+  const [activeDay, setActiveDay] = useState(null);
+  useEffect(() => setActiveDay(null), [period, historyRecords]);
+  const detailsByDay = useMemo(
+    () => trendDetailsByDisplayKey(historyRecords ?? [], period),
+    [historyRecords, period],
+  );
+
+  function tipTitle(day) {
+    const date = new Date(`${day}T00:00:00`);
+    if (period === "week") {
+      return date.toLocaleDateString([], { weekday: "long" });
+    }
+    if (period === "month") {
+      return `Week of ${chartLabel(day, period)}`;
+    }
+    return date.toLocaleDateString([], { month: "long", year: "numeric" });
+  }
+
+  function renderTip(day, count, position) {
+    const items = detailsByDay.get(day) ?? [];
+    const shown = items.slice(0, 6);
+    return (
+      <div
+        className={`stats-target-tip${position ? ` stats-target-tip--${position}` : ""}`}
+        role="status"
+      >
+        <strong>{tipTitle(day)}</strong>
+        <p>
+          {count === 0
+            ? "No created tasks completed"
+            : `${count} task${count === 1 ? "" : "s"} completed`}
+        </p>
+        {count > 0 && (
+          <ul>
+            {shown.map((item) => (
+              <li key={`${item.taskId}-${item.id}`}>
+                <span aria-hidden="true">✓</span>
+                <span>{item.title}</span>
+                <time>{formatCompletionTime(item.timestampMs)}</time>
+              </li>
+            ))}
+          </ul>
+        )}
+        {items.length > shown.length && (
+          <p>+{items.length - shown.length} more</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -225,20 +279,57 @@ function CompletionTrend({ dailyCompletedTasks, period }) {
         </div>
         {!hasCompletedTasks ? (
           <div className="stats-target-trend-empty">
-            <PlantIllustration inline />
-            <strong>No scheduled tasks completed yet this week.</strong>
-            <p>Your progress will appear here as you complete tasks.</p>
+            <svg className="stats-target-empty-art" width="120" height="76" viewBox="0 0 120 76" aria-hidden="true">
+              <ellipse cx="60" cy="66" rx="46" ry="7" fill="#e9f1e6" />
+              <g fill="none" stroke="#7d9b8a" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="26" y1="62" x2="26" y2="40" />
+                <line x1="44" y1="62" x2="44" y2="30" />
+                <line x1="62" y1="62" x2="62" y2="22" />
+                <line x1="22" y1="62" x2="66" y2="62" />
+              </g>
+              <g>
+                <path d="M82 64C82 46 86 32 98 22c3 14-1 30-13 40" fill="#9dbd76" />
+                <path d="M82 64c-1-15 1-27 9-35 4 12 0 26-7 34" fill="#6ca578" />
+                <path d="M82 64l-1-24" stroke="#3f6b52" strokeWidth="1.8" strokeLinecap="round" />
+              </g>
+            </svg>
+            <strong>Your progress will appear here</strong>
+            <p>Complete a few created tasks to start seeing your completion trend.</p>
           </div>
         ) : (
-          entries.map(([day, count]) => (
-            <div className="stats-target-bar" key={day}>
-              <strong>{count}</strong>
-              <div className="stats-target-bar__track">
-                <span style={{ height: `${(count / maximum) * 100}%` }} />
+          entries.map(([day, count], index) => {
+            const position = index === 0 ? "first" : index === entries.length - 1 ? "last" : null;
+            return (
+              <div
+                className="stats-target-bar"
+                key={day}
+                role="button"
+                tabIndex={0}
+                aria-expanded={activeDay === day}
+                aria-label={`${chartLabel(day, period)}: ${count} created tasks completed. Activate for details.`}
+                onMouseEnter={() => setActiveDay(day)}
+                onMouseLeave={() => setActiveDay(null)}
+                onFocus={() => setActiveDay(day)}
+                onBlur={() => setActiveDay(null)}
+                onClick={() => setActiveDay((current) => (current === day ? null : day))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setActiveDay((current) => (current === day ? null : day));
+                  } else if (event.key === "Escape") {
+                    setActiveDay(null);
+                  }
+                }}
+              >
+                <strong>{count}</strong>
+                <div className="stats-target-bar__track">
+                  <span style={{ height: `${(count / maximum) * 100}%` }} />
+                </div>
+                <small>{chartLabel(day, period)}</small>
+                {activeDay === day && renderTip(day, count, position)}
               </div>
-              <small>{chartLabel(day, period)}</small>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -256,7 +347,7 @@ function PlannedCompletedTasks({ reflection }) {
       <div className="stats-target-work-bars">
         <div className="stats-target-work-row">
           <div className="stats-target-work-label">
-            <span>Scheduled</span>
+            <span>Created</span>
             <strong>{scheduledTasks}</strong>
             <small>tasks</small>
           </div>
@@ -302,13 +393,37 @@ function PlannedCompletedTasks({ reflection }) {
       <p className="stats-target-callout">
         <span className="stats-target-callout-icon" aria-hidden="true">✦</span>
         {scheduledTasks > 0
-          ? `${completed} of ${scheduledTasks} Scheduled tasks were completed.`
-          : "Scheduled tasks will appear as your history grows."}
+          ? `${completed} of ${scheduledTasks} Created tasks were completed.`
+          : "Created tasks will appear as your history grows."}
       </p>
     </div>
   );
 }
-function PlanStabilityChart({ stability }) {
+const STABILITY_CATEGORIES = [
+  {
+    key: "stayed_as_planned",
+    label: "Stayed as planned",
+    color: "var(--planora-green, #285c4d)",
+  },
+  {
+    key: "adjusted",
+    label: "Adjusted",
+    color: "var(--planora-lilac, #b8a6cf)",
+  },
+  {
+    key: "missed",
+    label: "Missed",
+    color: "var(--planora-orange, #d99a5b)",
+  },
+];
+
+const STABILITY_DONUT_RADIUS = 44;
+const STABILITY_DONUT_CIRCUMFERENCE = 2 * Math.PI * STABILITY_DONUT_RADIUS;
+
+function PlanStabilityChart({ stability, tasksByCategory }) {
+  const [hoveredCategory, setHoveredCategory] = useState(null);
+  const [pinnedCategory, setPinnedCategory] = useState(null);
+
   const stayed = stability?.stayed_as_planned ?? 0;
   const adjusted = stability?.adjusted ?? 0;
   const missed = stability?.missed ?? 0;
@@ -316,10 +431,36 @@ function PlanStabilityChart({ stability }) {
   const total = stayed + adjusted + missed;
   const insight = getStabilityInsight(stayed, adjusted, missed);
 
+  const counts = { stayed_as_planned: stayed, adjusted, missed };
+
+  // A new period means new cohorts: drop any previous selection.
+  useEffect(() => {
+    setHoveredCategory(null);
+    setPinnedCategory(null);
+  }, [stayed, adjusted, missed]);
+
   if (!total) {
     return (
       <div className="stats-target-stability-empty">
-        <PlantIllustration inline />
+        <svg className="stats-target-empty-art" width="120" height="76" viewBox="0 0 120 76" aria-hidden="true">
+          <ellipse cx="60" cy="66" rx="46" ry="7" fill="#e9f1e6" />
+          <g>
+            <rect x="28" y="18" width="48" height="42" rx="6" fill="#fffdf9" stroke="#7d9b8a" strokeWidth="2.5" />
+            <line x1="28" y1="30" x2="76" y2="30" stroke="#7d9b8a" strokeWidth="2.5" />
+            <line x1="40" y1="14" x2="40" y2="22" stroke="#7d9b8a" strokeWidth="2.5" strokeLinecap="round" />
+            <line x1="64" y1="14" x2="64" y2="22" stroke="#7d9b8a" strokeWidth="2.5" strokeLinecap="round" />
+            <g fill="#9dbd76">
+              <rect x="36" y="37" width="9" height="6" rx="1.5" />
+              <rect x="49" y="37" width="9" height="6" rx="1.5" />
+              <rect x="36" y="47" width="9" height="6" rx="1.5" />
+              <rect x="49" y="47" width="9" height="6" rx="1.5" />
+            </g>
+          </g>
+          <g>
+            <path d="M86 64C86 48 89 36 99 28c3 12-1 26-11 34" fill="#9dbd76" />
+            <path d="M86 64l-1-20" stroke="#3f6b52" strokeWidth="2" strokeLinecap="round" />
+          </g>
+        </svg>
         <strong>Not enough data yet.</strong>
         <p>Your planning pattern will appear as your history grows.</p>
       </div>
@@ -327,48 +468,160 @@ function PlanStabilityChart({ stability }) {
   }
 
   const stayedPercent = (stayed / total) * 100;
-  const adjustedPercent = (adjusted / total) * 100;
+
+  // Pinned selection wins over hover; cleared by re-click, Escape, or data change.
+  const shownKey = pinnedCategory ?? hoveredCategory;
+  const shownCount = shownKey ? (counts[shownKey] ?? 0) : 0;
+  const shownTasks = shownKey ? (tasksByCategory?.[shownKey] ?? []) : [];
+  const tip = stabilityTooltip(shownCount, shownTasks);
+  const showTooltip = shownKey !== null && shownCount > 0;
+
+  function togglePinned(key) {
+    setPinnedCategory((current) => (current === key ? null : key));
+  }
+
+  function handleSegmentKeyDown(event, key) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      togglePinned(key);
+    } else if (event.key === "Escape") {
+      setPinnedCategory(null);
+      setHoveredCategory(null);
+    }
+  }
+
+  let consumedFraction = 0;
+  const segments = STABILITY_CATEGORIES.map((category) => {
+    const count = counts[category.key] ?? 0;
+    const fraction = count / total;
+    const startFraction = consumedFraction;
+    consumedFraction += fraction;
+    return { ...category, count, fraction, startFraction };
+  }).filter((segment) => segment.count > 0);
 
   return (
     <div className="stats-target-stability-chart">
       <div className="stats-target-stability-group">
         <div
-          className="stats-target-stability-donut"
-          style={{
-            background: `conic-gradient(
-              var(--planora-green, #285c4d) 0% ${stayedPercent}%,
-              var(--planora-lilac, #b8a6cf) ${stayedPercent}% ${
-                stayedPercent + adjustedPercent
-              }%,
-              var(--planora-orange, #d99a5b) ${stayedPercent + adjustedPercent}% 100%
-            )`,
-          }}
-          aria-label={`${stayed} stayed as planned, ${adjusted} adjusted, ${missed} missed`}
+          className="stats-target-stability-donut stats-target-stability-donut--interactive"
+          onMouseLeave={() => setHoveredCategory(null)}
         >
+          <svg
+            className="stats-target-stability-ring"
+            viewBox="0 0 100 100"
+            role="img"
+            aria-label={`${stayed} stayed as planned, ${adjusted} adjusted, ${missed} missed`}
+            onMouseMove={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              const dx = event.clientX - (rect.left + rect.width / 2);
+              const dy = event.clientY - (rect.top + rect.height / 2);
+              const radius = Math.min(rect.width, rect.height) / 2;
+              const distance = Math.hypot(dx, dy);
+              if (radius <= 0 || distance < radius * 0.6 || distance > radius * 1.1) {
+                setHoveredCategory(null);
+                return;
+              }
+              let angle = Math.atan2(dx, -dy) / (2 * Math.PI);
+              if (angle < 0) angle += 1;
+              setHoveredCategory(
+                stabilitySegmentAtAngle(
+                  counts,
+                  STABILITY_CATEGORIES.map((category) => category.key),
+                  angle,
+                ),
+              );
+            }}
+          >
+            {segments.map((segment) => {
+              const isActive = shownKey === segment.key;
+              const isDimmed = shownKey !== null && !isActive;
+              return (
+                <circle
+                  key={segment.key}
+                  cx="50"
+                  cy="50"
+                  r={STABILITY_DONUT_RADIUS}
+                  fill="none"
+                  stroke={segment.color}
+                  strokeWidth={isActive ? 15 : 12}
+                  strokeDasharray={`${segment.fraction * STABILITY_DONUT_CIRCUMFERENCE} ${STABILITY_DONUT_CIRCUMFERENCE}`}
+                  strokeDashoffset={
+                    -segment.startFraction * STABILITY_DONUT_CIRCUMFERENCE
+                  }
+                  transform="rotate(-90 50 50)"
+                  className={`stats-target-stability-segment${isActive ? " is-active" : ""}${isDimmed ? " is-dimmed" : ""}`}
+                  tabIndex={0}
+                  role="button"
+                  aria-expanded={pinnedCategory === segment.key}
+                  aria-label={`${segment.label}: ${segment.count} task${segment.count === 1 ? "" : "s"}. Activate to pin details.`}
+                  onMouseEnter={() => setHoveredCategory(segment.key)}
+                  onFocus={() => setHoveredCategory(segment.key)}
+                  onBlur={() => setHoveredCategory(null)}
+                  onClick={() => togglePinned(segment.key)}
+                  onKeyDown={(event) => handleSegmentKeyDown(event, segment.key)}
+                />
+              );
+            })}
+          </svg>
           <div className="stats-target-stability-donut__inner">
             <strong>{Math.round(stayedPercent)}%</strong>
             <span>stable</span>
           </div>
+          {showTooltip && (
+            <div
+              className="stats-target-tip stats-target-tip--below"
+              role="status"
+              aria-live="polite"
+            >
+              <strong>
+                {STABILITY_CATEGORIES.find((category) => category.key === shownKey)?.label}
+              </strong>
+              <p>
+                {shownCount} task{shownCount === 1 ? "" : "s"}
+                {pinnedCategory ? " · pinned" : ""}
+              </p>
+              {tip.visible.length > 0 ? (
+                <ul>
+                  {tip.visible.map((task, index) => (
+                    <li key={`${task.id ?? "deleted"}-${index}`}>
+                      <span aria-hidden="true">•</span> {task.title}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Task details are no longer available.</p>
+              )}
+              {tip.more > 0 && <p>+{tip.more} more</p>}
+            </div>
+          )}
         </div>
 
         <div className="stats-target-stability-legend">
-          <div>
-            <span className="stats-target-stability-dot stats-target-stability-dot--stable" />
-            <span>Stayed as planned</span>
-            <strong>{stayed}</strong>
-          </div>
-
-          <div>
-            <span className="stats-target-stability-dot stats-target-stability-dot--adjusted" />
-            <span>Adjusted</span>
-            <strong>{adjusted}</strong>
-          </div>
-
-          <div>
-            <span className="stats-target-stability-dot stats-target-stability-dot--missed" />
-            <span>Missed</span>
-            <strong>{missed}</strong>
-          </div>
+          {STABILITY_CATEGORIES.map((category) => {
+            const count = counts[category.key] ?? 0;
+            const isActive = shownKey === category.key;
+            const isDimmed = shownKey !== null && !isActive;
+            return (
+              <div
+                key={category.key}
+                className={`stats-target-stability-legend__item${isActive ? " is-active" : ""}${isDimmed ? " is-dimmed" : ""}`}
+                role="button"
+                tabIndex={0}
+                aria-expanded={pinnedCategory === category.key}
+                aria-label={`${category.label}: ${count} task${count === 1 ? "" : "s"}. Activate to pin details.`}
+                onMouseEnter={() => setHoveredCategory(category.key)}
+                onMouseLeave={() => setHoveredCategory(null)}
+                onFocus={() => setHoveredCategory(category.key)}
+                onBlur={() => setHoveredCategory(null)}
+                onClick={() => togglePinned(category.key)}
+                onKeyDown={(event) => handleSegmentKeyDown(event, category.key)}
+              >
+                <span className={`stats-target-stability-dot stats-target-stability-dot--${category.key === "stayed_as_planned" ? "stable" : category.key}`} />
+                <span>{category.label}</span>
+                <strong>{count}</strong>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -610,6 +863,24 @@ function StatsPage() {
     };
   }, [period]);
 
+  // Event-level history for the trend tooltip. Loaded separately from the
+  // aggregates above; if it fails the tooltip degrades to day + count.
+  const [trendRecords, setTrendRecords] = useState(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    setTrendRecords(undefined);
+    getHistory({ range: period })
+      .then((data) => {
+        if (!cancelled) setTrendRecords(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setTrendRecords(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [period]);
+
   const recoveryOverviewMissed = reflection?.recovery_overview_missed ?? 0;
   const recoveryOverviewRecovered =
     reflection?.recovery_overview_recovered ?? 0;
@@ -801,12 +1072,12 @@ function StatsPage() {
           <section className="stats-target-summary" aria-label="Stats summary">
             <SummaryCard
               icon="✓"
-              label="Scheduled Tasks Completed"
+              label="Created Tasks Completed"
               value={reflection?.tasks_scheduled_completed ?? 0}
               detail={
                 (reflection?.tasks_scheduled_completed ?? 0) > 0
                   ? taskDetail
-                  : "Start by completing a scheduled task this week."
+                  : "Start by completing a created task this week."
               }
               detailTone={(reflection?.tasks_scheduled_completed ?? 0) > 0 ? taskTone : "neutral"}
               tone="green"
@@ -870,19 +1141,20 @@ function StatsPage() {
                   <div className="stats-target-panel__heading">
                     <div>
                       <h2>Completion Trend</h2>
-                      <p>Scheduled tasks completed over the selected period</p>
+                      <p>Created tasks completed over the selected period</p>
                     </div>
                   </div>
                   <CompletionTrend
                     dailyCompletedTasks={reflection?.daily_scheduled_completed_tasks}
                     period={period}
+                    historyRecords={trendRecords}
                   />
                 </article>
                 <article className="stats-target-panel stats-target-panel--work">
                   <div className="stats-target-panel__heading">
                     <div>
-                      <h2>Scheduled vs Completed tasks</h2>
-                      <p>See how scheduled task outcomes led to completion.</p>
+                      <h2>Created vs Completed tasks</h2>
+                      <p>See how created task outcomes led to completion.</p>
                     </div>
                   </div>
                   <PlannedCompletedTasks reflection={reflection} />
@@ -909,7 +1181,20 @@ function StatsPage() {
                       ) : (
                         <div className="stats-target-insights-empty">
                           <span className="stats-target-insights-empty__icon" aria-hidden="true">
-                            ✦
+                            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                              <path
+                                d="M7 1.5a3.5 3.5 0 0 0-2 6.36c.5.4.83.83 1 1.64h2c.17-.81.5-1.24 1-1.64A3.5 3.5 0 0 0 7 1.5z"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.2"
+                                strokeLinejoin="round"
+                              />
+                              <line x1="5.8" y1="11" x2="8.2" y2="11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                              <line x1="6.2" y1="12.5" x2="7.8" y2="12.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                              <line x1="7" y1="0.5" x2="7" y2="0" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                              <line x1="3" y1="2.2" x2="3.7" y2="2.9" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                              <line x1="11" y1="2.2" x2="10.3" y2="2.9" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                            </svg>
                           </span>
                           <strong>Your week is just getting started.</strong>
                           <p>
@@ -927,7 +1212,7 @@ function StatsPage() {
                     </div>
                   </div>
 
-                  <PlanStabilityChart stability={reflection?.plan_stability} />
+                  <PlanStabilityChart stability={reflection?.plan_stability} tasksByCategory={reflection?.plan_stability_tasks} />
                 </article>
                 <article className="stats-target-panel stats-target-panel--consistency">
                   <div className="stats-target-panel__heading">
@@ -950,43 +1235,67 @@ function StatsPage() {
                   </div>
 
                   <div className="stats-target-recovery">
-                    <div className="stats-target-recovery__flow">
-                      <div className="stats-target-recovery__item stats-target-recovery__item--missed">
-                        <strong>{recoveryOverviewMissed}</strong>
-                        <span>Missed tasks</span>
+                    {recoveryOverviewMissed > 0 ? (
+                      <>
+                        <div className="stats-target-recovery__flow">
+                          <div className="stats-target-recovery__item stats-target-recovery__item--missed">
+                            <strong>{recoveryOverviewMissed}</strong>
+                            <span>Missed tasks</span>
+                          </div>
+
+                          <span
+                            className="stats-target-recovery__arrow"
+                            aria-hidden="true"
+                          >
+                            ↓
+                          </span>
+
+                          <div className="stats-target-recovery__item stats-target-recovery__item--recovered">
+                            <strong>{recoveryOverviewRecovered}</strong>
+                            <span>Recovered tasks</span>
+                          </div>
+                        </div>
+
+                        <span
+                          className="stats-target-recovery__arrow"
+                          aria-hidden="true"
+                        >
+                          ↓
+                        </span>
+
+                        <div className="stats-target-recovery__rate">
+                          <strong>{percent(recoveryOverviewRate)}</strong>
+                          <span>Recovery rate</span>
+                        </div>
+
+                        <p className="stats-target-callout">
+                          <span className="stats-target-callout-icon" aria-hidden="true">✦</span>
+                          {`${recoveryOverviewRecovered} of ${recoveryOverviewMissed} missed tasks found a new place in your plan.`}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="stats-target-recovery-empty">
+                        <svg className="stats-target-empty-art" width="130" height="70" viewBox="0 0 130 70" aria-hidden="true">
+                          <path
+                            d="M64 8c14-5 34-3 44 6s14 6 15 16-4 20-16 24-18 12-36 9-28 6-42-1-21-4-22-15-1-16 7-24 8-12 20-14 10-3 30-1z"
+                            fill="#eef4ea"
+                          />
+                          <ellipse cx="60" cy="62" rx="42" ry="5" fill="#e3ecdf" />
+                          <g fill="none" stroke="#7d9b8a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M38 30a15 15 0 0 1 26-9" />
+                            <path d="M64 21l1 8M64 21l-8 1" />
+                            <path d="M68 44a15 15 0 0 1-26 9" />
+                            <path d="M42 53l-1-8M42 53l8-1" />
+                          </g>
+                          <g>
+                            <path d="M92 58c0-12 2-22 10-29 2 9-1 20-8 27" fill="#9dbd76" />
+                            <path d="M92 58l-1-16" stroke="#3f6b52" strokeWidth="1.8" strokeLinecap="round" />
+                          </g>
+                        </svg>
+                        <strong>Your recovery pattern will appear here.</strong>
+                        <p>Recover a few missed tasks to see how you bounce back.</p>
                       </div>
-
-                      <span
-                        className="stats-target-recovery__arrow"
-                        aria-hidden="true"
-                      >
-                        ↓
-                      </span>
-
-                      <div className="stats-target-recovery__item stats-target-recovery__item--recovered">
-                        <strong>{recoveryOverviewRecovered}</strong>
-                        <span>Recovered tasks</span>
-                      </div>
-                    </div>
-
-                    <span
-                      className="stats-target-recovery__arrow"
-                      aria-hidden="true"
-                    >
-                      ↓
-                    </span>
-
-                    <div className="stats-target-recovery__rate">
-                      <strong>{recoveryOverviewMissed > 0 ? percent(recoveryOverviewRate) : "—"}</strong>
-                      <span>Recovery rate</span>
-                    </div>
-
-                    <p className="stats-target-callout">
-                      <span className="stats-target-callout-icon" aria-hidden="true">✦</span>
-                      {recoveryOverviewMissed > 0
-                        ? `${recoveryOverviewRecovered} of ${recoveryOverviewMissed} missed tasks found a new place in your plan.`
-                        : "Your recovery pattern will appear as you miss and recover tasks."}
-                    </p>
+                    )}
                   </div>
                 </article>
               </section>
@@ -997,7 +1306,7 @@ function StatsPage() {
                   <strong>You’re finding your rhythm.</strong>
                   <p>
                     {(reflection?.tasks_scheduled_completed ?? 0) > 0
-                      ? `You completed ${reflection.tasks_scheduled_completed} scheduled task${reflection.tasks_scheduled_completed === 1 ? "" : "s"} in this period.`
+                      ? `You completed ${reflection.tasks_scheduled_completed} created task${reflection.tasks_scheduled_completed === 1 ? "" : "s"} in this period.`
                       : "Your planning patterns will appear as you build more history."}
                   </p>
                 </div>

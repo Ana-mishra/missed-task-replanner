@@ -23,11 +23,21 @@ class TaskHistory(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False)
+    # Nullable so a deleted task's history survives it: the database clears
+    # task_id (ON DELETE SET NULL) while user_id keeps the rows private to
+    # their owner, exactly as the append-only History contract requires.
+    task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
+    )
     # Stored separately so a deleted task's append-only history remains
     # private to its owner after the Task row is gone.
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     event_type: Mapped[str] = mapped_column(String, nullable=False)
+    # Display-only snapshot of the task title at event time, so analytics
+    # (e.g. Plan Stability tooltips) can name tasks whose rows were later
+    # deleted. Never used for logic, grouping, or classification; old rows
+    # simply have NULL here.
+    task_title: Mapped[str | None] = mapped_column(String, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scheduled_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

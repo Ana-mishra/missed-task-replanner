@@ -838,6 +838,35 @@ class PlanEndpointTests(unittest.TestCase):
             ).count()
         self.assertEqual(history_after, history_before)
 
+    def test_missed_event_preserves_task_title_snapshot(self):
+        requested_start = datetime(2040, 1, 2, 9)
+        task = self.create_task(
+            "A missed opportunity",
+            deadline="2040-01-03T12:00:00",
+        )
+        with self.session_local() as db:
+            stored = db.get(Task, task["id"])
+            stored.scheduled_start = requested_start - timedelta(minutes=30)
+            stored.scheduled_end = requested_start
+            stored.schedule_needs_refresh = False
+            db.commit()
+
+        response = self.client.post(
+            "/plan",
+            json={
+                "available_start": requested_start.isoformat(),
+                "available_end": (requested_start + timedelta(hours=2)).isoformat(),
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.history_event_count(task["id"], "missed"), 1)
+        with self.session_local() as db:
+            missed = db.query(TaskHistory).filter(
+                TaskHistory.task_id == task["id"],
+                TaskHistory.event_type == "missed",
+            ).one()
+            self.assertEqual(missed.task_title, "A missed opportunity")
+
     def test_plan_recovers_an_outstanding_missed_task_only_when_it_is_scheduled(self):
         task = self.create_task("Needs a reset")
         with self.session_local() as db:
