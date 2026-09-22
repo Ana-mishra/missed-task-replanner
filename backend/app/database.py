@@ -16,12 +16,46 @@ if not DATABASE_URL:
         "(see backend/.env.example)."
     )
 
-# Hosting platforms commonly provide postgres:// or postgresql:// URLs.
-# Normalize to the psycopg (v3) driver used by this project.
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL[len("postgres://"):]
-elif DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL[len("postgresql://"):]
+
+def normalize_database_url(url: str) -> str:
+    """Return the SQLAlchemy URL for a raw DATABASE_URL value.
+
+    Hosting platforms (including Railway) commonly provide ``postgres://``
+    or ``postgresql://`` URLs. Both are normalized to the psycopg (v3)
+    driver used by this project. Already-qualified URLs and SQLite URLs
+    (local development / tests) pass through unchanged. Surrounding
+    whitespace and quotes — a common paste artifact in dashboard editors —
+    are stripped so prefix detection never silently misses.
+    """
+    cleaned = url.strip().strip("\"'")
+    if cleaned.startswith("postgres://"):
+        return "postgresql+psycopg://" + cleaned[len("postgres://"):]
+    if cleaned.startswith("postgresql://"):
+        return "postgresql+psycopg://" + cleaned[len("postgresql://"):]
+    return cleaned
+
+
+def ensure_production_database(url: str) -> None:
+    """Fail fast if a deployed environment would silently run on SQLite.
+
+    Railway always sets RAILWAY_ENVIRONMENT. If it is present while the
+    resolved URL is SQLite, the platform's DATABASE_URL never reached the
+    app (e.g. an unlinked variable reference) — crash loudly here instead
+    of booting against a throwaway SQLite file and corrupting data.
+    Local development and tests never set RAILWAY_ENVIRONMENT, so their
+    SQLite setups are unaffected.
+    """
+    if url.startswith("sqlite") and os.getenv("RAILWAY_ENVIRONMENT"):
+        raise RuntimeError(
+            "DATABASE_URL resolved to SQLite on Railway (RAILWAY_ENVIRONMENT is set). "
+            "The platform's PostgreSQL DATABASE_URL is not reaching the app — "
+            "check the service variable reference (e.g. ${{Postgres.DATABASE_URL}} "
+            "requires a Postgres service literally named 'Postgres')."
+        )
+
+
+DATABASE_URL = normalize_database_url(DATABASE_URL)
+ensure_production_database(DATABASE_URL)
 
 # SQLite needs check_same_thread=False for FastAPI/TestClient usage.
 # PostgreSQL (psycopg) must NOT receive this option.
@@ -286,5 +320,54 @@ def add_user_name_confirmation_column():
                 "ALTER TABLE users "
                 f"ADD COLUMN name_confirmed BOOLEAN NOT NULL DEFAULT {_boolean_false_literal()}"
             )
-        )        
+        )
+
+
+def upgrade_task_history_task_fk():
+    """Let deleted tasks keep their append-only history on PostgreSQL.
+
+    Task deletion records a ``deleted`` event and then removes the task row.
+    The surviving history rows must stay queryable by owner, so the
+    ``task_history.task_id`` foreign key uses ON DELETE SET NULL and the
+    column is nullable.  Fresh databases get this from ``create_all``;
+    existing PostgreSQL databases are altered idempotently below.
+    SQLite is left untouched (it does not enforce foreign keys, and fresh
+    SQLite databases already receive the new definition).
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    inspector = inspect(engine)
+    if "task_history" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"]: column for column in inspector.get_columns("task_history")}
+    task_id_column = columns.get("task_id")
+    if task_id_column is None:
+        return
+    fk_names = [
+        fk.get("name")
+        for fk in inspector.get_foreign_keys("task_history")
+        if (fk.get("constrained_columns") or []) == ["task_id"]
+    ]
+    already_migrated = bool(task_id_column.get("nullable", False)) and any(
+        (fk.get("options") or {}).get("ondelete") == "SET NULL"
+        for fk in inspector.get_foreign_keys("task_history")
+        if (fk.get("constrained_columns") or []) == ["task_id"]
+    )
+    if already_migrated:
+        return
+
+    with engine.begin() as connection:
+        for name in fk_names:
+            if name:
+                connection.execute(
+                    text(f'ALTER TABLE task_history DROP CONSTRAINT "{name}"')
+                )
+        connection.execute(text("ALTER TABLE task_history ALTER COLUMN task_id DROP NOT NULL"))
+        connection.execute(
+            text(
+                "ALTER TABLE task_history ADD CONSTRAINT task_history_task_id_fkey "
+                "FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE SET NULL"
+            )
+        )
            
