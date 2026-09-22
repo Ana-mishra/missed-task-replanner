@@ -239,10 +239,11 @@ function AppShell({
         setBrowserPermission(getBrowserPermission())
         setBrowserNotice('Browser notifications are enabled.')
       } catch (pushError) {
-        // TEMPORARY diagnostic: surface the stage-tagged message from
-        // ensurePushSubscription (safe fields only) instead of the generic
-        // text, so the failing stage is visible in the notice area.
-        throw new Error(
+        // The preference itself is already persisted above: a push-setup
+        // failure must not roll it back locally or masquerade as a save
+        // failure. Surface the calm push message in the notification
+        // notice area only.
+        setBrowserNotice(
           pushError?.message ||
             'Could not enable browser notifications. Please try again.',
         )

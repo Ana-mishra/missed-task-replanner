@@ -96,11 +96,7 @@ export async function updateSettings(values) {
 export async function getVapidPublicKey() {
   const response = await apiFetch('/notifications/push/vapid-public-key')
   if (!response.ok) {
-    // TEMPORARY diagnostic: expose HTTP status only (no body/secrets) so
-    // the notification error path can name the failing stage.
-    const error = new Error(await readError(response, 'Could not load push configuration.'))
-    error.status = response.status
-    throw error
+    throw new Error(await readError(response, 'Could not load push configuration.'))
   }
   return response.json()
 }
@@ -112,10 +108,7 @@ export async function savePushSubscription(subscription) {
     body: JSON.stringify(subscription),
   })
   if (!response.ok) {
-    // TEMPORARY diagnostic: expose HTTP status only (no body/secrets).
-    const error = new Error(await readError(response, 'Could not enable browser notifications.'))
-    error.status = response.status
-    throw error
+    throw new Error(await readError(response, 'Could not enable browser notifications.'))
   }
   return response.json()
 }
