@@ -7,6 +7,9 @@ import HistoryPage from "./components/HistoryPage.jsx";
 import StatsPage from "./components/StatsPage.jsx";
 import ReflectionPage from "./components/ReflectionPage.jsx";
 import AuthPage from "./components/AuthPage.jsx";
+import LandingPage from "./components/LandingPage.jsx";
+import AboutPage from "./components/AboutPage.jsx";
+import MyPlantPage from "./components/MyPlantPage.jsx";
 
 import {
   createTask,
@@ -23,6 +26,7 @@ import {
   getWeeklyReflection,
   clearAccessToken,
   getAccessToken,
+  getPlant,
 } from "./services/api.js";
 import {
   DEFAULT_AVAILABLE_MINUTES,
@@ -30,7 +34,7 @@ import {
 import { createRecoveryLock, runRecoverySequence } from "./utils/recovery.mjs";
 
 const LAST_PLANNED_AVAILABLE_MINUTES_KEY = "planora.lastPlannedAvailableMinutes";
-const PLANORA_PAGES = new Set(["today", "plan", "history", "stats", "reflection"]);
+const PLANORA_PAGES = new Set(["today", "plan", "plant", "history", "stats", "reflection"]);
 
 function pageFromLocation() {
   const page = new URLSearchParams(window.location.search).get("page");
@@ -60,6 +64,7 @@ function getTodayCompletedTaskIds(history) {
 
 function App() {
   const [authenticated, setAuthenticated] = useState(() => Boolean(getAccessToken()));
+  const [publicView, setPublicView] = useState("landing");
   const [currentUser, setCurrentUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [nameInput, setNameInput] = useState('')
@@ -87,6 +92,9 @@ function App() {
   const [recoveringId, setRecoveringId] = useState(null);
   const [completingId, setCompletingId] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [plantData, setPlantData] = useState(null);
+  const [plantLoading, setPlantLoading] = useState(true);
+  const [plantError, setPlantError] = useState(null);
   const [reflection, setReflection] = useState(null);
   const [replanNotice, setReplanNotice] = useState(null);
   const replanNoticeRef = useRef(null);
@@ -157,6 +165,17 @@ function App() {
   getProgress()
     .then(setProgress)
     .catch(() => setProgress(null));
+
+  getPlant()
+    .then((data) => {
+      setPlantData(data);
+      setPlantError(null);
+    })
+    .catch((err) => {
+      setPlantData(null);
+      setPlantError(err.message || 'Could not load your plant data.');
+    })
+    .finally(() => setPlantLoading(false));
 
   getWeeklyReflection()
     .then(setReflection)
@@ -257,6 +276,10 @@ const completedTodayTasks = tasks.filter((task) =>
           .catch(() => {
             // The successful update above remains the immediate UI source.
           });
+        // Refresh plant data after form-based completion too.
+        getPlant()
+          .then((d) => { setPlantData(d); setPlantError(null); })
+          .catch(() => {});
       }
 
       planIsStaleRef.current = true;
@@ -278,6 +301,10 @@ const completedTodayTasks = tasks.filter((task) =>
     setCompletingId(task.id);
     setError(null);
 
+    // Snapshot whether the plant has already grown today BEFORE the completion
+    // so the plant page can detect the first-of-day event after the refresh.
+    const wasGrownToday = plantData?.grew_today ?? false;
+
     try {
       const saved = await updateTask(task.id, {
         ...task,
@@ -295,6 +322,13 @@ const completedTodayTasks = tasks.filter((task) =>
         .catch(() => {
           // The successful update above remains the immediate UI source.
         });
+      // Refresh plant data after every completion so the page reflects the
+      // new state instantly. The plant service only counts the first
+      // completion of each IST calendar day, so subsequent completions are
+      // safe to refresh without double-counting.
+      getPlant()
+        .then((data) => { setPlantData(data); setPlantError(null); })
+        .catch(() => {});
       planIsStaleRef.current = true;
     } catch (requestError) {
       setError(requestError.message);
@@ -474,6 +508,7 @@ setHasPlanned(true);
     setRecommendation(null);
     setError(null);
     setActivePage("today");
+    setPublicView("landing");
   }
 
   function handleAuthenticated() {
@@ -484,7 +519,34 @@ setHasPlanned(true);
   }
 
   if (!authenticated) {
-  return <AuthPage onAuthenticated={handleAuthenticated} />;
+    if (publicView === "landing") {
+      return (
+        <LandingPage
+          onAbout={() => setPublicView("about")}
+          onSignIn={() => setPublicView("login")}
+          onGetStarted={() => setPublicView("register")}
+        />
+      );
+    }
+
+    if (publicView === "about") {
+      return (
+        <AboutPage
+          onHome={() => setPublicView("landing")}
+          onSignIn={() => setPublicView("login")}
+          onGetStarted={() => setPublicView("register")}
+        />
+      );
+    }
+
+    return (
+      <AuthPage
+        key={publicView}
+        initialMode={publicView}
+        onAuthenticated={handleAuthenticated}
+        onBack={() => setPublicView("landing")}
+      />
+    );
 }
 
 if (loadingUser) {
@@ -541,7 +603,7 @@ return (
   progress={progress}
   currentUser={currentUser}
 >
-      {activePage === "history" ? <HistoryPage /> : activePage === "stats" ? <StatsPage /> : activePage === "reflection" ? <ReflectionPage availableMinutes={availableMinutes}       /> : activePage === "plan" ? <PlanPage
+      {activePage === "history" ? <HistoryPage /> : activePage === "stats" ? <StatsPage /> : activePage === "reflection" ? <ReflectionPage availableMinutes={availableMinutes}       /> : activePage === "plant" ? <MyPlantPage plantData={plantData} plantLoading={plantLoading} plantError={plantError} /> : activePage === "plan" ? <PlanPage
         tasks={tasks}
         availableMinutes={availableMinutes}
         onSaveAvailableMinutes={setAvailableMinutes}

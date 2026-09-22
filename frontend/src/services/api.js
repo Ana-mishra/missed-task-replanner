@@ -275,3 +275,9 @@ export function getEstimation() {
 export function getPersonalization() {
   return getAnalytics('personalization', 'Could not load personalization insights.')
 }
+
+export async function getPlant() {
+  const response = await apiFetch('/plant')
+  if (!response.ok) throw new Error(await readError(response, 'Could not load your plant data.'))
+  return response.json()
+}

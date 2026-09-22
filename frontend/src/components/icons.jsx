@@ -133,3 +133,50 @@ export const IconJournal = (p) =>
     <path d="M8 10.2c-.2-1.6.3-2.9 1.6-3.7.4 1.5-.1 2.9-1.6 3.7z" />
     <path d="M12 1.3v1.6M11.2 2.1h1.6" />
   </>);
+
+export const IconUser = (p) =>
+  base(p, <>
+    <circle cx="8" cy="5" r="2.7" />
+    <path d="M3 13.4c.6-2.7 2.6-4.2 5-4.2s4.4 1.5 5 4.2" />
+  </>);
+
+export const IconBellRing = (p) =>
+  base(p, <>
+    <path d="M8 2.8a4 4 0 014 4c0 2.9.7 3.7.7 3.7H3.3s.7-.8.7-3.7a4 4 0 014-4z" />
+    <path d="M6.8 12.5a1.3 1.3 0 002.4 0" />
+    <path d="M2.7 5.8c-.8 1.1-.8 2.5 0 3.6" />
+    <path d="M13.3 5.8c.8 1.1.8 2.5 0 3.6" />
+  </>);
+
+export const IconPaintbrush = (p) =>
+  base(p, <>
+    <path d="M13.5 2.5L8.7 7.3" />
+    <path d="M8.4 6.2l1.4 1.4L7 10.4 5.6 9z" />
+    <path d="M5.6 9c-1.2 1.2-2 2.7-2.2 3.9-.1.5-.5.8-1 .8.1.5.5.9 1 .9 1.5-.1 3-1 4-2.2L5.6 9z" />
+  </>);
+
+export const IconPlanCalendar = (p) =>
+  base(p, <>
+    <rect x="3" y="3.5" width="10" height="9.5" rx="1.5" />
+    <path d="M3 6.5h10M5.5 2v2.5M10.5 2v2.5" />
+    <circle cx="5.8" cy="8.8" r="0.55" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="8.8" r="0.55" fill="currentColor" stroke="none" />
+    <circle cx="10.2" cy="8.8" r="0.55" fill="currentColor" stroke="none" />
+    <circle cx="5.8" cy="10.8" r="0.55" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="10.8" r="0.55" fill="currentColor" stroke="none" />
+  </>);
+
+export const IconChecklist = (p) =>
+  base(p, <>
+    <path d="M2.5 5.2l1.4 1.4 2.3-2.4" />
+    <path d="M2.5 11.2l1.4 1.4 2.3-2.4" />
+    <path d="M8.3 5.4h5.2" />
+    <path d="M8.3 11.4h5.2" />
+  </>);
+
+export const IconSprout = (p) =>
+  base(p, <>
+    <path d="M8 13.5V8" />
+    <path d="M8 8c0-2-1.5-3.2-3.7-3.2 0 2.2 1.5 3.2 3.7 3.2z" />
+    <path d="M8 9.8c0-2 1.5-3.2 3.7-3.2 0 2.2-1.5 3.2-3.7 3.2z" />
+  </>);

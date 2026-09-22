@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { getSettings, updateSettings } from '../services/api.js'
 import {
+  IconBellRing,
   IconCalendarCheck,
-  IconCalendarClock,
+  IconChecklist,
   IconHistory,
   IconJournal,
+  IconPaintbrush,
+  IconPlanCalendar,
+  IconSprout,
   IconStats,
   IconSun,
+  IconUser,
 } from './icons.jsx';
 import {
   ensurePushSubscription,
@@ -340,11 +345,12 @@ function AppShell({
             </button>
 
             <button
-              className="sidebar__item"
+              className={`sidebar__item ${activePage === 'plant' ? 'sidebar__item--active' : ''}`}
               type="button"
+              onClick={() => onNavigate?.('plant')}
             >
-              <span className="sidebar__icon" aria-hidden="true"><IconCalendarClock width={22} height={22} /></span>
-              <span className="sidebar__label">Schedule</span>
+              <span className="sidebar__icon" aria-hidden="true"><IconSprout width={22} height={22} /></span>
+              <span className="sidebar__label">My Plant</span>
             </button>
 
             <button
@@ -414,10 +420,6 @@ function AppShell({
   <span>Your account</span>
 </div>
               </div>
-
-              <button type="button" role="menuitem">
-                Profile
-              </button>
 
               <button type="button" role="menuitem" onClick={openSettings}>
                 Settings
@@ -519,17 +521,19 @@ function AppShell({
             </button>
             <nav className="settings-modal__navigation" aria-label="Settings sections">
               {[
-                ['account', '♙', 'Account'],
-                ['notifications', '♧', 'Notifications'],
-                ['appearance', '◌', 'Appearance'],
-              ].map(([value, icon, label]) => (
+                ['account', IconUser, 'Account'],
+                ['notifications', IconBellRing, 'Notifications'],
+                ['appearance', IconPaintbrush, 'Appearance'],
+              ].map(([value, Icon, label]) => (
                 <button
                   key={value}
                   className={settingsSection === value ? 'settings-modal__nav-item settings-modal__nav-item--active' : 'settings-modal__nav-item'}
                   type="button"
                   onClick={() => setSettingsSection(value)}
                 >
-                  <span aria-hidden="true">{icon}</span>
+                  <span aria-hidden="true">
+                    <Icon width={18} height={18} style={{ display: 'block', margin: '0 auto' }} />
+                  </span>
                   {label}
                 </button>
               ))}
@@ -576,12 +580,14 @@ function AppShell({
                   </header>
                   <div className="settings-modal__rows">
                     {[
-                      ['planning_reminders', '▣', 'Planning reminders', 'Get reminded to plan your day.'],
-                      ['missed_task_reminders', '☷', 'Missed-task reminders', 'Get gentle nudges for incomplete tasks.'],
-                      ['reflection_reminders', '♧', 'Reflection reminders', 'Get reminded to do your weekly reflection.'],
-                    ].map(([field, icon, title, description]) => (
+                      ['planning_reminders', IconPlanCalendar, 'Planning reminders', 'Get reminded to plan your day.'],
+                      ['missed_task_reminders', IconChecklist, 'Missed-task reminders', 'Get gentle nudges for incomplete tasks.'],
+                      ['reflection_reminders', IconSprout, 'Reflection reminders', 'Get reminded to do your weekly reflection.'],
+                    ].map(([field, Icon, title, description]) => (
                       <div className="settings-modal__row" key={field}>
-                        <span className="settings-modal__row-icon" aria-hidden="true">{icon}</span>
+                        <span className="settings-modal__row-icon" aria-hidden="true">
+                          <Icon width={19} height={19} style={{ display: 'block' }} />
+                        </span>
                         <div>
                           <strong>{title}</strong>
                           <span>{description}</span>
@@ -601,10 +607,14 @@ function AppShell({
                     ))}
                   </div>
                   <div className="settings-modal__notice" role="status">
-                    {NOTIFICATION_FIELDS.some((field) => displayedSettings[field]) && pushSubscriptionExists ? (
+                    {!NOTIFICATION_FIELDS.some((field) => displayedSettings[field]) ? (
+                      browserNotice ? (
+                        <span>{browserNotice}</span>
+                      ) : (
+                        <span>Browser notifications are off.</span>
+                      )
+                    ) : NOTIFICATION_FIELDS.some((field) => displayedSettings[field]) && pushSubscriptionExists ? (
                       <span>Browser notifications are enabled.</span>
-                    ) : !NOTIFICATION_FIELDS.some((field) => displayedSettings[field]) && browserPermission === 'granted' ? (
-                      <span>Browser notifications are allowed. Turn on a reminder above to receive Planora notifications.</span>
                     ) : browserPermission === 'denied' ? (
                       <span>Browser notifications are blocked. Enable them in your browser site settings to receive reminders.</span>
                     ) : browserNotice ? (

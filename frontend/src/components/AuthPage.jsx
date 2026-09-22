@@ -2,8 +2,8 @@ import { useState } from 'react'
 
 import { login, register } from '../services/api.js'
 
-function AuthPage({ onAuthenticated }) {
-  const [mode, setMode] = useState('login')
+function AuthPage({ onAuthenticated, initialMode = 'login', onBack }) {
+  const [mode, setMode] = useState(initialMode)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -76,6 +76,11 @@ function AuthPage({ onAuthenticated }) {
       </section>
 
       <section className="auth-page__panel" aria-labelledby="auth-heading">
+        {onBack && (
+          <button type="button" className="auth-page__back" onClick={onBack}>
+            ← Back to Planora
+          </button>
+        )}
         <div className="auth-page__switch">
           <span>{isRegistering ? 'Already with Planora?' : 'New to Planora?'}</span>
           <button type="button" onClick={() => switchMode(isRegistering ? 'login' : 'register')}>

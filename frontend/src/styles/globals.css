@@ -5453,6 +5453,404 @@ body {
   border-color: #124c3f;
 }
 
+/* Public landing */
+.landing-page {
+  min-height: 100vh;
+  overflow: hidden;
+  padding: clamp(1.25rem, 2vw, 2rem) clamp(1rem, 4.8vw, 5rem) 2.3rem;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 75% 38%, rgb(218 233 214 / 72%), transparent 25rem),
+    radial-gradient(circle at 8% 95%, rgb(220 235 214 / 62%), transparent 16rem),
+    #f7f5ef;
+}
+.landing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  width: min(100%, 90rem);
+  margin: 0 auto;
+}
+.landing-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.72rem;
+  color: var(--primary);
+  text-decoration: none;
+}
+.landing-brand > span {
+  display: grid;
+  width: 2.85rem;
+  height: 2.85rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #f9f7ef;
+  background: var(--primary);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+}
+.landing-brand strong {
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 2.2vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+.landing-header nav {
+  display: flex;
+  align-items: center;
+  gap: 1.45rem;
+}
+.landing-header nav > a,
+.landing-header nav > button:not(.landing-button) {
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.landing-header nav > a:hover,
+.landing-header nav > button:not(.landing-button):hover { color: var(--primary); }
+.landing-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 3.45rem;
+  padding: 0.75rem 1.45rem;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  color: #fffefb;
+  background: var(--primary);
+  box-shadow: var(--shadow-sm);
+  font-weight: 800;
+  transition: transform var(--transition), background var(--transition);
+}
+.landing-button:hover { background: #204c40; transform: translateY(-1px); }
+.landing-button--compact { min-height: 2.85rem; padding: 0.6rem 1.25rem; font-size: 0.85rem; }
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(17rem, 0.73fr) minmax(34rem, 1.27fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 5rem);
+  width: min(100%, 90rem);
+  min-height: min(43rem, calc(100vh - 10rem));
+  margin: 0 auto;
+  padding: clamp(3.5rem, 5vw, 5.2rem) 0 3rem;
+}
+.landing-hero__copy { position: relative; z-index: 1; max-width: 31rem; }
+.landing-eyebrow {
+  margin: 0 0 1.2rem;
+  color: #699582;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.landing-hero h1 {
+  margin: 0;
+  color: #163f35;
+  font-family: var(--font-display);
+  font-size: clamp(3.35rem, 5.5vw, 5.55rem);
+  font-weight: 500;
+  letter-spacing: -0.065em;
+  line-height: 0.94;
+}
+.landing-hero h1 em { color: var(--primary); font-style: normal; }
+.landing-hero__description {
+  max-width: 29rem;
+  margin: 1.55rem 0 0;
+  color: #526b64;
+  font-size: clamp(1rem, 1.35vw, 1.16rem);
+  line-height: 1.58;
+}
+.landing-hero__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem; margin-top: 1.7rem; }
+.landing-see-how {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 3.45rem;
+  padding: 0.72rem 1.1rem;
+  border: 1px solid #dfe4dd;
+  border-radius: 999px;
+  color: var(--primary);
+  background: rgb(255 254 251 / 72%);
+  font-size: 0.9rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+.landing-see-how span { display: grid; width: 1.35rem; height: 1.35rem; place-items: center; border-radius: 50%; color: #fffefb; background: var(--primary); font-size: 0.55rem; }
+.landing-reassurance { display: flex; flex-wrap: wrap; gap: 0.55rem 1.25rem; margin: 1.5rem 0 0; padding: 0; color: var(--muted); font-size: 0.76rem; list-style: none; }
+.landing-reassurance li::before { content: "✓"; margin-right: 0.42rem; color: var(--success); font-weight: 800; }
+.landing-hero__product { position: relative; min-width: 0; }
+.landing-hero__product::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -2.5rem -3rem -2rem 15%;
+  border-radius: 46% 54% 50% 42%;
+  background: rgb(210 228 207 / 58%);
+}
+.landing-mock { position: relative; z-index: 1; overflow: hidden; border: 1px solid #dce1d9; border-radius: 1.25rem; background: #fffefb; box-shadow: 0 25px 55px rgb(33 55 47 / 15%); }
+.landing-mock__browser-bar { display: flex; align-items: center; gap: 0.38rem; height: 2.35rem; padding-left: 0.85rem; border-bottom: 1px solid #e7eae4; background: #fbfaf6; }
+.landing-mock__browser-bar span { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #ef735f; }
+.landing-mock__browser-bar span:nth-child(2) { background: #eebc48; }
+.landing-mock__browser-bar span:nth-child(3) { background: #65af79; }
+.landing-mock__app { display: grid; grid-template-columns: 9.3rem minmax(0, 1fr); min-height: 27.5rem; }
+.landing-mock__sidebar { display: flex; flex-direction: column; padding: 1.15rem 0.75rem 0.7rem; color: rgb(246 249 244 / 88%); background: #0f4a3d; }
+.landing-mock__brand { display: flex; align-items: center; gap: 0.45rem; padding: 0 0.35rem; color: #fffdf8; font-family: var(--font-display); font-size: 0.9rem; }
+.landing-mock__brand b, .landing-mock__profile b { display: grid; width: 1.75rem; height: 1.75rem; place-items: center; flex: 0 0 auto; border-radius: 50%; color: var(--primary); background: #eff3e5; font-family: var(--font-display); font-size: 0.95rem; }
+.landing-mock__sidebar nav { display: grid; gap: 0.18rem; margin-top: 1.5rem; }
+.landing-mock__nav-item { display: flex; align-items: center; gap: 0.55rem; padding: 0.55rem 0.45rem; border-radius: 0.45rem; color: rgb(246 249 244 / 72%); font-size: 0.62rem; }
+.landing-mock__nav-item svg { width: 0.85rem; height: 0.85rem; }
+.landing-mock__nav-item--active { color: #fffefb; background: rgb(103 171 125 / 30%); }
+.landing-mock__profile { display: flex; align-items: center; gap: 0.42rem; margin-top: auto; padding: 0.55rem 0.25rem 0; border-top: 1px solid rgb(255 255 255 / 13%); font-size: 0.62rem; }
+.landing-mock__profile b { width: 1.55rem; height: 1.55rem; font-size: 0.8rem; }
+.landing-mock__profile span { display: grid; gap: 0.05rem; line-height: 1.05; }
+.landing-mock__profile small { color: rgb(246 249 244 / 60%); font-size: 0.5rem; }
+.landing-mock__profile > svg { width: 0.7rem; margin-left: auto; }
+.landing-mock__content { min-width: 0; padding: 1.25rem 1.4rem; background: #fdfcf8; }
+.landing-mock__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.7rem; padding-bottom: 0.9rem; border-bottom: 1px solid #e5e9e2; }
+.landing-mock__header p, .landing-mock__plan-heading p { margin: 0; color: #6c867b; font-size: 0.48rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.landing-mock__header h2 { margin: 0.25rem 0; color: #163f35; font-family: var(--font-display); font-size: clamp(1.15rem, 2.1vw, 1.85rem); font-weight: 500; letter-spacing: -0.045em; }
+.landing-mock__header h2 span { font-family: inherit; font-size: 0.85em; }
+.landing-mock__header small, .landing-mock__plan-heading > span { color: var(--muted); font-size: 0.58rem; }
+.landing-mock__header button { padding: 0.45rem 0.7rem; border: 0; border-radius: 999px; color: #fffefb; background: var(--primary); box-shadow: var(--shadow-sm); font-size: 0.56rem; font-weight: 750; white-space: nowrap; }
+.landing-mock__summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; margin-top: 0.9rem; }
+.landing-mock__summary article { display: flex; align-items: center; gap: 0.45rem; min-width: 0; padding: 0.6rem; border: 1px solid #e7ebe5; border-radius: 0.55rem; background: #fffefb; box-shadow: 0 3px 9px rgb(33 55 47 / 4%); }
+.landing-mock__summary article > svg { width: 1.15rem; height: 1.15rem; padding: 0.22rem; box-sizing: content-box; border-radius: 50%; color: var(--success); background: #edf4e6; }
+.landing-mock__summary article:nth-child(2) > svg { color: #c98328; background: #fff2df; }
+.landing-mock__summary article:nth-child(3) > svg { color: #7950b5; background: #f1ebfa; }
+.landing-mock__summary span { display: grid; min-width: 0; color: var(--muted); font-size: 0.5rem; line-height: 1.1; }
+.landing-mock__summary strong { margin-top: 0.14rem; color: var(--primary); font-family: var(--font-display); font-size: 1rem; font-weight: 500; }
+.landing-mock__plan-heading { margin-top: 1.05rem; }
+.landing-mock__plan-heading h3 { margin: 0.18rem 0 0.05rem; color: #163f35; font-family: var(--font-display); font-size: 1rem; font-weight: 500; }
+.landing-mock__schedule { position: relative; margin-top: 0.55rem; overflow: hidden; border: 1px solid #e1e7df; border-radius: 0.65rem; background: #fffefb; }
+.landing-mock__now { position: relative; height: 1.45rem; margin: 0 0.65rem; border-bottom: 1px solid #7cae98; text-align: center; }
+.landing-mock__now span { position: relative; top: 0.78rem; display: inline-block; padding: 0.2rem 0.45rem; border: 1px solid #73a78e; border-radius: 999px; color: var(--primary); background: #fffefb; font-size: 0.48rem; font-weight: 800; }
+.landing-mock__schedule > p { margin: 1.05rem 0.7rem 0.25rem; color: var(--muted); font-size: 0.46rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.landing-mock__task-row { display: grid; grid-template-columns: 2.45rem 0.8rem minmax(0, 1fr) 0.7rem; align-items: center; gap: 0.35rem; padding: 0.5rem 0.65rem; border-top: 1px solid #edf0eb; }
+.landing-mock__task-row time, .landing-mock__task-row > svg { color: var(--muted); font-size: 0.5rem; }
+.landing-mock__task-row > svg { width: 0.7rem; height: 0.7rem; }
+.landing-mock__task-row span { display: grid; min-width: 0; gap: 0.1rem; }
+.landing-mock__task-row strong { overflow: hidden; color: var(--text); font-size: 0.59rem; text-overflow: ellipsis; white-space: nowrap; }
+.landing-mock__task-row small { color: var(--muted); font-size: 0.48rem; }
+.landing-mock__task-row > svg:last-child { justify-self: end; width: 0.52rem; }
+.landing-mock__task-row--next { background: #fbfcf8; }
+.landing-features { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.3rem; width: min(100%, 90rem); margin: 0 auto; padding: 1.5rem 0 0; border-top: 1px solid rgb(220 225 217 / 74%); }
+.landing-features article { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); gap: 0.7rem; align-items: start; }
+.landing-feature__icon { display: grid; width: 2.5rem; height: 2.5rem; place-items: center; border-radius: 50%; color: var(--success); background: #eaf3e6; }
+.landing-feature__icon svg { width: 1.2rem; height: 1.2rem; }
+.landing-feature__icon--gold { color: #b97b24; background: #fff1d7; }
+.landing-feature__icon--peach { color: #b85d48; background: #fde7df; }
+.landing-feature__icon--lilac { color: #7651aa; background: #f0eafa; }
+.landing-features h2 { margin: 0; color: #163f35; font-size: 0.85rem; }
+.landing-features p { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.78rem; line-height: 1.45; }
+
+@media (max-width: 1040px) {
+  .landing-hero { grid-template-columns: minmax(15rem, 0.7fr) minmax(30rem, 1.3fr); gap: 2.5rem; }
+  .landing-mock__app { grid-template-columns: 8rem minmax(0, 1fr); }
+}
+@media (max-width: 840px) {
+  .landing-hero { grid-template-columns: 1fr; min-height: auto; padding-top: 4rem; }
+  .landing-hero__copy { max-width: 38rem; }
+  .landing-hero__product { width: min(100%, 45rem); justify-self: center; }
+  .landing-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .landing-page { padding-inline: 1rem; }
+  .landing-header nav { gap: 0.75rem; }
+  .landing-header nav > a { display: none; }
+  .landing-button--compact { padding-inline: 0.8rem; }
+  .landing-hero { padding-top: 3.5rem; }
+  .landing-hero h1 { font-size: clamp(3rem, 15vw, 4.25rem); }
+  .landing-mock__app { grid-template-columns: 4.2rem minmax(0, 1fr); min-height: 22rem; }
+  .landing-mock__sidebar { padding-inline: 0.45rem; }
+  .landing-mock__brand span, .landing-mock__nav-item span, .landing-mock__profile span, .landing-mock__profile > svg { display: none; }
+  .landing-mock__brand, .landing-mock__nav-item, .landing-mock__profile { justify-content: center; padding-inline: 0; }
+  .landing-mock__content { padding: 0.85rem; }
+  .landing-mock__summary { gap: 0.3rem; }
+  .landing-mock__summary article { padding: 0.4rem; }
+  .landing-mock__summary article > svg { display: none; }
+  .landing-mock__header h2 { font-size: 1.2rem; }
+  .landing-mock__task-row { grid-template-columns: 2.1rem 0.65rem minmax(0, 1fr); padding-inline: 0.45rem; }
+  .landing-mock__task-row > svg:last-child { display: none; }
+  .landing-features { grid-template-columns: 1fr; gap: 1rem; }
+}
+
+/* Public About page */
+.about-page {
+  min-height: 100vh;
+  padding: clamp(1.25rem, 2vw, 2rem) clamp(1rem, 8.8vw, 8.5rem) 2.4rem;
+  overflow: hidden;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 70% 32%, rgb(218 233 214 / 68%), transparent 22rem),
+    radial-gradient(circle at 96% 78%, rgb(243 233 208 / 62%), transparent 23rem),
+    #f7f5ef;
+}
+.about-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  width: min(100%, 79rem);
+  margin: 0 auto;
+}
+.about-header .landing-brand {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.about-header nav { display: flex; align-items: center; gap: 1.45rem; }
+.about-header nav > button:not(.landing-button) {
+  position: relative;
+  padding: 0.3rem 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.9rem;
+}
+.about-header nav > button:not(.landing-button):hover { color: var(--primary); }
+.about-header__active { color: var(--primary) !important; }
+.about-header__active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -0.5rem;
+  left: 0;
+  height: 1px;
+  background: var(--primary);
+}
+.about-hero {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.84fr) minmax(18rem, 1.16fr);
+  align-items: end;
+  min-height: 16.8rem;
+  gap: 2rem;
+  width: min(100%, 74rem);
+  margin: 3.6rem auto 1.55rem;
+}
+.about-hero h1, .about-story h2 {
+  margin: 0;
+  color: #163f35;
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+}
+.about-hero h1 { font-size: clamp(3rem, 4.7vw, 4.35rem); line-height: 0.98; }
+.about-hero > div:first-child > p:last-child {
+  max-width: 32rem;
+  margin: 1rem 0 0;
+  color: #566d66;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+.about-hero__botanical {
+  position: relative;
+  height: 13rem;
+  margin: 0 4rem 0 0;
+  border-radius: 52% 48% 42% 58%;
+  background: rgb(219 234 214 / 62%);
+}
+.about-hero__botanical::after {
+  content: "";
+  position: absolute;
+  bottom: -0.25rem;
+  left: 51%;
+  width: 0.16rem;
+  height: 10.5rem;
+  border-radius: 99px;
+  background: #7c9e68;
+  transform: rotate(-7deg);
+  transform-origin: bottom;
+}
+.about-hero__botanical i {
+  position: absolute;
+  z-index: 1;
+  width: 2.4rem;
+  height: 4.8rem;
+  border-radius: 100% 0 100% 0;
+  background: linear-gradient(140deg, #b7cf99, #739463);
+  transform: rotate(31deg);
+}
+.about-hero__botanical i:nth-child(1) { top: 0.8rem; left: 50%; }
+.about-hero__botanical i:nth-child(2) { top: 3.2rem; left: 37%; transform: scaleX(-1) rotate(24deg); }
+.about-hero__botanical i:nth-child(3) { top: 4.25rem; left: 58%; transform: rotate(50deg) scale(.8); }
+.about-features {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  width: min(100%, 80rem);
+  margin: 0 auto;
+}
+.about-features article {
+  display: grid;
+  grid-template-columns: 3.1rem minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: center;
+  min-height: 6.6rem;
+  padding: 0.9rem;
+  border: 1px solid #dde2dc;
+  border-radius: 0.9rem;
+  background: rgb(255 254 251 / 70%);
+}
+.about-features .landing-feature__icon { width: 2.8rem; height: 2.8rem; }
+.about-features h2 { margin: 0; color: #163f35; font-family: var(--font-display); font-size: 0.94rem; font-weight: 500; }
+.about-features p { margin: 0.28rem 0 0; color: var(--muted); font-size: 0.69rem; line-height: 1.38; }
+.about-story {
+  display: grid;
+  grid-template-columns: minmax(0, 1.23fr) minmax(17rem, 0.77fr);
+  align-items: center;
+  gap: clamp(2rem, 5vw, 4.8rem);
+  width: min(100%, 80rem);
+  margin: 1.65rem auto 2.1rem;
+}
+.about-story .landing-mock { width: 100%; }
+.about-story .landing-mock__app { min-height: 22.5rem; }
+.about-story__copy { padding-right: 0.2rem; }
+.about-story__copy .landing-eyebrow { margin-bottom: 0.55rem; }
+.about-story h2 { font-size: clamp(1.85rem, 2.8vw, 2.65rem); line-height: 0.98; }
+.about-story__copy > p:not(.landing-eyebrow) { margin: 0.85rem 0 0; color: #566d66; font-size: 0.84rem; line-height: 1.5; }
+.about-story dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin: 1.15rem 0 0; padding-top: 0.8rem; border-top: 1px solid #d5ddd4; }
+.about-story dl div { padding-right: 0.45rem; border-right: 1px solid #dce1d9; }
+.about-story dl div:last-child { border-right: 0; }
+.about-story dt { color: #163f35; font-family: var(--font-display); font-size: 1.05rem; }
+.about-story dd { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.62rem; }
+.about-cta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(13rem, 16rem);
+  align-items: center;
+  gap: 1rem;
+  width: min(100%, 80rem);
+  min-height: 6.65rem;
+  margin: 0 auto;
+  padding: 1rem 1.6rem;
+  border: 1px solid #dce2da;
+  border-radius: 1rem;
+  background: rgb(255 254 251 / 64%);
+}
+.about-cta > span { color: #779d6a; font-size: 2rem; }
+.about-cta > p { margin: 0; color: #526b64; font-family: var(--font-display); font-size: clamp(1rem, 1.7vw, 1.35rem); font-style: italic; line-height: 1.35; }
+.about-cta > div { display: grid; gap: 0.35rem; text-align: center; }
+.about-cta .landing-button { min-height: 2.7rem; padding: 0.5rem 1rem; font-size: 0.78rem; }
+.about-cta small { color: var(--muted); font-size: 0.63rem; }
+@media (max-width: 900px) {
+  .about-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .about-story { grid-template-columns: 1fr; }
+  .about-story .landing-mock { width: min(100%, 45rem); }
+}
+@media (max-width: 600px) {
+  .about-page { padding-inline: 1rem; }
+  .about-header nav { gap: 0.8rem; }
+  .about-hero { grid-template-columns: 1fr; margin-top: 3.3rem; }
+  .about-hero__botanical { width: min(100%, 22rem); height: 9rem; margin-left: auto; }
+  .about-features { grid-template-columns: 1fr; }
+  .about-cta { grid-template-columns: auto 1fr; padding: 1rem; }
+  .about-cta > div { grid-column: 1 / -1; }
+}
+
 /* Authentication */
 .auth-page {
   min-height: 100vh;
@@ -5589,6 +5987,18 @@ body {
   color: var(--muted);
   font-size: 0.82rem;
 }
+.auth-page__back {
+  position: absolute;
+  top: clamp(1.4rem, 3vw, 2.5rem);
+  left: clamp(1.4rem, 3vw, 2.5rem);
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.auth-page__back:hover { color: var(--primary); }
 
 .auth-page__switch button {
   padding: 0;
@@ -5773,6 +6183,11 @@ body {
     top: 1.25rem;
     left: 1.25rem;
     right: auto;
+  }
+
+  .auth-page__back {
+    top: 1.25rem;
+    left: 1.25rem;
   }
 
   .auth-page__panel {
@@ -11219,4 +11634,433 @@ body {
 }
 
 
+/* ==========================================================================
+   My Plant page
+   ========================================================================== */
 
+.plant-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Header */
+.plant-page__header {
+  text-align: center;
+  width: 100%;
+}
+
+.plant-page__eyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  margin: 0 0 0.4rem;
+}
+
+.plant-page__title {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 500;
+  color: var(--primary);
+  margin: 0 0 0.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.plant-page__standfirst {
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 0;
+  max-width: 38ch;
+  margin-inline: auto;
+}
+
+/* ---- Stage section (visual + label + vitality copy) ---- */
+.plant-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.plant-stage__label {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+/* ---- Vitality copy ---- */
+.plant-vitality-copy {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+  text-align: center;
+  line-height: 1.5;
+  transition: color 400ms ease;
+}
+
+.plant-vitality-copy--healthy {
+  color: var(--success);
+}
+
+.plant-vitality-copy--waiting {
+  color: var(--muted);
+}
+
+.plant-vitality-copy--droopy,
+.plant-vitality-copy--very_droopy {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---- The plant visual container ---- */
+.plant-visual {
+  width: 500px;
+  height: 550px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  transition: filter 600ms ease;
+}
+
+/* ---- The SVG itself ---- */
+.plant-visual__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transition: transform 600ms ease;
+}
+
+/* Pot parts */
+.plant-pot__rim {
+  fill: #c4845a;
+}
+
+.plant-pot__body {
+  fill: #d4956b;
+}
+
+.plant-pot__highlight {
+  fill: #ffffff;
+}
+
+.plant-pot__soil {
+  fill: #6b4226;
+}
+
+/* Seed */
+.plant-seed__body {
+  fill: #8b6340;
+}
+
+.plant-seed__sprout {
+  stroke: #4a7c59;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* Stem */
+.plant-stem {
+  stroke: #4a7c59;
+  stroke-width: 3;
+  fill: none;
+  transition: transform 500ms ease;
+  transform-origin: 100px 170px;
+}
+
+/* Leaves — all pairs share base style */
+.plant-leaf {
+  fill: #5a9e6e;
+  stroke: #3d7a52;
+  stroke-width: 0.8;
+  transition: transform 500ms ease;
+  transform-box: fill-box;
+  transform-origin: right center;
+}
+
+.plant-leaf--left {
+  transform-origin: right center;
+}
+
+.plant-leaf--right {
+  transform-origin: left center;
+}
+
+/* Pair-specific fill variations for depth */
+.plant-leaves--pair1 .plant-leaf { fill: #61a872; }
+.plant-leaves--pair2 .plant-leaf { fill: #579966; }
+.plant-leaves--pair3 .plant-leaf { fill: #4e8f5e; }
+.plant-leaves--pair4 .plant-leaf { fill: #468558; }
+.plant-leaves--pair5 .plant-leaf { fill: #3d7a52; }
+
+/* ---- Vitality visual states ---- */
+
+/* Droopy: leaves droop downward slightly */
+.plant-visual--droopy .plant-leaf--left {
+  transform: rotate(14deg);
+}
+.plant-visual--droopy .plant-leaf--right {
+  transform: rotate(-14deg);
+}
+.plant-visual--droopy .plant-stem {
+  transform: none;
+}
+
+/* Very droopy: more pronounced droop */
+.plant-visual--very-droopy .plant-leaf--left {
+  transform: rotate(26deg);
+}
+.plant-visual--very-droopy .plant-leaf--right {
+  transform: rotate(-26deg);
+}
+.plant-visual--very-droopy .plant-visual__svg {
+  filter: saturate(0.7) brightness(0.9);
+}
+
+/* Healthy: leaves are upright (default) */
+.plant-visual--healthy .plant-leaf--left,
+.plant-visual--healthy .plant-leaf--right {
+  transform: none;
+}
+
+/* ---- Sparkle particles ---- */
+.plant-sparkles {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.plant-sparkle {
+  fill: #a8d8b0;
+  opacity: 0;
+}
+
+/* ---- Care animation — first completion of day ---- */
+@keyframes plant-care-sway {
+  0%   { transform: rotate(0deg); }
+  20%  { transform: rotate(-2.5deg); }
+  45%  { transform: rotate(2deg); }
+  65%  { transform: rotate(-1.5deg); }
+  80%  { transform: rotate(0.8deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes plant-care-lift {
+  0%   { transform: translateY(0); }
+  35%  { transform: translateY(-6px); }
+  70%  { transform: translateY(-3px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes plant-sparkle-pop {
+  0%   { opacity: 0; transform: scale(0.4) translateY(0); }
+  40%  { opacity: 0.9; transform: scale(1) translateY(-8px); }
+  100% { opacity: 0; transform: scale(0.6) translateY(-18px); }
+}
+
+.plant-visual--caring .plant-visual__svg {
+  transform-origin: 100px 210px;
+  animation: plant-care-sway 1.4s ease-in-out forwards;
+}
+
+.plant-visual--caring .plant-leaf {
+  animation: plant-care-lift 1.4s ease-in-out forwards;
+}
+
+.plant-visual--caring .plant-sparkles {
+  opacity: 1;
+}
+
+.plant-visual--caring .plant-sparkle--1 {
+  animation: plant-sparkle-pop 1s 0.1s ease-out forwards;
+}
+.plant-visual--caring .plant-sparkle--2 {
+  animation: plant-sparkle-pop 1s 0.2s ease-out forwards;
+}
+.plant-visual--caring .plant-sparkle--3 {
+  animation: plant-sparkle-pop 1s 0.3s ease-out forwards;
+}
+.plant-visual--caring .plant-sparkle--4 {
+  animation: plant-sparkle-pop 1s 0.15s ease-out forwards;
+}
+
+/* ---- Metrics ---- */
+.plant-metrics {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.plant-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.plant-metric--primary .plant-metric__value {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 8vw, 4.5rem);
+  font-weight: 500;
+  color: var(--primary);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.plant-metric__value {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.plant-metric__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+.plant-metric--primary .plant-metric__label {
+  color: var(--secondary);
+}
+
+/* Days in a row — quiet secondary */
+.plant-streak-quiet {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0.25rem 0 0;
+  text-align: center;
+}
+
+/* ---- Stage progress bar ---- */
+.plant-stage-progress {
+  width: 100%;
+  max-width: 340px;
+}
+
+.plant-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.plant-progress__bar-wrap {
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.plant-progress__bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4a7c59, #61a872);
+  border-radius: 999px;
+  transition: width 600ms ease;
+}
+
+.plant-progress__label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0;
+  text-align: center;
+}
+
+.plant-progress__label span {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.plant-progress__terminal {
+  font-size: 0.85rem;
+  color: var(--success);
+  font-style: italic;
+  text-align: center;
+  margin: 0;
+}
+
+/* ---- Dark mode overrides ---- */
+[data-theme="dark"] .plant-page__title {
+  color: var(--dark-accent);
+}
+
+[data-theme="dark"] .plant-pot__rim {
+  fill: #9e6844;
+}
+
+[data-theme="dark"] .plant-pot__body {
+  fill: #b57850;
+}
+
+[data-theme="dark"] .plant-pot__soil {
+  fill: #5a3820;
+}
+
+[data-theme="dark"] .plant-stem {
+  stroke: var(--dark-accent);
+}
+
+[data-theme="dark"] .plant-leaf {
+  fill: var(--dark-success);
+  stroke: #4a7c59;
+}
+
+[data-theme="dark"] .plant-sparkle {
+  fill: var(--dark-accent);
+}
+
+[data-theme="dark"] .plant-metric--primary .plant-metric__value {
+  color: var(--dark-accent);
+}
+
+[data-theme="dark"] .plant-metric--primary .plant-metric__label {
+  color: var(--dark-warning);
+}
+
+[data-theme="dark"] .plant-progress__bar-fill {
+  background: linear-gradient(90deg, #4a7c59, var(--dark-accent));
+}
+
+[data-theme="dark"] .plant-progress__label span {
+  color: var(--dark-accent);
+}
+
+[data-theme="dark"] .plant-vitality-copy--healthy {
+  color: var(--dark-success);
+}
+
+[data-theme="dark"] .plant-progress__terminal {
+  color: var(--dark-success);
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .plant-visual__svg,
+  .plant-leaf,
+  .plant-stem,
+  .plant-sparkle,
+  .plant-visual--caring .plant-visual__svg,
+  .plant-visual--caring .plant-leaf,
+  .plant-visual--caring .plant-sparkle,
+  .plant-progress__bar-fill {
+    animation: none !important;
+    transition: none !important;
+  }
+}
