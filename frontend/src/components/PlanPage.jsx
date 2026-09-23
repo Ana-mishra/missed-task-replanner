@@ -109,7 +109,9 @@ export default function PlanPage({
           {scheduled.length} scheduled · {formatDuration(plannedMinutes)} planned
           of {formatDuration(availableMinutes)} available
           {planIsOverloaded && unscheduledMinutes > 0
-            ? ` · ${formatDuration(unscheduledMinutes)} won't fit`
+            ? badDayMode
+              ? ` · ${formatDuration(unscheduledMinutes)} set aside for later`
+              : ` · ${formatDuration(unscheduledMinutes)} won't fit`
             : unscheduledCount > 0
               ? ` · ${unscheduledCount} unscheduled`
               : ""}
@@ -121,30 +123,68 @@ export default function PlanPage({
 
       {hasPlanned && planIsOverloaded && (
         <section className="overload-notice" aria-labelledby="overload-heading">
-          <div className="overload-notice__copy">
-            <p className="overload-notice__eyebrow">Your day looks full</p>
-            <h3 id="overload-heading">
-              More needs attention than fits today.
-            </h3>
-            <p className="overload-notice__support">
-              Plan My Day will prioritize what matters most and leave the rest
-              for later.
-            </p>
-          </div>
-          <div
-            className="overload-notice__limits"
-            aria-label="Daily workload limits"
-          >
-            <span className="overload-limit">
-              {formatDuration(availableMinutes)} available
-            </span>
-            <span className="overload-limit">
-              {formatDuration(plannedMinutes)} of tasks
-            </span>
-            <span className="overload-limit overload-limit--exceeded">
-              {formatDuration(unscheduledMinutes)} over capacity
-            </span>
-          </div>
+          {badDayMode ? (
+            <>
+              <div className="overload-notice__copy">
+                <p className="overload-notice__eyebrow">Your plan is intentionally lighter</p>
+                <h3 id="overload-heading">
+                  Protecting your energy today
+                </h3>
+                <p className="overload-notice__support">
+                  Bad Day Mode is prioritizing deadline-critical work and
+                  leaving lower-priority tasks for later.
+                </p>
+              </div>
+              <div
+                className="overload-notice__limits"
+                aria-label="Daily workload limits"
+              >
+                <span className="overload-limit">
+                  {formatDuration(availableMinutes)} available
+                </span>
+                <span className="overload-limit">
+                  {formatDuration(plannedMinutes)} of tasks
+                </span>
+                {badDayCapacityMinutes > 0 && (
+                  <span className="overload-limit">
+                    {formatDuration(badDayCapacityMinutes)} preferred capacity
+                  </span>
+                )}
+                {badDayProtectedCount > 0 && (
+                  <span className="overload-limit">
+                    {badDayProtectedCount} deadline-critical task{badDayProtectedCount !== 1 ? "s" : ""} protected
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="overload-notice__copy">
+                <p className="overload-notice__eyebrow">Your day looks full</p>
+                <h3 id="overload-heading">
+                  More needs attention than fits today.
+                </h3>
+                <p className="overload-notice__support">
+                  Plan My Day will prioritize what matters most and leave the rest
+                  for later.
+                </p>
+              </div>
+              <div
+                className="overload-notice__limits"
+                aria-label="Daily workload limits"
+              >
+                <span className="overload-limit">
+                  {formatDuration(availableMinutes)} available
+                </span>
+                <span className="overload-limit">
+                  {formatDuration(plannedMinutes)} of tasks
+                </span>
+                <span className="overload-limit overload-limit--exceeded">
+                  {formatDuration(unscheduledMinutes)} over capacity
+                </span>
+              </div>
+            </>
+          )}
         </section>
       )}
 
