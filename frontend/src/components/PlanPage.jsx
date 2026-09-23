@@ -63,6 +63,7 @@ export default function PlanPage({
             type="button"
             aria-pressed={badDayMode}
             onClick={() => onBadDayModeChange(!badDayMode)}
+            disabled={planning}
           >
             {badDayMode ? "Bad Day Mode on" : "Having a low-energy day?"}
           </button>
@@ -105,7 +106,10 @@ export default function PlanPage({
         </p>
       )}
 
-      {hasPlanned && (
+      {/* The scheduled-count/capacity summary is a normal-day line. In Bad
+          Day Mode the strip below already carries the relevant metrics, so
+          this line is hidden to avoid redundancy. */}
+      {hasPlanned && !badDayMode && (
         <p className="plan-capacity">
           {scheduled.length} scheduled · {formatDuration(plannedMinutes)} planned
           of {formatDuration(availableMinutes)} available

@@ -121,6 +121,10 @@ function App() {
   );
   const [badDayMode, setBadDayMode] = useState(false);
   const lastPlannedBadDayModeRef = useRef(false);
+  // Synchronous in-flight guard: set/ref-cleared around the planning request
+  // so rapid clicks (toggle or Re-plan) cannot fire duplicate requests while
+  // React state is still settling.
+  const planningRef = useRef(false);
 
   useEffect(() => {
   if (!authenticated) {
@@ -373,8 +377,16 @@ const completedTodayTasks = tasks.filter((task) =>
     setUnscheduledMinutes(0);
   }
 
-  async function handlePlanDay() {
+  async function handlePlanDay(badDayOverride) {
+    // One planning request at a time: a second invocation while a request
+    // is in flight is ignored so stale responses cannot overwrite newer ones.
+    if (planningRef.current) return;
+    planningRef.current = true;
     setPlanning(true);
+    // The Bad Day toggle passes its new value explicitly so the request
+    // never reads a stale badDayMode closure. Manual Plan clicks omit it
+    // and use current state exactly as before.
+    const effectiveBadDayMode = badDayOverride ?? badDayMode;
 
     try {
       const now = new Date();
@@ -384,13 +396,13 @@ const completedTodayTasks = tasks.filter((task) =>
       );
 
       const result = await planDay({
-        ...buildPlanPayload({ availableStart, availableEnd, badDayMode }),
+        ...buildPlanPayload({ availableStart, availableEnd, badDayMode: effectiveBadDayMode }),
         // The backend's normal idempotency guard preserves a saved plan as
         // wall-clock time moves. Recalculate only after a meaningful task
         // mutation or an available-capacity change.
         force_replan:
           planIsStaleRef.current ||
-          badDayMode !== lastPlannedBadDayModeRef.current ||
+          effectiveBadDayMode !== lastPlannedBadDayModeRef.current ||
           (lastPlannedAvailableMinutesRef.current !== null &&
             lastPlannedAvailableMinutesRef.current !== availableMinutes),
       });
@@ -417,13 +429,23 @@ setPlannedTasks(
       lastPlannedAvailableMinutesRef.current = availableMinutes;
 localStorage.setItem(LAST_PLANNED_AVAILABLE_MINUTES_KEY, String(availableMinutes));
 planIsStaleRef.current = false;
-lastPlannedBadDayModeRef.current = badDayMode;
+lastPlannedBadDayModeRef.current = effectiveBadDayMode;
 setHasPlanned(true);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
+      planningRef.current = false;
       setPlanning(false);
     }
+  }
+
+  async function handleBadDayModeChange(nextMode) {
+    // Toggling Bad Day Mode reuses the existing Plan My Day flow with the
+    // new mode passed explicitly (state timing safe). One toggle click
+    // produces at most one planning request.
+    setBadDayMode(nextMode);
+    if (planningRef.current) return;
+    await handlePlanDay(nextMode);
   }
   async function handleRecover(task) {
     // Genuine recovery flow: open/refresh the missed cycle via /replan,
@@ -633,7 +655,7 @@ return (
         tasks={tasks}
         availableMinutes={availableMinutes}
         badDayMode={badDayMode}
-        onBadDayModeChange={setBadDayMode}
+        onBadDayModeChange={handleBadDayModeChange}
         onSaveAvailableMinutes={setAvailableMinutes}
         planning={planning}
         hasPlanned={hasPlanned}
