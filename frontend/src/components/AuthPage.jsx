@@ -163,6 +163,28 @@ function AuthPage({ onAuthenticated, initialMode = 'login', onBack }) {
               ? isRegistering ? 'Creating account…' : 'Logging in…'
               : isRegistering ? 'Create account' : 'Log in'}
           </button>
+
+          <div className="auth-divider">
+            <span>or continue with</span>
+          </div>
+
+          <button
+            type="button"
+            className="auth-oauth-button"
+            onClick={() => { window.location.href = 'https://missed-task-replanner-production.up.railway.app/auth/google'; }}
+          >
+            <span className="auth-oauth-button__icon" aria-hidden="true">G</span>
+            Continue with Google
+          </button>
+
+          <button
+            type="button"
+            className="auth-oauth-button"
+            onClick={() => { window.location.href = 'https://missed-task-replanner-production.up.railway.app/auth/github'; }}
+          >
+            <span className="auth-oauth-button__icon" aria-hidden="true">G</span>
+            Continue with GitHub
+          </button>
         </form>
       </section>
     </main>

@@ -10,6 +10,7 @@ import AuthPage from "./components/AuthPage.jsx";
 import LandingPage from "./components/LandingPage.jsx";
 import AboutPage from "./components/AboutPage.jsx";
 import MyPlantPage from "./components/MyPlantPage.jsx";
+import OAuthCallback from "./components/OAuthCallback.jsx";
 
 import {
   createTask,
@@ -516,6 +517,12 @@ setHasPlanned(true);
     setLoadingUser(true);
     setError(null);
     setAuthenticated(true);
+  }
+
+  if (window.location.pathname === "/oauth/callback") {
+    return (
+      <OAuthCallback onAuthenticated={handleAuthenticated} />
+    );
   }
 
   if (!authenticated) {
