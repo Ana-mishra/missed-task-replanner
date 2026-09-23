@@ -25,6 +25,15 @@ export const IconClock = (p) =>
     <path d="M8 4.5V8l2.5 1.5" />
   </>);
 
+export const IconShield = (p) =>
+  base(p, <>
+    <path d="M8 1.8l4.5 1.7v3.7c0 3-1.9 5-4.5 6-2.6-1-4.5-3-4.5-6V3.5z" />
+    <path d="M6 8l1.5 1.5L10.2 6.8" />
+  </>);
+
+export const IconMoon = (p) =>
+  base(p, <path d="M13.5 10.5A5.5 5.5 0 015.5 2.5a5.5 5.5 0 008 8z" />);
+
 export const IconMissed = (p) =>
   base(p, <>
     <circle cx="8" cy="8" r="6" />

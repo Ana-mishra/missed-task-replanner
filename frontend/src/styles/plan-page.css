@@ -76,59 +76,125 @@
   margin-top: var(--space-2);
 }
 
-/* Compact Bad Day summary: calm inline panel in the green family, never the
-   orange overload treatment. Quieter than the "Today's plan" section. */
-.plan-page .bad-day-panel {
+/* Compact Bad Day status strip: calm horizontal panel in the green family,
+   never the orange overload treatment. Quieter than the "Today's plan"
+   section. Stacks gracefully on narrow screens. */
+.plan-page .bad-day-strip {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   margin-top: var(--space-2);
-  padding: 0.7rem 0.85rem;
+  padding: 0.6rem 1rem;
   border: 1px solid #d9e5d8;
   border-radius: var(--radius-md);
   background: #f2f7f1;
 }
 
-.plan-page .bad-day-panel__eyebrow {
+.plan-page .bad-day-strip__status {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 0.4rem;
-  margin: 0 0 0.15rem;
+  margin: 0;
+  padding-right: 1rem;
+  border-right: 1px solid #d9e5d8;
   color: var(--success);
   font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.plan-page .bad-day-panel__dot {
+.plan-page .bad-day-strip__dot {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
   background: var(--success);
 }
 
-.plan-page .bad-day-panel__heading {
+.plan-page .bad-day-strip__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.plan-page .bad-day-strip__heading {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 650;
   color: var(--primary);
 }
 
-.plan-page .bad-day-panel__body {
-  margin: 0.2rem 0 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.45;
-}
-
-.plan-page .bad-day-panel__meta {
-  margin: 0.35rem 0 0;
+.plan-page .bad-day-strip__body {
+  margin: 0.1rem 0 0;
   color: var(--muted);
   font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
 }
 
-:root[data-theme="dark"] .plan-page .bad-day-panel {
+.plan-page .bad-day-strip__metrics {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 1rem;
+  padding-left: 1rem;
+  border-left: 1px solid #d9e5d8;
+}
+
+.plan-page .bad-day-strip__metric {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--primary);
+}
+
+.plan-page .bad-day-strip__metric-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.plan-page .bad-day-strip__value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.plan-page .bad-day-strip__label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+:root[data-theme="dark"] .plan-page .bad-day-strip {
   background: rgb(57 121 95 / 10%);
   border-color: rgb(57 121 95 / 35%);
+}
+
+:root[data-theme="dark"] .plan-page .bad-day-strip__status,
+:root[data-theme="dark"] .plan-page .bad-day-strip__metrics {
+  border-color: rgb(57 121 95 / 35%);
+}
+
+@media (max-width: 700px) {
+  .plan-page .bad-day-strip {
+    flex-wrap: wrap;
+    gap: 0.6rem 1rem;
+  }
+  .plan-page .bad-day-strip__status {
+    border-right: none;
+    padding-right: 0;
+  }
+  .plan-page .bad-day-strip__main {
+    flex: 1 1 100%;
+  }
+  .plan-page .bad-day-strip__metrics {
+    border-left: none;
+    padding-left: 0;
+    flex-wrap: wrap;
+    gap: 0.6rem 1rem;
+  }
 }
 
 .plan-page section[aria-label="Today's plan"] {

@@ -1,5 +1,6 @@
 import AvailableTimeCard from "./AvailableTimeCard.jsx";
 import TaskCard from "./TaskCard.jsx";
+import { IconClock, IconMoon, IconShield } from "./icons.jsx";
 import { formatDuration } from "../utils/duration.mjs";
 
 // Plan My Day: "How do I want today's work to be scheduled?"
@@ -122,29 +123,45 @@ export default function PlanPage({
       )}
 
       {hasPlanned && planIsOverloaded && badDayMode && (
-        <section className="bad-day-panel" aria-label="Bad Day Mode plan summary">
-          <p className="bad-day-panel__eyebrow">
-            <span className="bad-day-panel__dot" aria-hidden="true" />
+        <section className="bad-day-strip" aria-label="Bad Day Mode plan summary">
+          <p className="bad-day-strip__status">
+            <span className="bad-day-strip__dot" aria-hidden="true" />
             Bad Day Mode
           </p>
-          <h3 className="bad-day-panel__heading">Protecting your energy today</h3>
-          <p className="bad-day-panel__body">
-            Bad Day Mode is keeping today&apos;s plan lighter while protecting
-            deadline-critical work.
-          </p>
-          <p className="bad-day-panel__meta">
-            {[
-              `${formatDuration(plannedMinutes)} planned`,
-              ...(badDayProtectedCount > 0
-                ? [
-                    `${badDayProtectedCount} deadline-critical task${badDayProtectedCount !== 1 ? "s" : ""} protected`,
-                  ]
-                : []),
-              ...(unscheduledMinutes > 0
-                ? [`${formatDuration(unscheduledMinutes)} set aside for later`]
-                : []),
-            ].join(" · ")}
-          </p>
+          <div className="bad-day-strip__main">
+            <h3 className="bad-day-strip__heading">Protecting your energy today</h3>
+            <p className="bad-day-strip__body">
+              Keeping today&apos;s plan lighter while protecting
+              deadline-critical work.
+            </p>
+          </div>
+          <div className="bad-day-strip__metrics">
+            <span className="bad-day-strip__metric">
+              <IconClock width={15} height={15} />
+              <span className="bad-day-strip__metric-text">
+                <span className="bad-day-strip__value">{formatDuration(plannedMinutes)}</span>
+                <span className="bad-day-strip__label">planned</span>
+              </span>
+            </span>
+            {badDayProtectedCount > 0 && (
+              <span className="bad-day-strip__metric">
+                <IconShield width={15} height={15} />
+                <span className="bad-day-strip__metric-text">
+                  <span className="bad-day-strip__value">{badDayProtectedCount}</span>
+                  <span className="bad-day-strip__label">protected</span>
+                </span>
+              </span>
+            )}
+            {unscheduledMinutes > 0 && (
+              <span className="bad-day-strip__metric">
+                <IconMoon width={15} height={15} />
+                <span className="bad-day-strip__metric-text">
+                  <span className="bad-day-strip__value">{formatDuration(unscheduledMinutes)}</span>
+                  <span className="bad-day-strip__label">set aside</span>
+                </span>
+              </span>
+            )}
+          </div>
         </section>
       )}
 
