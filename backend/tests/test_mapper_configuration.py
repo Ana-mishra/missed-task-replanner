@@ -26,6 +26,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.auth import get_current_user
 from app.database import Base, get_db
 from app.main import app
+from app.models import OAuthAccount
 from app.models.user import User
 from app.models.user_settings import UserSettings
 
@@ -89,6 +90,57 @@ class StartupMapperConfigurationTests(unittest.TestCase):
             },
         )
         self.assertEqual(response.status_code, 201)
+
+    def test_user_oauth_accounts_mappers_configure_successfully(self):
+        # The User <-> OAuthAccount relationship must resolve from the
+        # app.models package registration, not merely because app.main
+        # happens to import the module directly.
+        configure_mappers()
+        user_mapper = User.__mapper__
+        oauth_mapper = OAuthAccount.__mapper__
+        self.assertIn("oauth_accounts", user_mapper.attrs)
+        self.assertIn("user", oauth_mapper.attrs)
+        self.assertEqual(
+            user_mapper.attrs["oauth_accounts"].mapper.class_, OAuthAccount
+        )
+        self.assertEqual(oauth_mapper.attrs["user"].mapper.class_, User)
+        self.assertIn(
+            "delete-orphan", user_mapper.attrs["oauth_accounts"].cascade
+        )
+
+    def test_cron_entrypoint_configures_mappers_without_app_main(self):
+        # Regression test for the Railway failure: the cron entrypoint
+        # (python -m app.services.reminder_runner) touches User without
+        # importing app.main, so OAuthAccount must already be registered via
+        # app.models. A subprocess is required because this process has
+        # already imported app.main (which registers everything directly).
+        import os
+        import pathlib
+        import subprocess
+        import sys
+
+        backend_dir = pathlib.Path(__file__).resolve().parent.parent
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from sqlalchemy.orm import configure_mappers;"
+                "import app.services.reminder_runner;"
+                "configure_mappers();"
+                "print('CRON PATH CONFIGURE OK')",
+            ],
+            cwd=backend_dir,
+            env=os.environ.copy(),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        self.assertEqual(
+            completed.returncode,
+            0,
+            msg=f"cron entrypoint mapper configuration failed:\n{completed.stderr}",
+        )
+        self.assertIn("CRON PATH CONFIGURE OK", completed.stdout)
 
 
 if __name__ == "__main__":
