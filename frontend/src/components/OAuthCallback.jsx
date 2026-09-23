@@ -11,7 +11,8 @@ function OAuthCallback({ onAuthenticated }) {
 
     // Remove the token (and any OAuth params) from the URL immediately
     // so it never sits in browser history or is visible in the address bar.
-    window.history.replaceState({}, document.title, window.location.pathname)
+    // Also redirect the pathname to / so App.jsx stops rendering this component.
+    window.history.replaceState({}, document.title, '/')
 
     if (oauthError) {
       const messages = {
