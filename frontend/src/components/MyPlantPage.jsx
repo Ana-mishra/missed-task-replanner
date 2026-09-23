@@ -1,39 +1,53 @@
 import { useEffect, useRef, useState } from 'react'
 
-// ---------------------------------------------------------------------------
-// Stage display configuration — mirrors backend thresholds but is only used
-// for display labels and progress copy, never for re-computing growth_days.
-// ---------------------------------------------------------------------------
-const STAGE_LABELS = {
-  seed:        'Seed',
-  sprout:      'Sprout',
-  young_plant: 'Young Plant',
-  growing:     'Growing Plant',
-  flourishing: 'Flourishing Plant',
-  mature:      'Mature Plant',
-}
-
-const STAGE_NEXT_LABELS = {
-  seed:        'Sprout',
-  sprout:      'Young Plant',
-  young_plant: 'Growing Plant',
-  growing:     'Flourishing Plant',
-  flourishing: 'Mature Plant',
-  mature:      null,
-}
+import { getTaskHistory } from '../services/api.js'
+import { IconLeaf } from './icons.jsx'
+import {
+  companionMood,
+  recentDaysStrip,
+} from '../utils/plantCompanion.mjs'
 
 // ---------------------------------------------------------------------------
-// Vitality copy — neutral, warm, never guilt-based.
+// RecentDays — 7-day IST strip from real completed history events.
+// A leaf is lit when that IST date was a genuine growth day; a missed day is
+// a quiet muted leaf, never a punishment. No data is invented: without
+// loaded history every day simply renders unlit.
 // ---------------------------------------------------------------------------
-function vitalityCopy(vitality, completedToday) {
-  if (completedToday) return 'Your plant is thriving today.'
-  switch (vitality) {
-    case 'healthy':    return 'Your plant is doing well.'
-    case 'waiting':    return 'A little care today would delight your plant.'
-    case 'droopy':     return 'Your plant is waiting for you.'
-    case 'very_droopy': return 'Your plant misses you — it\'s still here.'
-    default:           return 'Your plant is here whenever you are.'
-  }
+function RecentDays() {
+  const [events, setEvents] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getTaskHistory()
+      .then((history) => { if (!cancelled) setEvents(history ?? []) })
+      .catch(() => { if (!cancelled) setEvents([]) })
+    return () => { cancelled = true }
+  }, [])
+
+  const strip = recentDaysStrip(events ?? [])
+
+  return (
+    <section className="plant-recent" aria-label="Recent days">
+      <h2 className="plant-recent__heading">Recent days</h2>
+      <ol className="plant-recent__strip">
+        {strip.map((day) => (
+          <li
+            key={day.key}
+            className={[
+              'plant-recent__day',
+              day.showedUp ? 'plant-recent__day--lit' : 'plant-recent__day--muted',
+              day.isToday ? 'plant-recent__day--today' : '',
+            ].filter(Boolean).join(' ')}
+            aria-label={`${day.label}${day.showedUp ? ', showed up' : ''}${day.isToday ? ', today' : ''}`}
+            aria-current={day.isToday ? 'date' : undefined}
+          >
+            <IconLeaf width={20} height={20} />
+            <span className="plant-recent__day-label">{day.label}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -216,34 +230,8 @@ function PlantSvg({ stage, vitality, animating }) {
 }
 
 // ---------------------------------------------------------------------------
-// Progress bar toward next stage
-// ---------------------------------------------------------------------------
-function StageProgress({ stage, stageProgress }) {
-  const nextLabel = STAGE_NEXT_LABELS[stage]
-  if (stage === 'mature') {
-    return (
-      <p className="plant-progress__terminal">
-        Your plant has reached its fullest form.
-      </p>
-    )
-  }
-  return (
-    <div className="plant-progress">
-      <div className="plant-progress__bar-wrap" aria-label={`${Math.round(stageProgress)}% toward ${nextLabel}`}>
-        <div
-          className="plant-progress__bar-fill"
-          style={{ width: `${Math.min(100, stageProgress)}%` }}
-        />
-      </div>
-      <p className="plant-progress__label">
-        {Math.round(stageProgress)}% toward <span>{nextLabel}</span>
-      </p>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// MyPlantPage — main export
+// MyPlantPage — main export. The plant is the hero; everything else is one
+// contextual message, one consistency line, and a quiet 7-day strip.
 // ---------------------------------------------------------------------------
 export default function MyPlantPage({ plantData, plantLoading, plantError }) {
   // Track the previous grew_today so we can detect the first-of-day event.
@@ -304,16 +292,27 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
   const {
     growth_days,
     stage,
-    stage_progress,
-    current_streak_days,
-    days_since_last_growth,
     completed_today,
-    grew_today,
     vitality,
   } = plantData
 
-  const stageLabel = STAGE_LABELS[stage] ?? stage
-  const copy = vitalityCopy(vitality, completed_today)
+  // Yesterday (IST) decides HAPPY vs RETURNING only when real history is
+  // available; otherwise the mood safely falls back to HAPPY.
+  const [showedUpYesterday, setShowedUpYesterday] = useState(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    getTaskHistory()
+      .then((history) => {
+        if (cancelled) return
+        const strip = recentDaysStrip(history ?? [])
+        setShowedUpYesterday(strip.length >= 2 ? strip[strip.length - 2].showedUp : undefined)
+      })
+      .catch(() => { if (!cancelled) setShowedUpYesterday(undefined) })
+    return () => { cancelled = true }
+  }, [])
+
+  const mood = companionMood({ completed_today, vitality, showedUpYesterday })
 
   return (
     <div className="plant-page">
@@ -321,44 +320,36 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
         <p className="plant-page__eyebrow">MY PLANT</p>
         <h1 className="plant-page__title">My Plant</h1>
         <p className="plant-page__standfirst">
-          Your plant grows with the days you show up.
+          A little companion that grows with you.
         </p>
       </header>
 
-      {/* ---- Central visual (hero) ---- */}
+      {/* ---- Central hero ---- */}
       <section className="plant-stage" aria-label="Plant visual">
         <div className={`plant-visual plant-visual--${stage} plant-visual--vitality-${vitality}`}>
           <PlantSvg stage={stage} vitality={vitality} animating={animating} />
         </div>
 
-        {/* Stage badge */}
-        <p className="plant-stage__label">{stageLabel}</p>
-
-        {/* Vitality copy */}
-        <p className={`plant-vitality-copy plant-vitality-copy--${vitality}`}>
-          {copy}
+        <p className={`plant-companion-copy plant-companion-copy--${mood.id.toLowerCase()}`}>
+          {mood.message}
+        </p>
+        <p className="plant-consistency">
+          {growth_days > 0
+            ? `You've shown up ${growth_days} day${growth_days === 1 ? '' : 's'} in total.`
+            : 'Your first day of showing up will plant the seed.'}
         </p>
       </section>
 
-      {/* ---- Growth Days (primary metric) + Progress ---- */}
-      <section className="plant-metrics" aria-label="Growth metrics">
-        <div className="plant-metric plant-metric--primary">
-          <span className="plant-metric__value">{growth_days}</span>
-          <span className="plant-metric__label">GROWTH DAYS</span>
-        </div>
+      <RecentDays />
 
-        {/* Stage progress directly beneath Growth Days */}
-        <div className="plant-stage-progress" aria-label="Stage progress">
-          <StageProgress stage={stage} stageProgress={stage_progress} />
-        </div>
-
-        {/* Days in a row — quiet secondary treatment */}
-        {current_streak_days > 0 && (
-          <p className="plant-streak-quiet">
-            {current_streak_days} day{current_streak_days === 1 ? '' : 's'} in a row
-          </p>
-        )}
-      </section>
+      <details className="plant-how">
+        <summary>How it works?</summary>
+        <p>
+          Your plant grows when you show up. Planning your day and making
+          progress help it grow. Missing a day won&apos;t erase your progress —
+          your plant will be ready when you are.
+        </p>
+      </details>
     </div>
   )
 }

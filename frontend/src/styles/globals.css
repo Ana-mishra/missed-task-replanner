@@ -11785,6 +11785,105 @@ body {
   font-style: italic;
 }
 
+/* ---- Companion message + consistency line (Phase 1 hero copy) ---- */
+.plant-companion-copy {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--primary);
+  margin: 0;
+  text-align: center;
+  line-height: 1.4;
+  max-width: 34ch;
+}
+
+.plant-consistency {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+  text-align: center;
+}
+
+/* ---- Recent days strip: quiet 7-leaf history, never a score ---- */
+.plant-recent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.plant-recent__heading {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+
+.plant-recent__strip {
+  list-style: none;
+  display: flex;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0;
+}
+
+.plant-recent__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.plant-recent__day--lit {
+  color: var(--success);
+}
+
+.plant-recent__day--muted {
+  color: var(--muted);
+  opacity: 0.38;
+}
+
+.plant-recent__day--today {
+  color: var(--primary);
+}
+
+.plant-recent__day--today.plant-recent__day--muted {
+  opacity: 0.75;
+}
+
+.plant-recent__day-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.plant-recent__day--today .plant-recent__day-label {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ---- How it works: secondary, unobtrusive ---- */
+.plant-how {
+  margin-top: 0.5rem;
+  max-width: 40ch;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.plant-how summary {
+  cursor: pointer;
+  display: inline-block;
+}
+
+.plant-how p {
+  margin: 0.4rem 0 0;
+  line-height: 1.55;
+}
+
 /* ---- The plant visual container ---- */
 .plant-visual {
   width: 500px;
