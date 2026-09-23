@@ -14,7 +14,7 @@ from app.api.auth import router as auth_router
 from app.api.oauth import router as oauth_router
 from app.api.notifications import router as notifications_router
 from app.api.settings import router as settings_router
-from app.config import FRONTEND_ORIGIN
+from app.config import CORS_ALLOWED_ORIGINS
 from app.database import (
     Base,
     add_oauth_accounts_table,
@@ -39,7 +39,7 @@ app = FastAPI(title="Missed Task Replanner API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN],
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],

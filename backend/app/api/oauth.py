@@ -15,6 +15,7 @@ from app.config import (
     GITHUB_CLIENT_SECRET,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
+    OAUTH_ALLOWED_RETURN_ORIGINS,
 )
 from app.database import get_db
 from app.models.oauth_account import OAuthAccount
@@ -23,6 +24,7 @@ from app.schemas.auth import TokenResponse
 from app.services.oauth import (
     exchange_github_code,
     exchange_google_code,
+    extract_return_origin,
     fetch_github_primary_email,
     fetch_github_user,
     fetch_google_userinfo,
@@ -52,6 +54,38 @@ def _github_redirect_uri() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Return-origin handling — the browser that starts the flow tells us where
+# to send the user back via the signed `next` query parameter, which travels
+# inside the HMAC-signed state token. Only allow-listed origins are honored;
+# anything else falls back to FRONTEND_ORIGIN, so this can never become an
+# open redirect.
+# ---------------------------------------------------------------------------
+
+def _normalize_origin(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.strip().rstrip("/")
+    return normalized or None
+
+
+def _resolve_return_origin(value: str | None) -> str | None:
+    """Return *value* when it is an explicitly allowed frontend origin."""
+    normalized = _normalize_origin(value)
+    if normalized and normalized in OAUTH_ALLOWED_RETURN_ORIGINS:
+        return normalized
+    return None
+
+
+def _final_frontend_origin(state: str | None) -> str:
+    """Return the frontend origin the OAuth callback should redirect to."""
+    if state:
+        embedded = _resolve_return_origin(extract_return_origin(state))
+        if embedded:
+            return embedded
+    return FRONTEND_ORIGIN.rstrip("/")
+
+
+# ---------------------------------------------------------------------------
 # Shared error redirect helper
 # ---------------------------------------------------------------------------
 
@@ -66,14 +100,14 @@ def _error_redirect(message: str) -> RedirectResponse:
 # ---------------------------------------------------------------------------
 
 @router.get("/google", summary="Initiate Google OAuth login")
-def google_login():
+def google_login(next: str = Query(default=None)):
     """Redirect the browser to Google's OAuth consent page."""
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
             detail="Google OAuth is not configured on this server",
         )
-    state = generate_state()
+    state = generate_state(_resolve_return_origin(next))
     from fastapi import Request
     url = google_authorization_url(
         redirect_uri=_google_redirect_uri(),
@@ -130,7 +164,7 @@ def google_callback(
     from urllib.parse import urlencode
     params = urlencode({"token": jwt, "token_type": "bearer"})
     return RedirectResponse(
-        url=f"{FRONTEND_ORIGIN.rstrip('/')}/oauth/callback?{params}",
+        url=f"{_final_frontend_origin(state)}/oauth/callback?{params}",
         status_code=302,
     )
 
@@ -140,14 +174,14 @@ def google_callback(
 # ---------------------------------------------------------------------------
 
 @router.get("/github", summary="Initiate GitHub OAuth login")
-def github_login():
+def github_login(next: str = Query(default=None)):
     """Redirect the browser to GitHub's OAuth consent page."""
     if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
             detail="GitHub OAuth is not configured on this server",
         )
-    state = generate_state()
+    state = generate_state(_resolve_return_origin(next))
     url = github_authorization_url(
         redirect_uri=_github_redirect_uri(),
         state=state,
@@ -211,7 +245,7 @@ def github_callback(
     from urllib.parse import urlencode
     params = urlencode({"token": jwt, "token_type": "bearer"})
     return RedirectResponse(
-        url=f"{FRONTEND_ORIGIN.rstrip('/')}/oauth/callback?{params}",
+        url=f"{_final_frontend_origin(state)}/oauth/callback?{params}",
         status_code=302,
     )
 

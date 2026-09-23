@@ -1,5 +1,17 @@
+import { oauthLoginUrl as buildOAuthLoginUrl } from '../utils/oauthUrls.mjs'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 const ACCESS_TOKEN_STORAGE_KEY = 'planora.accessToken'
+
+export function getApiBaseUrl() {
+  return API_BASE_URL
+}
+
+export function oauthLoginUrl(provider) {
+  const origin =
+    (typeof window !== 'undefined' && window.location?.origin) || undefined
+  return buildOAuthLoginUrl(API_BASE_URL, provider, origin)
+}
 
 export function getAccessToken() {
   try {

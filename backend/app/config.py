@@ -24,6 +24,47 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 # existing behavior; production supplies the deployed frontend URL.
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 
+
+def _parse_origin_list(raw: str | None) -> list[str]:
+    return [
+        value.strip().rstrip("/")
+        for value in (raw or "").split(",")
+        if value.strip()
+    ]
+
+
+def _unique_origins(*groups: list[str]) -> list[str]:
+    seen: list[str] = []
+    for group in groups:
+        for origin in group:
+            if origin and origin not in seen:
+                seen.append(origin)
+    return seen
+
+
+# Local development origins. Browsers running the Vite dev server need these
+# even when the API itself is hosted remotely (e.g. local frontend talking
+# to the Railway backend). Localhost-only entries cannot be abused by a
+# remote attacker, so they are safe defaults in every environment.
+LOCAL_DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+# Full CORS allow-list: the production frontend plus local dev servers plus
+# any extra operator-supplied origins (CORS_EXTRA_ORIGINS, comma-separated).
+CORS_ALLOWED_ORIGINS = _unique_origins(
+    [FRONTEND_ORIGIN],
+    LOCAL_DEV_ORIGINS,
+    _parse_origin_list(os.getenv("CORS_EXTRA_ORIGINS")),
+)
+
+# Frontend origins an OAuth flow may return to after authentication. The
+# browser supplies its own origin via the signed `next` parameter; anything
+# outside this list falls back to FRONTEND_ORIGIN (never an open redirect).
+OAUTH_ALLOWED_RETURN_ORIGINS = _unique_origins(
+    [FRONTEND_ORIGIN],
+    LOCAL_DEV_ORIGINS,
+    _parse_origin_list(os.getenv("OAUTH_ALLOWED_RETURN_ORIGINS")),
+)
+
 # Backend origin used to construct OAuth provider redirect URIs. The provider
 # (Google, GitHub) must redirect the browser back to this origin's callback
 # endpoint, which runs on the backend, not the frontend. Defaults to the local

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { login, register } from '../services/api.js'
+import { login, oauthLoginUrl, register } from '../services/api.js'
 
 function AuthPage({ onAuthenticated, initialMode = 'login', onBack }) {
   const [mode, setMode] = useState(initialMode)
@@ -171,7 +171,7 @@ function AuthPage({ onAuthenticated, initialMode = 'login', onBack }) {
           <button
             type="button"
             className="auth-oauth-button"
-            onClick={() => { window.location.href = 'https://missed-task-replanner-production.up.railway.app/auth/google'; }}
+            onClick={() => { window.location.href = oauthLoginUrl('google'); }}
           >
             <span className="auth-oauth-button__icon" aria-hidden="true">G</span>
             Continue with Google
@@ -180,7 +180,7 @@ function AuthPage({ onAuthenticated, initialMode = 'login', onBack }) {
           <button
             type="button"
             className="auth-oauth-button"
-            onClick={() => { window.location.href = 'https://missed-task-replanner-production.up.railway.app/auth/github'; }}
+            onClick={() => { window.location.href = oauthLoginUrl('github'); }}
           >
             <span className="auth-oauth-button__icon" aria-hidden="true">G</span>
             Continue with GitHub

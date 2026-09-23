@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import secrets
@@ -25,11 +26,32 @@ from app.config import (
 _STATE_TTL_SECONDS = 600
 
 
-def generate_state() -> str:
-    """Return a signed, time-stamped CSRF state token."""
+def _encode_origin(origin: str) -> str:
+    """Encode a return origin so it can travel inside the state token."""
+    return base64.urlsafe_b64encode(origin.encode()).decode().rstrip("=")
+
+
+def _decode_origin(encoded: str) -> str | None:
+    """Decode a state-embedded origin, or None when malformed."""
+    try:
+        padded = encoded + "=" * (-len(encoded) % 4)
+        return base64.urlsafe_b64decode(padded.encode()).decode()
+    except Exception:
+        return None
+
+
+def generate_state(return_origin: str | None = None) -> str:
+    """Return a signed, time-stamped CSRF state token.
+
+    When *return_origin* is given, it is embedded (signed) in the token so
+    the callback can redirect back to the frontend that started the flow
+    (e.g. a localhost dev server) instead of the default production origin.
+    """
     nonce = secrets.token_urlsafe(24)
     ts = str(int(time.time()))
     payload = f"{nonce}:{ts}"
+    if return_origin:
+        payload = f"{payload}:{_encode_origin(return_origin)}"
     sig = _sign(payload)
     return f"{payload}:{sig}"
 
@@ -43,13 +65,33 @@ def verify_state(state: str) -> bool:
         payload, sig = parts
         if not hmac.compare_digest(sig, _sign(payload)):
             return False
-        _, ts_str = payload.rsplit(":", 1)
-        ts = int(ts_str)
+        segments = payload.split(":")
+        if len(segments) not in (2, 3):
+            return False
+        ts = int(segments[1])
         if abs(time.time() - ts) > _STATE_TTL_SECONDS:
             return False
         return True
     except Exception:
         return False
+
+
+def extract_return_origin(state: str) -> str | None:
+    """Return the signed return origin embedded in *state*, if any.
+
+    Returns None for tokens without an origin or with an invalid signature,
+    so callbacks must fall back to the default frontend origin.
+    """
+    try:
+        if not verify_state(state):
+            return None
+        payload = state.rsplit(":", 1)[0]
+        segments = payload.split(":")
+        if len(segments) != 3:
+            return None
+        return _decode_origin(segments[2])
+    except Exception:
+        return None
 
 
 def _sign(payload: str) -> str:
