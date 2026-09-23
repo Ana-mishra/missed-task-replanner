@@ -465,8 +465,15 @@ a:focus-visible {
   font-size: 0.78rem;
 }
 .task-card__state {
-  color: var(--primary);
-  font-weight: 700;
+   color: var(--primary);
+   font-weight: 700;
+}
+.task-card__reason {
+   margin: 0.4rem 0 0;
+   color: var(--muted);
+   font-size: 0.75rem;
+   font-style: italic;
+   line-height: 1.4;
 }
 .task-card--overdue .task-card__state {
   color: var(--danger);

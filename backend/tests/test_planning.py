@@ -965,6 +965,148 @@ class PlanningEngineTests(unittest.TestCase):
         self.assertTrue(result.is_overloaded)
         self.assertEqual(result.unscheduled_minutes, 121)
 
+    def test_reason_kept_because_deadline_is_today(self):
+        task = self.make_task(
+            1,
+            "Due today",
+            30,
+            self.available_start + timedelta(hours=1),
+            energy_level="high",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+            bad_day=True,
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertIn("deadline is today", result.schedule[0].reason)
+
+    def test_reason_kept_because_deadline_is_tomorrow(self):
+        task = self.make_task(
+            1,
+            "Due tomorrow",
+            30,
+            self.available_start + timedelta(days=1),
+            energy_level="high",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+            bad_day=True,
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertIn("deadline is tomorrow", result.schedule[0].reason)
+
+    def test_reason_prioritized_energy_match_in_bad_day(self):
+        task = self.make_task(
+            1,
+            "Low energy task",
+            30,
+            self.available_start + timedelta(days=2),
+            energy_level="low",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+            bad_day=True,
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertIn("matches your current energy", result.schedule[0].reason)
+
+    def test_reason_within_reduced_workload_high_energy_not_protected(self):
+        task = self.make_task(
+            1,
+            "High energy flexible",
+            30,
+            self.available_start + timedelta(days=5),
+            energy_level="high",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+            bad_day=True,
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertIn("reduced workload", result.schedule[0].reason)
+
+    def test_reason_scheduled_by_deadline_and_priority_normal_day(self):
+        task = self.make_task(
+            1,
+            "Flexible task",
+            30,
+            self.available_start + timedelta(days=5),
+            energy_level="medium",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+            user_energy_level="medium",
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertIn("deadline", result.schedule[0].reason.lower())
+
+    def test_reason_scheduled_by_deadline_and_priority_normal_day(self):
+        task = self.make_task(
+            1,
+            "Flexible task",
+            30,
+            self.available_start + timedelta(days=5),
+            energy_level="high",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+            user_energy_level="low",
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertIn("deadline", result.schedule[0].reason.lower())
+        self.assertIn("priority", result.schedule[0].reason.lower())
+
+    def test_reason_keeps_close_deadline_normal_day(self):
+        task = self.make_task(
+            1,
+            "Close deadline",
+            30,
+            self.available_start + timedelta(hours=1),
+            energy_level="high",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertIn("deadline is today", result.schedule[0].reason)
+
+    def test_bad_day_protected_count_and_capacity(self):
+        protected = self.make_task(
+            1,
+            "Protected task",
+            30,
+            self.available_start + timedelta(hours=1),
+        )
+        flexible = self.make_task(
+            2,
+            "Flexible task",
+            30,
+            self.available_start + timedelta(days=5),
+            energy_level="low",
+        )
+        available_end = self.available_start + timedelta(hours=2)
+        result = self.engine.generate_schedule(
+            [protected, flexible],
+            self.available_start,
+            available_end,
+            bad_day=True,
+        )
+        self.assertGreaterEqual(len(result.schedule), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

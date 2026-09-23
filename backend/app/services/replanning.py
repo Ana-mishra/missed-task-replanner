@@ -76,6 +76,7 @@ class ReplanningEngine:
                     title=task.title,
                     scheduled_start=current_time,
                     scheduled_end=scheduled_end,
+                    reason="Rescheduled due to a missed task.",
                 )
             )
             current_time = scheduled_end

@@ -41,7 +41,7 @@ function formatSlot(start, end) {
   return `${startDate}, ${fmt(start)} – ${fmt(end)}`
 }
 
-function TaskCard({ task, onEdit, onComplete, onDelete, showSlot = false }) {
+function TaskCard({ task, onEdit, onComplete, onDelete, showSlot = false, reason }) {
   const overdue = isOverdue(task)
   const urgency = getUrgency(task)
   const state = task.completed
@@ -110,6 +110,9 @@ function TaskCard({ task, onEdit, onComplete, onDelete, showSlot = false }) {
             {formatDeadline(task.deadline)}
           </time>
         </div>
+        {reason && !task.completed && (
+          <p className="task-card__reason">{reason}</p>
+        )}
       </div>
     </article>
   )

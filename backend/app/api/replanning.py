@@ -96,6 +96,7 @@ def replan_task(
                 title=item.title,
                 scheduled_start=item.scheduled_start,
                 scheduled_end=item.scheduled_end,
+                reason=item.reason,
             )
             for item in result.schedule
         ],

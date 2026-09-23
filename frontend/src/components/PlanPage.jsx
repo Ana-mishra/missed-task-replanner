@@ -17,6 +17,9 @@ export default function PlanPage({
   hasPlanned,
   planIsOverloaded,
   unscheduledMinutes,
+  badDayProtectedCount,
+  badDayCapacityMinutes,
+  scheduleRefreshReason,
   onPlanDay,
   onHidePlan,
   onGoToToday,
@@ -84,8 +87,20 @@ export default function PlanPage({
 
       {badDayMode && !hasNothingToPlan && (
         <p className="plan-bad-day-note">
-          We&apos;ll reduce today&apos;s preferred workload, favor low-energy work,
-          and still protect close deadlines.
+          Your plan protects {badDayProtectedCount} deadline-critical task{badDayProtectedCount !== 1 ? 's' : ''}
+          {badDayCapacityMinutes > 0
+            ? ` and favors lower-energy work within ${formatDuration(badDayCapacityMinutes)} of preferred capacity.`
+            : ", favoring lower-energy work where possible."}
+        </p>
+      )}
+
+      {!badDayMode && !hasNothingToPlan && scheduleRefreshReason && (
+        <p className="plan-bad-day-note">
+          {scheduleRefreshReason === "Schedule changed after adding a task"
+            ? "Plan updated after adding a new task."
+            : scheduleRefreshReason === "Schedule changed after editing a task"
+              ? "Plan updated after editing a task."
+              : "Plan was reshaped."}
         </p>
       )}
 
@@ -98,6 +113,9 @@ export default function PlanPage({
             : unscheduledCount > 0
               ? ` · ${unscheduledCount} unscheduled`
               : ""}
+          {badDayMode && badDayProtectedCount > 0 && badDayCapacityMinutes > 0 && badDayProtectedCount * 60 > badDayCapacityMinutes
+            ? ` · ${formatDuration(badDayProtectedCount * 60)} of deadline-critical work was protected beyond your preferred Bad Day capacity`
+            : ""}
         </p>
       )}
 
@@ -252,6 +270,7 @@ export default function PlanPage({
                 <TaskCard
                   task={task}
                   showSlot
+                  reason={task.reason || undefined}
                   onEdit={() => onEditTask(task)}
                   onComplete={() => onCompleteTask(task)}
                   onDelete={() => onDeleteTask(task)}

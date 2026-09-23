@@ -23,6 +23,7 @@ class ScheduledTaskResponse(BaseModel):
     title: str
     scheduled_start: datetime
     scheduled_end: datetime
+    reason: str = ""
 
 
 class PlanResponse(BaseModel):
@@ -30,3 +31,6 @@ class PlanResponse(BaseModel):
     is_overloaded: bool
     unscheduled_minutes: int
     bad_day: bool
+    bad_day_protected_count: int = 0
+    bad_day_capacity_minutes: int = 0
+    schedule_refresh_reason: str = ""

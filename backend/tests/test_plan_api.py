@@ -276,7 +276,10 @@ class PlanEndpointTests(unittest.TestCase):
             second_response = self.client.post("/plan", json=second_request)
 
         self.assertEqual(second_response.status_code, 200)
-        self.assertEqual(second_response.json()["schedule"], first_schedule)
+        self.assertEqual(
+            [{k: v for k, v in item.items() if k != "reason"} for item in second_response.json()["schedule"]],
+            [{k: v for k, v in item.items() if k != "reason"} for item in first_schedule],
+        )
         self.assertEqual(generate_schedule.call_count, 0)
         with self.session_local() as db:
             self.assertEqual(

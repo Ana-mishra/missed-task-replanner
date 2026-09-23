@@ -89,6 +89,9 @@ function App() {
   const [todayPlanTaskIds, setTodayPlanTaskIds] = useState([]);
   const [planIsOverloaded, setPlanIsOverloaded] = useState(false);
   const [unscheduledMinutes, setUnscheduledMinutes] = useState(0);
+  const [badDayProtectedCount, setBadDayProtectedCount] = useState(0);
+  const [badDayCapacityMinutes, setBadDayCapacityMinutes] = useState(0);
+  const [scheduleRefreshReason, setScheduleRefreshReason] = useState("");
   const [recommendation, setRecommendation] = useState(null);
   const [recoveringId, setRecoveringId] = useState(null);
   const [completingId, setCompletingId] = useState(null);
@@ -404,10 +407,13 @@ setPlannedTasks(
   })),
 );
 
-setTodayPlanTaskIds(planTaskIds);
-setPlanIsOverloaded(result.is_overloaded);
-setUnscheduledMinutes(result.unscheduled_minutes ?? 0);
-lastPlannedAvailableMinutesRef.current = availableMinutes;
+      setTodayPlanTaskIds(planTaskIds);
+      setPlanIsOverloaded(result.is_overloaded);
+      setUnscheduledMinutes(result.unscheduled_minutes ?? 0);
+      setBadDayProtectedCount(result.bad_day_protected_count ?? 0);
+      setBadDayCapacityMinutes(result.bad_day_capacity_minutes ?? 0);
+      setScheduleRefreshReason(result.schedule_refresh_reason || "");
+      lastPlannedAvailableMinutesRef.current = availableMinutes;
 localStorage.setItem(LAST_PLANNED_AVAILABLE_MINUTES_KEY, String(availableMinutes));
 planIsStaleRef.current = false;
 lastPlannedBadDayModeRef.current = badDayMode;
@@ -632,6 +638,9 @@ return (
         hasPlanned={hasPlanned}
         planIsOverloaded={planIsOverloaded}
         unscheduledMinutes={unscheduledMinutes}
+        badDayProtectedCount={badDayProtectedCount}
+        badDayCapacityMinutes={badDayCapacityMinutes}
+        scheduleRefreshReason={scheduleRefreshReason}
         onPlanDay={handlePlanDay}
         onHidePlan={handleHidePlan}
         onGoToToday={() => navigateToPage("today")}

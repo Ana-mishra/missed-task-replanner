@@ -12,6 +12,7 @@ class ScheduledTask:
     title: str
     scheduled_start: datetime
     scheduled_end: datetime
+    reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,40 @@ class PlanningEngine:
     def priority_rank(cls, priority: str) -> int:
         """Return a consistent sort rank for a task priority."""
         return cls._priority_order.get(priority.lower(), 3)
+
+    def _compute_reason(
+        self,
+        task: Task,
+        available_start: datetime,
+        bad_day: bool,
+        task_is_protected: bool,
+        task_limit: datetime,
+        scheduled_end: datetime,
+        user_energy_level: str | None = None,
+    ) -> str:
+        """Return a deterministic explanation for why this task was scheduled this way."""
+        deadline = self._to_naive_local(task.deadline)
+        if bad_day:
+            if task_is_protected:
+                if deadline.date() == available_start.date():
+                    return "Kept because the deadline is today."
+                if deadline.date() == (available_start + timedelta(days=1)).date():
+                    return "Kept because the deadline is tomorrow."
+                return "Kept because the deadline is close."
+            energy_match = self.energy_compatibility_rank(task.energy_level, "low") == 0
+            if energy_match:
+                return "Prioritized because it matches your current energy."
+            return "Scheduled within your reduced workload."
+        if task_is_protected:
+            if deadline.date() == available_start.date():
+                return "Kept because the deadline is today."
+            if deadline.date() == (available_start + timedelta(days=1)).date():
+                return "Kept because the deadline is tomorrow."
+            return "Kept because the deadline is close."
+        energy_match = self.energy_compatibility_rank(task.energy_level, user_energy_level) == 0
+        if energy_match:
+            return "Prioritized because it matches your energy."
+        return "Scheduled by deadline and priority."
 
     def generate_schedule(
         self,
@@ -139,12 +174,16 @@ class PlanningEngine:
             )
 
             if can_keep_persisted_slot:
+                reason = self._compute_reason(
+                    task, available_start, bad_day, task_is_protected, task_limit, persisted_end, user_energy_level
+                )
                 schedule.append(
                     ScheduledTask(
                         task_id=task.id,
                         title=task.title,
                         scheduled_start=persisted_start,
                         scheduled_end=persisted_end,
+                        reason=reason,
                     )
                 )
                 current_time = persisted_end
@@ -156,12 +195,16 @@ class PlanningEngine:
                 unscheduled_minutes += task.duration_minutes
                 continue
 
+            reason = self._compute_reason(
+                task, available_start, bad_day, task_is_protected, task_limit, scheduled_end, user_energy_level
+            )
             schedule.append(
                 ScheduledTask(
                     task_id=task.id,
                     title=task.title,
                     scheduled_start=current_time,
                     scheduled_end=scheduled_end,
+                    reason=reason,
                 )
             )
             current_time = scheduled_end
@@ -173,8 +216,9 @@ class PlanningEngine:
             bad_day=bad_day,
         )
 
-    def _is_deadline_protected(self, task: Task, available_start: datetime) -> bool:
-        deadline = self._to_naive_local(task.deadline)
+    @staticmethod
+    def _is_deadline_protected(task: Task, available_start: datetime) -> bool:
+        deadline = PlanningEngine._to_naive_local(task.deadline)
         # Calendar-day protection reflects what a user means by "due
         # tomorrow" even when their available window starts late in the day.
         return deadline.date() <= (available_start + timedelta(days=1)).date()

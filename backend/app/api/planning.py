@@ -27,6 +27,7 @@ def persisted_schedule(tasks: list[Task]) -> list[ScheduledTaskResponse]:
             title=task.title,
             scheduled_start=task.scheduled_start,
             scheduled_end=task.scheduled_end,
+            reason=task.schedule_refresh_reason or "",
         )
         for task in sorted(tasks, key=lambda task: (task.scheduled_start, task.id))
     ]
@@ -236,6 +237,9 @@ def create_plan(
             is_overloaded=unscheduled_minutes > 0,
             unscheduled_minutes=unscheduled_minutes,
             bad_day=plan_request.bad_day,
+            bad_day_protected_count=0,
+            bad_day_capacity_minutes=0,
+            schedule_refresh_reason=schedule_change_reason(incomplete_tasks),
         )
 
     planning_anchor = planning_start_with_persisted_schedule(
@@ -368,6 +372,23 @@ def create_plan(
             task.schedule_refresh_reason = None
     db.commit()
 
+    refresh_reason = schedule_change_reason(incomplete_tasks)
+    task_map = {task.id: task for task in incomplete_tasks}
+    protected_count = 0
+    for item in result.schedule:
+        task = task_map.get(item.task_id)
+        if task is not None and PlanningEngine._is_deadline_protected(task, planning_reference_time):
+            protected_count += 1
+    bad_day_capacity = (
+        int(
+            (plan_request.available_end - plan_request.available_start).total_seconds()
+            / 60
+            * PlanningEngine.bad_day_capacity_ratio
+        )
+        if plan_request.bad_day
+        else 0
+    )
+
     return PlanResponse(
         schedule=[
             ScheduledTaskResponse(
@@ -375,10 +396,14 @@ def create_plan(
                 title=item.title,
                 scheduled_start=item.scheduled_start,
                 scheduled_end=item.scheduled_end,
+                reason=item.reason,
             )
             for item in result.schedule
         ],
         is_overloaded=result.is_overloaded,
         unscheduled_minutes=result.unscheduled_minutes,
         bad_day=result.bad_day,
+        bad_day_protected_count=protected_count,
+        bad_day_capacity_minutes=bad_day_capacity,
+        schedule_refresh_reason=refresh_reason,
     )
