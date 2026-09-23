@@ -32,6 +32,7 @@ import {
 import {
   DEFAULT_AVAILABLE_MINUTES,
 } from "./utils/workload.mjs";
+import { mergeScheduleReasons } from "./utils/planReasons.mjs";
 import { createRecoveryLock, runRecoverySequence } from "./utils/recovery.mjs";
 
 const LAST_PLANNED_AVAILABLE_MINUTES_KEY = "planora.lastPlannedAvailableMinutes";
@@ -397,7 +398,9 @@ const completedTodayTasks = tasks.filter((task) =>
       });
 
       const updatedTasks = await getTasks();
-      setTasks(updatedTasks);
+      // Task objects carry no planning reason themselves; join the reasons
+      // from this planning result onto them by task_id for rendering.
+      setTasks(mergeScheduleReasons(updatedTasks, result.schedule));
 
    const planTaskIds = result.schedule.map((item) => String(item.task_id));
 

@@ -19,18 +19,48 @@ def has_complete_schedule(task: Task) -> bool:
     return task.scheduled_start is not None and task.scheduled_end is not None
 
 
-def persisted_schedule(tasks: list[Task]) -> list[ScheduledTaskResponse]:
-    """Return an already-created plan without moving it as wall-clock time moves."""
-    return [
-        ScheduledTaskResponse(
-            task_id=task.id,
-            title=task.title,
-            scheduled_start=task.scheduled_start,
-            scheduled_end=task.scheduled_end,
-            reason=task.schedule_refresh_reason or "",
+def persisted_schedule(
+    tasks: list[Task],
+    planning_reference_time: datetime,
+    bad_day: bool = False,
+    user_energy_level: str | None = None,
+) -> list[ScheduledTaskResponse]:
+    """Return an already-created plan without moving it as wall-clock time moves.
+
+    The per-task reason is reconstructed with the same deterministic rule
+    the planner uses, from already-persisted task fields and this request's
+    planning context. This performs no planning run: the schedule, history,
+    and refresh flags are untouched, so idempotency is unchanged.
+    """
+    engine = PlanningEngine()
+    if bad_day:
+        user_energy_level = "low"
+    # Reuse the planner's own anchor so date-based explanations match the
+    # strings the original planning run produced for these same slots.
+    reason_anchor = planning_start_with_persisted_schedule(
+        tasks, planning_reference_time
+    )
+    responses = []
+    for task in sorted(tasks, key=lambda task: (task.scheduled_start, task.id)):
+        persisted_end = PlanningEngine._to_naive_local(task.scheduled_end)
+        responses.append(
+            ScheduledTaskResponse(
+                task_id=task.id,
+                title=task.title,
+                scheduled_start=task.scheduled_start,
+                scheduled_end=task.scheduled_end,
+                reason=engine._compute_reason(
+                    task,
+                    reason_anchor,
+                    bad_day,
+                    PlanningEngine._is_deadline_protected(task, reason_anchor),
+                    persisted_end,
+                    persisted_end,
+                    user_energy_level,
+                ),
+            )
         )
-        for task in sorted(tasks, key=lambda task: (task.scheduled_start, task.id))
-    ]
+    return responses
 
 
 def planning_start_with_persisted_schedule(
@@ -90,6 +120,28 @@ def bad_day_history_reason(
     if event_type == "scheduled":
         return "Scheduled within your reduced workload."
     return "Moved to reduce today's workload."
+
+
+def expired_persisted_tasks(
+    tasks: list[Task],
+    planning_reference_time: datetime,
+) -> list[Task]:
+    """Return scheduled, incomplete tasks whose slot has fully elapsed.
+
+    Unlike stale_persisted_tasks, this ignores the missed-recovery state on
+    purpose: a persisted slot with scheduled_end <= now is stale regardless
+    of history and must never be returned as the current schedule.
+    """
+    return [
+        task
+        for task in tasks
+        if (
+            not task.completed
+            and has_complete_schedule(task)
+            and PlanningEngine._to_naive_local(task.scheduled_end)
+            <= planning_reference_time
+        )
+    ]
 
 
 def stale_persisted_tasks(
@@ -187,6 +239,18 @@ def create_plan(
         newly_missed_ids.add(task.id)
     outstanding_missed_ids |= newly_missed_ids
 
+    # A fully elapsed slot that was skipped above is already inside an open
+    # missed cycle, so recording another "missed" event would corrupt the
+    # recovery lifecycle. Its missed opportunity is already represented in
+    # outstanding_missed_ids. Still, the expired slot itself must not survive:
+    # clear it and force a refresh so the idempotent early return below can
+    # never serve it as the current schedule.
+    for task in expired_persisted_tasks(incomplete_tasks, planning_reference_time):
+        if has_complete_schedule(task):
+            task.scheduled_start = None
+            task.scheduled_end = None
+            task.schedule_needs_refresh = True
+
     newly_overdue_ids: set[int] = set()
 
     for task in overdue_tasks(incomplete_tasks, planning_reference_time):
@@ -232,7 +296,10 @@ def create_plan(
         )
         return PlanResponse(
             schedule=persisted_schedule(
-                [task for task in incomplete_tasks if has_complete_schedule(task)]
+                [task for task in incomplete_tasks if has_complete_schedule(task)],
+                planning_reference_time,
+                plan_request.bad_day,
+                plan_request.energy_level,
             ),
             is_overloaded=unscheduled_minutes > 0,
             unscheduled_minutes=unscheduled_minutes,
