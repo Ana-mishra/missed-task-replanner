@@ -76,6 +76,61 @@
   margin-top: var(--space-2);
 }
 
+/* Compact Bad Day summary: calm inline panel in the green family, never the
+   orange overload treatment. Quieter than the "Today's plan" section. */
+.plan-page .bad-day-panel {
+  margin-top: var(--space-2);
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #d9e5d8;
+  border-radius: var(--radius-md);
+  background: #f2f7f1;
+}
+
+.plan-page .bad-day-panel__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.15rem;
+  color: var(--success);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.plan-page .bad-day-panel__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.plan-page .bad-day-panel__heading {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--primary);
+}
+
+.plan-page .bad-day-panel__body {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.plan-page .bad-day-panel__meta {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-theme="dark"] .plan-page .bad-day-panel {
+  background: rgb(57 121 95 / 10%);
+  border-color: rgb(57 121 95 / 35%);
+}
+
 .plan-page section[aria-label="Today's plan"] {
   margin-top: var(--space-2);
 }

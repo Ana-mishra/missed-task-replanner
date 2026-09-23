@@ -121,70 +121,59 @@ export default function PlanPage({
         </p>
       )}
 
-      {hasPlanned && planIsOverloaded && (
+      {hasPlanned && planIsOverloaded && badDayMode && (
+        <section className="bad-day-panel" aria-label="Bad Day Mode plan summary">
+          <p className="bad-day-panel__eyebrow">
+            <span className="bad-day-panel__dot" aria-hidden="true" />
+            Bad Day Mode
+          </p>
+          <h3 className="bad-day-panel__heading">Protecting your energy today</h3>
+          <p className="bad-day-panel__body">
+            Bad Day Mode is keeping today&apos;s plan lighter while protecting
+            deadline-critical work.
+          </p>
+          <p className="bad-day-panel__meta">
+            {[
+              `${formatDuration(plannedMinutes)} planned`,
+              ...(badDayProtectedCount > 0
+                ? [
+                    `${badDayProtectedCount} deadline-critical task${badDayProtectedCount !== 1 ? "s" : ""} protected`,
+                  ]
+                : []),
+              ...(unscheduledMinutes > 0
+                ? [`${formatDuration(unscheduledMinutes)} set aside for later`]
+                : []),
+            ].join(" · ")}
+          </p>
+        </section>
+      )}
+
+      {hasPlanned && planIsOverloaded && !badDayMode && (
         <section className="overload-notice" aria-labelledby="overload-heading">
-          {badDayMode ? (
-            <>
-              <div className="overload-notice__copy">
-                <p className="overload-notice__eyebrow">Your plan is intentionally lighter</p>
-                <h3 id="overload-heading">
-                  Protecting your energy today
-                </h3>
-                <p className="overload-notice__support">
-                  Bad Day Mode is prioritizing deadline-critical work and
-                  leaving lower-priority tasks for later.
-                </p>
-              </div>
-              <div
-                className="overload-notice__limits"
-                aria-label="Daily workload limits"
-              >
-                <span className="overload-limit">
-                  {formatDuration(availableMinutes)} available
-                </span>
-                <span className="overload-limit">
-                  {formatDuration(plannedMinutes)} of tasks
-                </span>
-                {badDayCapacityMinutes > 0 && (
-                  <span className="overload-limit">
-                    {formatDuration(badDayCapacityMinutes)} preferred capacity
-                  </span>
-                )}
-                {badDayProtectedCount > 0 && (
-                  <span className="overload-limit">
-                    {badDayProtectedCount} deadline-critical task{badDayProtectedCount !== 1 ? "s" : ""} protected
-                  </span>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="overload-notice__copy">
-                <p className="overload-notice__eyebrow">Your day looks full</p>
-                <h3 id="overload-heading">
-                  More needs attention than fits today.
-                </h3>
-                <p className="overload-notice__support">
-                  Plan My Day will prioritize what matters most and leave the rest
-                  for later.
-                </p>
-              </div>
-              <div
-                className="overload-notice__limits"
-                aria-label="Daily workload limits"
-              >
-                <span className="overload-limit">
-                  {formatDuration(availableMinutes)} available
-                </span>
-                <span className="overload-limit">
-                  {formatDuration(plannedMinutes)} of tasks
-                </span>
-                <span className="overload-limit overload-limit--exceeded">
-                  {formatDuration(unscheduledMinutes)} over capacity
-                </span>
-              </div>
-            </>
-          )}
+          <div className="overload-notice__copy">
+            <p className="overload-notice__eyebrow">Your day looks full</p>
+            <h3 id="overload-heading">
+              More needs attention than fits today.
+            </h3>
+            <p className="overload-notice__support">
+              Plan My Day will prioritize what matters most and leave the rest
+              for later.
+            </p>
+          </div>
+          <div
+            className="overload-notice__limits"
+            aria-label="Daily workload limits"
+          >
+            <span className="overload-limit">
+              {formatDuration(availableMinutes)} available
+            </span>
+            <span className="overload-limit">
+              {formatDuration(plannedMinutes)} of tasks
+            </span>
+            <span className="overload-limit overload-limit--exceeded">
+              {formatDuration(unscheduledMinutes)} over capacity
+            </span>
+          </div>
         </section>
       )}
 
