@@ -11,15 +11,18 @@ from app.api.tasks import router as tasks_router
 from app.api.task_history import router as task_history_router
 from app.api.history import router as history_router
 from app.api.auth import router as auth_router
+from app.api.oauth import router as oauth_router
 from app.api.notifications import router as notifications_router
 from app.api.settings import router as settings_router
 from app.config import FRONTEND_ORIGIN
 from app.database import (
     Base,
+    add_oauth_accounts_table,
     add_task_ownership_column,
     add_task_planning_columns,
     add_user_name_confirmation_column,
     engine,
+    make_users_password_hash_nullable,
     upgrade_task_history_table,
     upgrade_task_history_task_fk,
 )
@@ -30,6 +33,7 @@ from app.models.user_settings import UserSettings
 from app.models.daily_reflection import DailyReflection
 from app.models.push_subscription import PushSubscription
 from app.models.reminder_delivery import ReminderDelivery
+from app.models.oauth_account import OAuthAccount
 
 app = FastAPI(title="Missed Task Replanner API")
 
@@ -47,8 +51,11 @@ add_user_name_confirmation_column()
 add_task_ownership_column()
 upgrade_task_history_table()
 upgrade_task_history_task_fk()
+make_users_password_hash_nullable()
+add_oauth_accounts_table()
 app.include_router(tasks_router)
 app.include_router(auth_router)
+app.include_router(oauth_router)
 app.include_router(settings_router)
 app.include_router(notifications_router)
 app.include_router(task_history_router)

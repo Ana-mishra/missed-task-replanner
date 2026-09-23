@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,8 +17,11 @@ class User(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     name_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     tasks: Mapped[list["Task"]] = relationship(back_populates="owner")
     settings: Mapped["UserSettings | None"] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
+    oauth_accounts: Mapped[list["OAuthAccount"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
