@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildPlanPayload, browserTimezone } from "./planRequest.mjs";
+import { buildPlanPayload, browserTimezone, resolveEffectiveBadDayMode } from "./planRequest.mjs";
 
 test("payload includes the browser IANA timezone", () => {
   const payload = buildPlanPayload({
@@ -39,4 +39,30 @@ test("payload survives a JSON round trip", () => {
   const revived = JSON.parse(JSON.stringify(payload));
   assert.equal(revived.timezone, payload.timezone);
   assert.equal(revived.available_start, payload.available_start);
+});
+
+test("toggle override wins over state", () => {
+  assert.equal(resolveEffectiveBadDayMode(true, false), true);
+  assert.equal(resolveEffectiveBadDayMode(false, true), false);
+});
+
+test("manual clicks fall back to state, never the click event", () => {
+  const fakeClickEvent = { type: "click", target: {}, nativeEvent: {} };
+  assert.equal(resolveEffectiveBadDayMode(undefined, false), false);
+  assert.equal(resolveEffectiveBadDayMode(undefined, true), true);
+  assert.equal(resolveEffectiveBadDayMode(fakeClickEvent, false), false);
+  assert.equal(resolveEffectiveBadDayMode(fakeClickEvent, true), true);
+  assert.equal(resolveEffectiveBadDayMode(null, true), true);
+});
+
+test("resolved mode serializes cleanly into the payload", () => {
+  for (const badDayMode of [false, true]) {
+    const payload = buildPlanPayload({
+      availableStart: new Date("2040-05-06T10:52:00Z"),
+      availableEnd: new Date("2040-05-06T14:52:00Z"),
+      badDayMode: resolveEffectiveBadDayMode({ type: "click" }, badDayMode),
+    });
+    assert.equal(payload.bad_day, badDayMode);
+    JSON.stringify(payload);
+  }
 });

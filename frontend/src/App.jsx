@@ -33,7 +33,7 @@ import {
   DEFAULT_AVAILABLE_MINUTES,
 } from "./utils/workload.mjs";
 import { mergeScheduleReasons } from "./utils/planReasons.mjs";
-import { buildPlanPayload } from "./utils/planRequest.mjs";
+import { buildPlanPayload, resolveEffectiveBadDayMode } from "./utils/planRequest.mjs";
 import { createRecoveryLock, runRecoverySequence } from "./utils/recovery.mjs";
 
 const LAST_PLANNED_AVAILABLE_MINUTES_KEY = "planora.lastPlannedAvailableMinutes";
@@ -384,9 +384,9 @@ const completedTodayTasks = tasks.filter((task) =>
     planningRef.current = true;
     setPlanning(true);
     // The Bad Day toggle passes its new value explicitly so the request
-    // never reads a stale badDayMode closure. Manual Plan clicks omit it
-    // and use current state exactly as before.
-    const effectiveBadDayMode = badDayOverride ?? badDayMode;
+    // never reads a stale badDayMode closure. Manual Plan clicks pass the
+    // button click event (or nothing), which is ignored in favor of state.
+    const effectiveBadDayMode = resolveEffectiveBadDayMode(badDayOverride, badDayMode);
 
     try {
       const now = new Date();
