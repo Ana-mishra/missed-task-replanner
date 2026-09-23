@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -17,6 +18,23 @@ router = APIRouter(tags=["planning"])
 
 def has_complete_schedule(task: Task) -> bool:
     return task.scheduled_start is not None and task.scheduled_end is not None
+
+
+def user_wall_clock(value: datetime, timezone_name: str | None) -> datetime:
+    """Express a request timestamp as a naive wall-clock value in the user's frame.
+
+    Persisted schedules are stored as naive datetimes and the browser
+    displays those naive values as the user's local time, so every planning
+    comparison must use that same frame. An aware request instant is
+    converted with the browser-supplied IANA timezone; naive values and
+    missing/invalid timezones keep the previous server-local behavior.
+    """
+    if value.tzinfo is None or not timezone_name:
+        return PlanningEngine._to_naive_local(value)
+    try:
+        return value.astimezone(ZoneInfo(timezone_name)).replace(tzinfo=None)
+    except (ZoneInfoNotFoundError, ValueError):
+        return PlanningEngine._to_naive_local(value)
 
 
 def persisted_schedule(
@@ -190,8 +208,11 @@ def create_plan(
     tasks = db.query(Task).filter(Task.user_id == current_user.id).all()
     incomplete_tasks = [task for task in tasks if not task.completed]
     refresh_reason = schedule_change_reason(incomplete_tasks)
-    planning_reference_time = PlanningEngine._to_naive_local(
-        plan_request.available_start
+    planning_reference_time = user_wall_clock(
+        plan_request.available_start, plan_request.timezone
+    )
+    planning_end_time = user_wall_clock(
+        plan_request.available_end, plan_request.timezone
     )
     plan_reshaped_at = datetime.now()
     _, outstanding_missed_ids = recovery_state_by_task_id(
@@ -311,7 +332,7 @@ def create_plan(
 
     planning_anchor = planning_start_with_persisted_schedule(
         tasks,
-        plan_request.available_start,
+        planning_reference_time,
     )
 
     if outstanding_missed_ids:
@@ -320,7 +341,7 @@ def create_plan(
     result = PlanningEngine().generate_schedule(
         tasks,
         planning_anchor,
-        plan_request.available_end,
+        planning_end_time,
         plan_request.energy_level,
         plan_request.bad_day,
         preserve_persisted_slots=not plan_request.force_replan,

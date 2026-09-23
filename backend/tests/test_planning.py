@@ -1084,6 +1084,99 @@ class PlanningEngineTests(unittest.TestCase):
         self.assertEqual(len(result.schedule), 1)
         self.assertIn("deadline is today", result.schedule[0].reason)
 
+    def test_reason_no_energy_claim_without_user_energy_normal_day(self):
+        task = self.make_task(
+            1,
+            "Low energy task",
+            30,
+            self.available_start + timedelta(days=5),
+            energy_level="low",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertEqual(
+            result.schedule[0].reason, "Scheduled by deadline and priority."
+        )
+
+    def test_reason_energy_match_with_explicit_user_energy_normal_day(self):
+        task = self.make_task(
+            1,
+            "Low energy task",
+            30,
+            self.available_start + timedelta(days=5),
+            energy_level="low",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+            user_energy_level="low",
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertEqual(
+            result.schedule[0].reason,
+            "Prioritized because it matches your energy.",
+        )
+
+    def test_reason_energy_mismatch_with_explicit_user_energy_normal_day(self):
+        task = self.make_task(
+            1,
+            "High energy task",
+            30,
+            self.available_start + timedelta(days=5),
+            energy_level="high",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+            user_energy_level="low",
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertEqual(
+            result.schedule[0].reason, "Scheduled by deadline and priority."
+        )
+
+    def test_reason_bad_day_energy_match_unchanged(self):
+        task = self.make_task(
+            1,
+            "Low energy task",
+            30,
+            self.available_start + timedelta(days=5),
+            energy_level="low",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+            bad_day=True,
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertEqual(
+            result.schedule[0].reason,
+            "Prioritized because it matches your current energy.",
+        )
+
+    def test_reason_deadline_protection_without_user_energy_normal_day(self):
+        task = self.make_task(
+            1,
+            "Due today",
+            30,
+            self.available_start + timedelta(hours=1),
+            energy_level="low",
+        )
+        result = self.engine.generate_schedule(
+            [task],
+            self.available_start,
+            self.available_end,
+        )
+        self.assertEqual(len(result.schedule), 1)
+        self.assertIn("deadline is today", result.schedule[0].reason)
+
     def test_bad_day_protected_count_and_capacity(self):
         protected = self.make_task(
             1,

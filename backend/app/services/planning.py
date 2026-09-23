@@ -73,7 +73,10 @@ class PlanningEngine:
             if deadline.date() == (available_start + timedelta(days=1)).date():
                 return "Kept because the deadline is tomorrow."
             return "Kept because the deadline is close."
-        energy_match = self.energy_compatibility_rank(task.energy_level, user_energy_level) == 0
+        energy_match = (
+            user_energy_level is not None
+            and self.energy_compatibility_rank(task.energy_level, user_energy_level) == 0
+        )
         if energy_match:
             return "Prioritized because it matches your energy."
         return "Scheduled by deadline and priority."

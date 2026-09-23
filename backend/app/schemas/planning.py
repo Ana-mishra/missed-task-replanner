@@ -10,6 +10,12 @@ class PlanRequest(BaseModel):
     energy_level: Literal["low", "medium", "high"] | None = None
     bad_day: bool = False
     force_replan: bool = False
+    # IANA timezone name from the browser (e.g. "Asia/Kolkata"). The
+    # persisted schedule is stored/displayed as naive wall-clock values in
+    # the user's frame, so the backend needs this to interpret an aware
+    # request timestamp in that same frame. Absent for backward
+    # compatibility with naive-datetime callers.
+    timezone: str | None = None
 
     @model_validator(mode="after")
     def validate_time_range(self):

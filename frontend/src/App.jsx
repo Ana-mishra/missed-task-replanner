@@ -33,6 +33,7 @@ import {
   DEFAULT_AVAILABLE_MINUTES,
 } from "./utils/workload.mjs";
 import { mergeScheduleReasons } from "./utils/planReasons.mjs";
+import { buildPlanPayload } from "./utils/planRequest.mjs";
 import { createRecoveryLock, runRecoverySequence } from "./utils/recovery.mjs";
 
 const LAST_PLANNED_AVAILABLE_MINUTES_KEY = "planora.lastPlannedAvailableMinutes";
@@ -383,10 +384,7 @@ const completedTodayTasks = tasks.filter((task) =>
       );
 
       const result = await planDay({
-        available_start: availableStart.toISOString(),
-        available_end: availableEnd.toISOString(),
-        energy_level: badDayMode ? "low" : undefined,
-        bad_day: badDayMode,
+        ...buildPlanPayload({ availableStart, availableEnd, badDayMode }),
         // The backend's normal idempotency guard preserves a saved plan as
         // wall-clock time moves. Recalculate only after a meaningful task
         // mutation or an available-capacity change.
