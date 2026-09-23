@@ -117,6 +117,41 @@ class AuthenticationApiTests(unittest.TestCase):
         self.assertEqual(missing_error.exception.status_code, 401)
         self.assertEqual(invalid_error.exception.status_code, 401)
 
+    def test_oauth_only_user_cannot_login_with_password(self):
+        from app.models.oauth_account import OAuthAccount
+
+        with self.session_local() as db:
+            user = User(name="OAuth Only", email="oauthonly@example.com", password_hash=None, name_confirmed=True)
+            db.add(user)
+            db.flush()
+            db.add(OAuthAccount(
+                user_id=user.id,
+                provider="google",
+                provider_user_id="google-uid-oauth-only",
+                provider_email="oauthonly@example.com",
+            ))
+            db.commit()
+
+        response = self.client.post(
+            "/auth/login",
+            json={"email": "oauthonly@example.com", "password": "any-password"},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], "Incorrect email or password")
+
+    def test_password_login_still_works_normally(self):
+        self.assertEqual(self.register(email="normaluser@example.com", password="normal-password-123").status_code, 201)
+
+        response = self.client.post(
+            "/auth/login",
+            json={"email": "normaluser@example.com", "password": "normal-password-123"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access_token", response.json())
+        self.assertEqual(response.json()["token_type"], "bearer")
+
 
 if __name__ == "__main__":
     unittest.main()
