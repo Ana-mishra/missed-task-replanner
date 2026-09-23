@@ -156,6 +156,47 @@ class PlanEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
 
+    def test_bad_day_uses_low_energy_policy_and_persists_a_deadline_reason(self):
+        task = self.create_task(
+            "Tomorrow deadline",
+            duration_minutes=30,
+            deadline="2040-01-02T17:00:00",
+        )
+        result = PlanningResult(
+            schedule=[
+                ScheduledTask(
+                    task["id"],
+                    task["title"],
+                    datetime(2040, 1, 1, 9),
+                    datetime(2040, 1, 1, 9, 30),
+                )
+            ],
+            is_overloaded=False,
+            unscheduled_minutes=0,
+            bad_day=True,
+        )
+
+        with patch(
+            "app.api.planning.PlanningEngine.generate_schedule",
+            return_value=result,
+        ) as generate_schedule:
+            response = self.client.post(
+                "/plan",
+                json={
+                    "available_start": "2040-01-01T09:00:00",
+                    "available_end": "2040-01-01T11:00:00",
+                    "bad_day": True,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["bad_day"])
+        self.assertEqual(generate_schedule.call_args.args[3], None)
+        self.assertTrue(generate_schedule.call_args.args[4])
+        event = self.latest_history_event(task["id"], "scheduled")
+        self.assertIsNotNone(event)
+        self.assertEqual(event.reason, "Kept because the deadline is tomorrow.")
+
     def test_repeating_an_unchanged_plan_preserves_persisted_times_and_history(self):
         task = self.create_task("Stable plan")
         first = PlanningResult(

@@ -30,6 +30,7 @@ class PlanningEngine:
     _priority_order = {"high": 0, "medium": 1, "low": 2}
     _energy_order = {"low": 0, "medium": 1, "high": 2}
     due_soon_window = timedelta(hours=24)
+    bad_day_capacity_ratio = 0.6
 
     @staticmethod
     def _to_naive_local(value: datetime) -> datetime:
@@ -67,21 +68,35 @@ class PlanningEngine:
             raise ValueError("available_end must be after available_start")
 
         unfinished_tasks = [task for task in tasks if not task.completed]
-        ordered_tasks = sorted(
-            unfinished_tasks,
-            key=lambda task: (
-                task.deadline >= available_start,
-                task.deadline,
-                self.priority_rank(task.priority),
-                self.energy_compatibility_rank(task.energy_level, user_energy_level),
-                task.id,
-            ),
-        )
+        # Bad Day Mode is intentionally a two-layer policy. Deadline safety
+        # is a hard ordering layer; energy fit ranks only work that is safe to
+        # move. This prevents a pleasant low-energy task from displacing work
+        # due tomorrow.
+        if bad_day:
+            user_energy_level = "low"
+            ordered_tasks = sorted(
+                unfinished_tasks,
+                key=lambda task: self._bad_day_sort_key(task, available_start),
+            )
+        else:
+            # Preserve the established normal-day ordering exactly.
+            ordered_tasks = sorted(
+                unfinished_tasks,
+                key=lambda task: (
+                    task.deadline >= available_start,
+                    task.deadline,
+                    self.priority_rank(task.priority),
+                    self.energy_compatibility_rank(task.energy_level, user_energy_level),
+                    task.id,
+                ),
+            )
 
         current_time = available_start
         schedule: list[ScheduledTask] = []
         unscheduled_minutes = 0
-        bad_day_target_end = available_start + (available_end - available_start) * 0.6
+        bad_day_target_end = available_start + (
+            available_end - available_start
+        ) * self.bad_day_capacity_ratio
 
         for task in ordered_tasks:
             if task.duration_minutes <= 0:
@@ -159,7 +174,35 @@ class PlanningEngine:
         )
 
     def _is_deadline_protected(self, task: Task, available_start: datetime) -> bool:
-        return task.deadline <= available_start + self.due_soon_window
+        deadline = self._to_naive_local(task.deadline)
+        # Calendar-day protection reflects what a user means by "due
+        # tomorrow" even when their available window starts late in the day.
+        return deadline.date() <= (available_start + timedelta(days=1)).date()
+
+    def _bad_day_sort_key(self, task: Task, available_start: datetime) -> tuple:
+        """Order protected work before low-energy movable work.
+
+        Priority breaks ties only after two movable tasks have comparable
+        energy fit, preserving a deterministic and explainable policy.
+        """
+        protected = self._is_deadline_protected(task, available_start)
+        if protected:
+            return (
+                0,
+                task.deadline >= available_start,
+                task.deadline,
+                self.priority_rank(task.priority),
+                task.duration_minutes,
+                task.id,
+            )
+        return (
+            1,
+            self.energy_compatibility_rank(task.energy_level, "low"),
+            task.deadline,
+            self.priority_rank(task.priority),
+            task.duration_minutes,
+            task.id,
+        )
 
     @classmethod
     def energy_compatibility_rank(cls, task_energy_level: str, user_energy_level: str | None) -> int:

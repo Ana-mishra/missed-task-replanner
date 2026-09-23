@@ -10,6 +10,8 @@ import { formatDuration } from "../utils/duration.mjs";
 export default function PlanPage({
   tasks,
   availableMinutes,
+  badDayMode,
+  onBadDayModeChange,
   onSaveAvailableMinutes,
   planning,
   hasPlanned,
@@ -53,6 +55,14 @@ export default function PlanPage({
       {!hasNothingToPlan && (
         <div className="task-list-actions">
           <button
+            className={`button button--quiet plan-bad-day-toggle${badDayMode ? " plan-bad-day-toggle--active" : ""}`}
+            type="button"
+            aria-pressed={badDayMode}
+            onClick={() => onBadDayModeChange(!badDayMode)}
+          >
+            {badDayMode ? "Bad Day Mode on" : "Having a low-energy day?"}
+          </button>
+          <button
             className="button button--primary"
             type="button"
             onClick={onPlanDay}
@@ -70,6 +80,13 @@ export default function PlanPage({
             </button>
           )}
         </div>
+      )}
+
+      {badDayMode && !hasNothingToPlan && (
+        <p className="plan-bad-day-note">
+          We&apos;ll reduce today&apos;s preferred workload, favor low-energy work,
+          and still protect close deadlines.
+        </p>
       )}
 
       {hasPlanned && (
@@ -167,9 +184,66 @@ export default function PlanPage({
               </div>
             </div>
           ) : (
-            <p className="state-message">
-              Nothing scheduled yet. Set your available time and plan the day.
-            </p>
+            <div className="plan-empty plan-empty--split">
+              <div className="plan-empty__art">
+                <svg width="260" height="168" viewBox="0 0 260 168" aria-hidden="true">
+                  <path
+                    d="M130 12c26-10 62-4 78 14s30 8 34 30-8 44-30 52-30 30-62 26-44 20-70 10-52 2-58-22-22-26-14-48 4-34 14-44 22-12 44-18z"
+                    fill="#eaf2e7"
+                  />
+                  <ellipse cx="130" cy="152" rx="72" ry="9" fill="#e3ecdf" />
+                  <g transform="rotate(-7 108 88)">
+                    <rect x="66" y="38" width="84" height="100" rx="7" fill="#fffefb" stroke="#4f7d63" strokeWidth="2.5" />
+                    <circle cx="84" cy="64" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
+                    <line x1="98" y1="64" x2="130" y2="64" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
+                    <circle cx="84" cy="90" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
+                    <line x1="98" y1="90" x2="134" y2="90" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
+                    <circle cx="84" cy="116" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
+                    <line x1="98" y1="116" x2="126" y2="116" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
+                  </g>
+                  <g stroke="#285c4d" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="128" y1="10" x2="128" y2="24" />
+                    <line x1="110" y1="16" x2="115" y2="28" />
+                    <line x1="146" y1="16" x2="141" y2="28" />
+                  </g>
+                  <g>
+                    <path d="M172 148C172 118 178 96 196 78c4 22-2 48-20 66" fill="#9dbd76" />
+                    <path d="M172 148c-2-24 2-44 14-58 6 20 0 42-10 56" fill="#6ca578" />
+                    <path d="M172 148c8-18 22-32 40-36 0 18-14 32-36 38" fill="#8fb584" />
+                    <path d="M172 148l-1-40" stroke="#3f6b52" strokeWidth="2" strokeLinecap="round" />
+                  </g>
+                </svg>
+                <p className="plan-empty__caption">A plan for today, a calmer tomorrow.</p>
+              </div>
+              <div className="plan-empty__copy">
+                <p className="plan-empty__eyebrow">READY TO PLAN?</p>
+                <p className="plan-empty__title">You have tasks for today!</p>
+                <p className="plan-empty__body">Create your plan to see how they fit into your day.</p>
+                <div className="plan-benefits">
+                  <div className="plan-benefit">
+                    <p className="plan-benefit__title">Smart scheduling</p>
+                    <p className="plan-benefit__body">We'll organize your tasks based on time, priority and your energy.</p>
+                  </div>
+                  <div className="plan-benefit">
+                    <p className="plan-benefit__title">Realistic plan</p>
+                    <p className="plan-benefit__body">Get a plan that fits your available time.</p>
+                  </div>
+                  <div className="plan-benefit">
+                    <p className="plan-benefit__title">Less stress</p>
+                    <p className="plan-benefit__body">Know exactly what to do next, without feeling overwhelmed.</p>
+                  </div>
+                </div>
+                <button
+                  className="button button--primary"
+                  type="button"
+                  onClick={onPlanDay}
+                  disabled={planning}
+                >
+                  {planning ? "Planning…" : "Plan my day →"}
+                </button>
+                <p className="plan-tip">Planning takes just a few seconds and helps you stay on track all day.</p>
+              </div>
+            </div>
           )
         ) : (
           <ol className="plan-roadmap">

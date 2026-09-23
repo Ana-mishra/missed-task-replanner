@@ -114,6 +114,8 @@ function App() {
       Number(localStorage.getItem("todayAvailableMinutes")) ||
       DEFAULT_AVAILABLE_MINUTES,
   );
+  const [badDayMode, setBadDayMode] = useState(false);
+  const lastPlannedBadDayModeRef = useRef(false);
 
   useEffect(() => {
   if (!authenticated) {
@@ -202,11 +204,12 @@ function App() {
 
   useEffect(() => {
     // Seed the initial entry without adding a duplicate browser-history item.
-    window.history.replaceState({ planoraPage: activePage }, "", pageUrl(activePage));
+    window.history.replaceState({ planoraPage: activePage, publicView: publicView }, "", pageUrl(activePage));
 
     function handlePopState(event) {
-      const page = event.state?.planoraPage;
-      setActivePage(PLANORA_PAGES.has(page) ? page : pageFromLocation());
+      const state = event.state || {};
+      setActivePage(PLANORA_PAGES.has(state.planoraPage) ? state.planoraPage : pageFromLocation());
+      setPublicView(state.publicView || "landing");
     }
 
     window.addEventListener("popstate", handlePopState);
@@ -224,8 +227,13 @@ function App() {
 
   function navigateToPage(page) {
     if (!PLANORA_PAGES.has(page) || page === activePage) return;
-    window.history.pushState({ planoraPage: page }, "", pageUrl(page));
+    window.history.pushState({ planoraPage: page, publicView: publicView }, "", pageUrl(page));
     setActivePage(page);
+  }
+
+  function navigatePublicView(view) {
+    window.history.pushState({ planoraPage: activePage, publicView: view }, "", pageUrl(activePage));
+    setPublicView(view);
   }
 
   const isCompletedTask = (task) =>
@@ -373,11 +381,14 @@ const completedTodayTasks = tasks.filter((task) =>
       const result = await planDay({
         available_start: availableStart.toISOString(),
         available_end: availableEnd.toISOString(),
+        energy_level: badDayMode ? "low" : undefined,
+        bad_day: badDayMode,
         // The backend's normal idempotency guard preserves a saved plan as
         // wall-clock time moves. Recalculate only after a meaningful task
         // mutation or an available-capacity change.
         force_replan:
           planIsStaleRef.current ||
+          badDayMode !== lastPlannedBadDayModeRef.current ||
           (lastPlannedAvailableMinutesRef.current !== null &&
             lastPlannedAvailableMinutesRef.current !== availableMinutes),
       });
@@ -399,6 +410,7 @@ setUnscheduledMinutes(result.unscheduled_minutes ?? 0);
 lastPlannedAvailableMinutesRef.current = availableMinutes;
 localStorage.setItem(LAST_PLANNED_AVAILABLE_MINUTES_KEY, String(availableMinutes));
 planIsStaleRef.current = false;
+lastPlannedBadDayModeRef.current = badDayMode;
 setHasPlanned(true);
     } catch (requestError) {
       setError(requestError.message);
@@ -509,7 +521,7 @@ setHasPlanned(true);
     setRecommendation(null);
     setError(null);
     setActivePage("today");
-    setPublicView("landing");
+    navigatePublicView("landing");
   }
 
   function handleAuthenticated() {
@@ -529,9 +541,9 @@ setHasPlanned(true);
     if (publicView === "landing") {
       return (
         <LandingPage
-          onAbout={() => setPublicView("about")}
-          onSignIn={() => setPublicView("login")}
-          onGetStarted={() => setPublicView("register")}
+          onAbout={() => navigatePublicView("about")}
+          onSignIn={() => navigatePublicView("login")}
+          onGetStarted={() => navigatePublicView("register")}
         />
       );
     }
@@ -539,9 +551,9 @@ setHasPlanned(true);
     if (publicView === "about") {
       return (
         <AboutPage
-          onHome={() => setPublicView("landing")}
-          onSignIn={() => setPublicView("login")}
-          onGetStarted={() => setPublicView("register")}
+          onHome={() => navigatePublicView("landing")}
+          onSignIn={() => navigatePublicView("login")}
+          onGetStarted={() => navigatePublicView("register")}
         />
       );
     }
@@ -551,7 +563,7 @@ setHasPlanned(true);
         key={publicView}
         initialMode={publicView}
         onAuthenticated={handleAuthenticated}
-        onBack={() => setPublicView("landing")}
+        onBack={() => navigatePublicView("landing")}
       />
     );
 }
@@ -613,6 +625,8 @@ return (
       {activePage === "history" ? <HistoryPage /> : activePage === "stats" ? <StatsPage /> : activePage === "reflection" ? <ReflectionPage availableMinutes={availableMinutes}       /> : activePage === "plant" ? <MyPlantPage plantData={plantData} plantLoading={plantLoading} plantError={plantError} /> : activePage === "plan" ? <PlanPage
         tasks={tasks}
         availableMinutes={availableMinutes}
+        badDayMode={badDayMode}
+        onBadDayModeChange={setBadDayMode}
         onSaveAvailableMinutes={setAvailableMinutes}
         planning={planning}
         hasPlanned={hasPlanned}

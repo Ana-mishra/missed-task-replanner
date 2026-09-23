@@ -803,7 +803,7 @@ class PlanningEngineTests(unittest.TestCase):
             [1],
         )
 
-    def test_low_priority_future_task_is_deprioritized_in_bad_day_mode(self):
+    def test_priority_breaks_ties_between_same_energy_movable_tasks(self):
         available_end = self.available_start + timedelta(minutes=50)
 
         high_priority = self.make_task(
@@ -811,14 +811,16 @@ class PlanningEngineTests(unittest.TestCase):
             "High priority",
             30,
             self.available_start + timedelta(days=2),
-            "high",
+            priority="high",
+            energy_level="low",
         )
         low_priority = self.make_task(
             2,
             "Low priority",
             30,
             self.available_start + timedelta(days=2),
-            "low",
+            priority="low",
+            energy_level="low",
         )
 
         result = self.engine.generate_schedule(
@@ -832,6 +834,84 @@ class PlanningEngineTests(unittest.TestCase):
             [item.task_id for item in result.schedule],
             [1],
         )
+
+    def test_bad_day_protects_due_tomorrow_high_energy_work_before_movable_low_energy_work(self):
+        available_end = self.available_start + timedelta(minutes=100)
+        due_tomorrow = self.make_task(
+            1,
+            "Due tomorrow",
+            90,
+            self.available_start + timedelta(days=1, hours=8),
+            priority="high",
+            energy_level="high",
+        )
+        distant_low_energy = self.make_task(
+            2,
+            "Low energy later",
+            30,
+            self.available_start + timedelta(days=5),
+            priority="medium",
+            energy_level="low",
+        )
+
+        result = self.engine.generate_schedule(
+            [distant_low_energy, due_tomorrow],
+            self.available_start,
+            available_end,
+            bad_day=True,
+        )
+
+        self.assertEqual([item.task_id for item in result.schedule], [1])
+        self.assertEqual(result.unscheduled_minutes, 30)
+
+    def test_bad_day_prefers_low_energy_movable_work_before_higher_energy_work(self):
+        available_end = self.available_start + timedelta(minutes=50)
+        high_energy = self.make_task(
+            1,
+            "High energy later",
+            30,
+            self.available_start + timedelta(days=4),
+            priority="high",
+            energy_level="high",
+        )
+        low_energy = self.make_task(
+            2,
+            "Low energy later",
+            30,
+            self.available_start + timedelta(days=4),
+            priority="low",
+            energy_level="low",
+        )
+
+        result = self.engine.generate_schedule(
+            [high_energy, low_energy],
+            self.available_start,
+            available_end,
+            bad_day=True,
+        )
+
+        self.assertEqual([item.task_id for item in result.schedule], [2])
+
+    def test_bad_day_protected_work_can_exceed_preferred_capacity_target(self):
+        available_end = self.available_start + timedelta(minutes=120)
+        protected = self.make_task(
+            1,
+            "Deadline tomorrow",
+            90,
+            self.available_start + timedelta(days=1),
+            priority="high",
+            energy_level="high",
+        )
+
+        result = self.engine.generate_schedule(
+            [protected],
+            self.available_start,
+            available_end,
+            bad_day=True,
+        )
+
+        self.assertEqual([item.task_id for item in result.schedule], [1])
+        self.assertEqual(result.schedule[0].scheduled_end, available_end - timedelta(minutes=30))
 
     def test_energy_preference_still_works_for_comparable_bad_day_tasks(
         self,

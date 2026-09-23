@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -69,6 +69,26 @@ def schedule_change_reason(tasks: list[Task]) -> str:
     if "edited" in refresh_reasons:
         return "Schedule changed after editing a task"
     return "Plan reshaped"
+
+
+def bad_day_history_reason(
+    task: Task,
+    planning_reference_time: datetime,
+    event_type: str,
+) -> str:
+    """Describe the concrete Bad Day policy that affected this task."""
+    deadline = PlanningEngine._to_naive_local(task.deadline)
+    if deadline < planning_reference_time:
+        return "Kept because the deadline has passed."
+    if deadline.date() == planning_reference_time.date():
+        return "Kept because the deadline is today."
+    if deadline.date() == (planning_reference_time + timedelta(days=1)).date():
+        return "Kept because the deadline is tomorrow."
+    if task.energy_level == "low":
+        return "Prioritized because it matches your current energy."
+    if event_type == "scheduled":
+        return "Scheduled within your reduced workload."
+    return "Moved to reduce today's workload."
 
 
 def stale_persisted_tasks(
@@ -304,7 +324,15 @@ def create_plan(
                             old_end=old_end,
                             new_start=item.scheduled_start,
                             new_end=item.scheduled_end,
-                            reason=refresh_reason,
+                            reason=(
+                                bad_day_history_reason(
+                                    task,
+                                    planning_reference_time,
+                                    "rescheduled",
+                                )
+                                if plan_request.bad_day
+                                else refresh_reason
+                            ),
                         )
                     )
                 elif task.id not in previously_scheduled_ids:
@@ -321,7 +349,15 @@ def create_plan(
                             old_end=old_end,
                             new_start=item.scheduled_start,
                             new_end=item.scheduled_end,
-                            reason="Added to your plan",
+                            reason=(
+                                bad_day_history_reason(
+                                    task,
+                                    planning_reference_time,
+                                    "scheduled",
+                                )
+                                if plan_request.bad_day
+                                else "Added to your plan"
+                            ),
                         )
                     )
     for task in tasks:
