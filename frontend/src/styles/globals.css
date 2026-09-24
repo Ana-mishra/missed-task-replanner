@@ -13884,10 +13884,17 @@ body {
   }
 
   /* B. Delete confirmation: proper viewport-relative bottom sheet.
-      Darker scrim owns the interaction; the sheet is bounded by
-      dvh (vh fallback), scrolls itself when needed, and clears
-      the bottom nav + safe area. Content/text/behavior unchanged. */
+     Darker scrim owns the interaction; the sheet is bounded by
+     dvh (vh fallback), scrolls itself when needed, and clears
+     the bottom nav + safe area. Content/text/behavior unchanged.
+     The backdrop anchoring is declared explicitly here (not inherited
+     from the task-form rule above) so this dialog can never depend
+     on another component's selector to stay on screen. */
   .modal-backdrop.modal-backdrop--confirm {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
     background: rgb(20 30 26 / 55%);
     overscroll-behavior: none;
   }
@@ -13895,9 +13902,14 @@ body {
     display: block;
     width: 100%;
     max-width: 100%;
-    max-height: 88vh;
-    max-height: 88dvh;
     margin: 0;
+    /* Bound below the visible viewport even if safe-area padding or
+       dvh resolution misbehave: the smaller of the two caps wins, and
+       the sheet always keeps its own scroll container. */
+    max-height: 82vh;
+    max-height: 82dvh;
+    max-height: calc(88vh - var(--safe-area-bottom));
+    max-height: calc(88dvh - var(--safe-area-bottom));
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
@@ -13917,5 +13929,57 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .modal-backdrop.modal-backdrop--confirm > .task-form.task-form--confirm {
     animation: none;
+  }
+}
+
+/* ============================================================
+   M11b OVERLAY RESTORATION (<=768px; desktop untouched)
+   Reinstates M11 rules found missing from this file: without
+   them the M7 sticky footer + absolute popovers are live again,
+   which is exactly the reported footer-over-controls failure.
+   Same selectors/values as specified in M11; this block simply
+   guarantees their presence last in the cascade. No new design.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Explicit layering: modal backdrop always above bottom nav. */
+  .mobile-bottom-nav {
+    z-index: 800;
+  }
+  .modal-backdrop {
+    z-index: 1000;
+  }
+
+  /* A. Date/time popovers join the form flow: one scroll container,
+      no nested competing scrollers, no clipping at the sheet edge. */
+  .task-form.task-form--redesigned .picker-popover {
+    position: static;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    margin-top: 0.5rem;
+  }
+
+  /* A. Footer is ordinary in-flow content at the end of the single
+      scroll container: reachable by scrolling, never occluding.
+      Beats the M7 sticky footer (the occlusion source). */
+  .modal-backdrop:has(> .task-form) .task-form__actions {
+    position: static;
+  }
+  .modal-backdrop:has(> .task-form) > .task-form > form {
+    scroll-padding-bottom: 1rem;
+  }
+
+  /* B. Confirm backdrop anchoring, declared explicitly (never
+      inherited from another component's selector). */
+  .modal-backdrop.modal-backdrop--confirm {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+    background: rgb(20 30 26 / 55%);
+    overscroll-behavior: none;
+  }
+  .modal-backdrop.modal-backdrop--confirm .task-form__actions {
+    position: static;
   }
 }
