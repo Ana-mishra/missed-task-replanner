@@ -636,3 +636,185 @@
     padding: 0.75rem 0.85rem;
   }
 }
+
+/* ============================================================
+   M8 PLAN MOBILE REDESIGN (<=768px; desktop untouched)
+   Plan becomes a compact daily schedule/action list: tightened
+   page rhythm, sequence numbers integrated beside each task,
+   dense schedule-item cards with a strong title+time lead, quiet
+   secondary metadata, subordinate actions, and compact states.
+   All selectors are .plan-page-scoped; shared TaskCard styling
+   elsewhere is untouched. No JSX, data, or behavior changes.
+   Placed last so these rules win over M6 and earlier queries.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Compact page rhythm: header, controls, and "Today's plan"
+     arrive with schedule-like density instead of dashboard gaps. */
+  .plan-page {
+    padding-bottom: 2rem;
+  }
+  .plan-page .plan-head h1 {
+    font-size: 1.6rem;
+  }
+  .plan-page .available-time-card {
+    margin-top: 0.75rem;
+    padding: 0.85rem 1rem;
+  }
+  .plan-page .available-time-card__content {
+    padding-top: 0.4rem;
+  }
+  .plan-page .available-time-card__help {
+    margin-top: 0.4rem;
+  }
+  .plan-page .task-list-actions {
+    margin-top: 0.75rem;
+    gap: 0.5rem;
+  }
+  .plan-page .plan-bad-day-note {
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+  }
+  .plan-page section[aria-label="Today's plan"] {
+    margin-top: 0.75rem;
+  }
+  .plan-page .section-heading {
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.5rem;
+  }
+  .plan-page .section-heading h2 {
+    font-size: 1.25rem;
+  }
+
+  /* Sequence marker integrated beside the task: small, quiet,
+     vertically aligned with the title. No desktop rail, no
+     detached number floating above the card. Order preserved. */
+  .plan-page .plan-roadmap {
+    gap: 0.55rem;
+  }
+  .plan-page .plan-roadmap__item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.1rem 0.55rem;
+    align-items: start;
+  }
+  .plan-page .plan-roadmap__item::before {
+    position: static;
+    margin: 0.8rem 0 0;
+    width: 1.3rem;
+    height: 1.3rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  /* Schedule-item card: title + scheduled time dominate; the rest
+     recedes. Titles wrap, never truncate; no horizontal scrolling. */
+  .plan-page .plan-roadmap__item .task-card {
+    min-width: 0;
+    padding: 0.7rem 0.8rem;
+    gap: 0.5rem;
+    border-radius: 0.85rem;
+  }
+  .plan-page .plan-roadmap__item .task-card h3 {
+    font-size: 0.98rem;
+    line-height: 1.3;
+  }
+  .plan-page .plan-roadmap__item .task-card__description {
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
+  }
+  .plan-page .task-card__meta {
+    margin-top: 0.5rem;
+    gap: 0.35rem;
+  }
+  .plan-page .task-card__meta-item {
+    font-size: 0.68rem;
+    padding: 0.2rem 0.45rem;
+  }
+  .plan-page .task-card__meta-item.task-card__slot {
+    font-size: 0.72rem;
+  }
+
+  /* Compact status row: state, recovery, and deadline share one
+     wrapping line. Semantic colors are untouched. */
+  .plan-page .task-card__side {
+    gap: 0.2rem 0.6rem;
+  }
+  .plan-page .task-card__state {
+    font-size: 0.66rem;
+  }
+  .plan-page .task-card time {
+    font-size: 0.74rem;
+  }
+  .plan-page .task-card__reason {
+    font-size: 0.74rem;
+  }
+
+  /* Subordinate actions: Edit|Complete share one 44px row, Delete
+     is a quieter full-width row beneath. No giant buttons, and the
+     card itself never becomes a single tap target. */
+  .plan-page .task-card__actions {
+    gap: 0.45rem;
+  }
+  .plan-page .task-card__actions .button {
+    min-height: var(--mobile-touch-target);
+    padding: 0.4rem 0.5rem;
+    font-size: 0.82rem;
+  }
+  .plan-page .task-card__actions .button--danger {
+    min-height: 2.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  /* Overload notice informs without dominating the screen. */
+  .plan-page .overload-notice {
+    padding: 0.85rem 0.9rem;
+    gap: 0.6rem;
+  }
+  .plan-page .overload-notice h3 {
+    font-size: 1.05rem;
+  }
+  .plan-page .overload-notice p {
+    font-size: 0.76rem;
+  }
+  .plan-page .bad-day-strip {
+    margin-top: 0.75rem;
+    padding: 0.55rem 0.8rem;
+  }
+
+  /* Empty states follow the same compact hierarchy. */
+  .plan-page .plan-empty--split {
+    padding: 1.5rem 1rem;
+    gap: 1rem;
+  }
+  .plan-page .plan-empty__art svg {
+    max-width: 200px;
+  }
+  .plan-page .plan-empty__copy {
+    padding-top: 1rem;
+  }
+  .plan-page .plan-empty__title {
+    font-size: 1.15rem;
+  }
+  .plan-page .plan-benefits {
+    gap: 0.5rem;
+    margin: 0.9rem 0;
+  }
+  .plan-page .plan-benefit {
+    padding: 0.6rem 0.8rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .plan-page .plan-roadmap__item {
+    gap: 0.1rem 0.45rem;
+  }
+  .plan-page .plan-roadmap__item::before {
+    width: 1.15rem;
+    height: 1.15rem;
+    font-size: 0.65rem;
+  }
+  .plan-page .plan-roadmap__item .task-card {
+    padding: 0.65rem 0.7rem;
+  }
+}
