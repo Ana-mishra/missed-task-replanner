@@ -13206,3 +13206,141 @@ body {
     animation: none;
   }
 }
+
+/* ============================================================
+   M4 HISTORY MOBILE TRANSFORMATION (<=768px; desktop untouched)
+   Intentional phone composition: stacked header, full-width search,
+   2x2 summary, wrapping filters, scannable vertical event rows,
+   full-width empty state. No JSX, data, or behavior changes.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Header stacks; search takes the full row, Filter + period share one. */
+  .history-page__header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .history-page__header h1 {
+    font-size: 2rem;
+  }
+  .history-page__controls {
+    flex-wrap: wrap;
+  }
+  .history-search {
+    flex: 1 1 100%;
+    width: auto;
+  }
+  .history-search input {
+    font-size: var(--mobile-input-min);
+  }
+  .history-control,
+  .history-dropdown-trigger {
+    min-height: var(--mobile-touch-target);
+  }
+  .history-dropdown-menu {
+    max-width: calc(100vw - 2rem);
+  }
+
+  /* 2x2 summary: equal columns, compact internals, wrapping labels. */
+  .history-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--mobile-compact-gap);
+  }
+  .history-summary__card {
+    min-height: 0;
+    padding: 0.8rem 0.9rem;
+    gap: 0.65rem;
+  }
+  .history-summary__card > span {
+    width: 2.2rem;
+    height: 2.2rem;
+    flex-basis: 2.2rem;
+  }
+  .history-summary__card p {
+    overflow-wrap: anywhere;
+  }
+  .history-summary__card strong {
+    font-size: 1.35rem;
+  }
+  .history-summary__card small {
+    overflow-wrap: anywhere;
+  }
+
+  /* Filter tabs wrap instead of overflowing. */
+  .history-tabs {
+    flex-wrap: wrap;
+  }
+  .history-tab {
+    min-height: var(--mobile-touch-target);
+  }
+
+  /* Vertical event rows: narrower rail, wrapping text, kept connector. */
+  .history-row {
+    grid-template-columns: 52px 30px minmax(0, 1fr);
+    column-gap: 0.7rem;
+    min-height: 0;
+    padding: 0.8rem 1rem;
+  }
+  .history-row > time {
+    padding-top: 0.2rem;
+    font-size: 0.72rem;
+    overflow-wrap: anywhere;
+  }
+  .history-row__icon {
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+  .history-row__line {
+    top: 1.75rem;
+    bottom: -0.75rem;
+  }
+  .history-row__content > div {
+    flex-wrap: wrap;
+    row-gap: 0.3rem;
+  }
+  .history-row__content h3 {
+    font-size: 0.92rem;
+    overflow-wrap: anywhere;
+  }
+  .history-row__content p {
+    overflow-wrap: anywhere;
+  }
+  .history-day > h2 {
+    font-size: 1rem;
+    padding: 0.7rem 1rem;
+  }
+
+  /* Empty state: full width, scaled art, compact copy. */
+  .history-empty--split {
+    padding: 1.75rem 1.25rem;
+  }
+  .history-empty__art svg {
+    width: min(220px, 100%);
+  }
+  .history-empty--split h2 {
+    font-size: 1.45rem;
+  }
+
+  /* Pagination fits narrow rows with usable targets. */
+  .history-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .history-pagination button {
+    min-width: var(--mobile-touch-target);
+    min-height: var(--mobile-touch-target);
+  }
+}
+
+@media (max-width: 360px) {
+  .history-summary__card {
+    padding: 0.7rem;
+    gap: 0.5rem;
+  }
+  .history-row {
+    padding: 0.7rem 0.8rem;
+  }
+}

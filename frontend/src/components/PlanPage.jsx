@@ -75,15 +75,6 @@ export default function PlanPage({
           >
             {planning ? "Planning…" : hasPlanned ? "Re-plan my day" : "Plan my day"}
           </button>
-          {hasPlanned && (
-            <button
-              className="button button--quiet"
-              type="button"
-              onClick={onHidePlan}
-            >
-              Hide plan
-            </button>
-          )}
         </div>
       )}
 
@@ -103,26 +94,6 @@ export default function PlanPage({
             : scheduleRefreshReason === "Schedule changed after editing a task"
               ? "Plan updated after editing a task."
               : "Plan was reshaped."}
-        </p>
-      )}
-
-      {/* The scheduled-count/capacity summary is a normal-day line. In Bad
-          Day Mode the strip below already carries the relevant metrics, so
-          this line is hidden to avoid redundancy. */}
-      {hasPlanned && !badDayMode && (
-        <p className="plan-capacity">
-          {scheduled.length} scheduled · {formatDuration(plannedMinutes)} planned
-          of {formatDuration(availableMinutes)} available
-          {planIsOverloaded && unscheduledMinutes > 0
-            ? badDayMode
-              ? ` · ${formatDuration(unscheduledMinutes)} set aside for later`
-              : ` · ${formatDuration(unscheduledMinutes)} won't fit`
-            : unscheduledCount > 0
-              ? ` · ${unscheduledCount} unscheduled`
-              : ""}
-          {badDayMode && badDayProtectedCount > 0 && badDayCapacityMinutes > 0 && badDayProtectedCount * 60 > badDayCapacityMinutes
-            ? ` · ${formatDuration(badDayProtectedCount * 60)} of deadline-critical work was protected beyond your preferred Bad Day capacity`
-            : ""}
         </p>
       )}
 

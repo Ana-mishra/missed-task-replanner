@@ -1,4 +1,5 @@
 import { formatDuration } from '../utils/duration.mjs'
+import { isCurrentlyRecovered } from '../utils/taskRecovery.mjs'
 
 function isOverdue(task) {
   return !task.completed && new Date(task.deadline) < new Date()
@@ -97,7 +98,7 @@ function TaskCard({ task, onEdit, onComplete, onDelete, showSlot = false, reason
       <div className="task-card__side">
         <div className="task-card__deadline">
           <span className="task-card__state">{state}</span>
-          {task.was_replanned && !task.completed && (
+          {isCurrentlyRecovered(task) && (
             <span
               className="task-card__replanned"
               aria-label="Previously missed and successfully recovered"

@@ -717,6 +717,14 @@ section[aria-label="Completed"] > .sheet-eyebrow {
   color: var(--sheet-ok);
 }
 
+/* Open-loop note: informational only, never an action. */
+.inspector__recovery-note {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--sheet-muted);
+}
+
 .inspector__facts {
   margin: 1.25rem 0 0;
   border-top: 1px solid var(--sheet-rule);

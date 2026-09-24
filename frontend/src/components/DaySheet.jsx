@@ -11,7 +11,6 @@ import {
   IconMissed,
   IconOverdue,
   IconPlus,
-  IconRecover,
 } from "./icons.jsx";
 import { getTaskHistory } from "../services/api.js";
 
@@ -119,22 +118,6 @@ function SheetRow({ task, state, selected, onSelect, onRecover, recoveringId, ti
           <IconChevron />
         </span>
       </button>
-      {state === "missed" && (
-        <div className="sheet-row__foot">
-          <span className="sheet-row__loop">
-            Open loop — bring it back into the plan.
-          </span>
-          <button
-            className="sheet-recover"
-            type="button"
-            onClick={() => onRecover(task)}
-            disabled={recoveringId === task.id}
-          >
-            <IconRecover />
-            {recoveringId === task.id ? "Recovering…" : "Recover"}
-          </button>
-        </div>
-      )}
     </article>
   );
 }
@@ -358,17 +341,6 @@ export default function DaySheet({
           hint="Missed slots, passed deadlines, and unscheduled work."
         >
           <div className="day-card">
-            {groups.missed.map((task) => (
-              <SheetRow
-                key={task.id}
-                task={task}
-                state="missed"
-                selected={String(selectedId) === String(task.id)}
-                onSelect={() => setSelectedId(task.id)}
-                onRecover={onRecover}
-                recoveringId={recoveringId}
-              />
-            ))}
             {groups.overdue.map((task) => (
               <SheetRow
                 key={task.id}
@@ -380,26 +352,37 @@ export default function DaySheet({
                 recoveringId={recoveringId}
               />
             ))}
-            {groups.unscheduled.length > 0 && (
+            {(groups.missed.length > 0 || groups.unscheduled.length > 0) && (
               <>
                 <div className="sheet-subhead">
-                  <p className="sheet-eyebrow">Unscheduled <span className="sheet-count">{groups.unscheduled.length}</span></p>
+                  <p className="sheet-eyebrow">Unscheduled <span className="sheet-count">{groups.missed.length + groups.unscheduled.length}</span></p>
                 </div>
                 <p className="sheet-section__hint">Tasks not yet planned for today.</p>
+                {groups.missed.map((task) => (
+                  <SheetRow
+                    key={task.id}
+                    task={task}
+                    state="missed"
+                    selected={String(selectedId) === String(task.id)}
+                    onSelect={() => setSelectedId(task.id)}
+                    onRecover={onRecover}
+                    recoveringId={recoveringId}
+                  />
+                ))}
+                {groups.unscheduled.map((task) => (
+                  <SheetRow
+                    key={task.id}
+                    task={task}
+                    state="pending"
+                    tone="unscheduled"
+                    selected={String(selectedId) === String(task.id)}
+                    onSelect={() => setSelectedId(task.id)}
+                    onRecover={onRecover}
+                    recoveringId={recoveringId}
+                  />
+                ))}
               </>
             )}
-            {groups.unscheduled.map((task) => (
-              <SheetRow
-                key={task.id}
-                task={task}
-                state="pending"
-                tone="unscheduled"
-                selected={String(selectedId) === String(task.id)}
-                onSelect={() => setSelectedId(task.id)}
-                onRecover={onRecover}
-                recoveringId={recoveringId}
-              />
-            ))}
           </div>
         </Section>
       )}

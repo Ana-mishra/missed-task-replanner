@@ -10,6 +10,7 @@ import {
   IconList,
   IconRecover,
 } from "./icons.jsx";
+import { isCurrentlyRecovered } from "../utils/taskRecovery.mjs";
 
 const EVENT_LABELS = {
   created: "Created",
@@ -123,7 +124,7 @@ export default function TaskInspector({
             {stateLine(task)}
           </span>
         </p>
-        {task.was_replanned && !done && (
+        {isCurrentlyRecovered(task) && (
           <p className="inspector__recovered">
             <IconRecover aria-hidden="true" />
             <span>Recovered — previously missed, brought back into the plan.</span>
@@ -174,17 +175,6 @@ export default function TaskInspector({
         )}
 
         <div className="inspector__actions">
-          {missed && (
-            <button
-              className="button button--primary"
-              type="button"
-              onClick={onRecover}
-              disabled={recovering}
-            >
-              <IconRecover />
-              {recovering ? "Recovering…" : "Recover into today's plan"}
-            </button>
-          )}
           {!done && !missed && (
             <button className="button button--primary" type="button" onClick={onComplete}>
               <IconCheck />
