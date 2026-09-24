@@ -1064,6 +1064,64 @@ function TaskForm({
               width: 100%;
             }
           }
+
+          /* DARK MODE — the controls above use fixed light fills, so they
+             need explicit dark treatments scoped to data-theme="dark". */
+          :root[data-theme="dark"] .task-form--redesigned .picker-trigger,
+          :root[data-theme="dark"] .task-form--redesigned .custom-select__trigger,
+          :root[data-theme="dark"] .task-form--redesigned .time-entry__fields input {
+            background: var(--dark-surface-soft);
+            border-color: var(--dark-border);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .time-entry__fields input::placeholder {
+            color: var(--dark-text-muted);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .picker-trigger:hover,
+          :root[data-theme="dark"] .task-form--redesigned .custom-select__trigger:hover {
+            border-color: var(--dark-border-strong);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .custom-select__menu {
+            background: var(--dark-surface-raised);
+            border-color: var(--dark-border);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .custom-select__option:hover,
+          :root[data-theme="dark"] .task-form--redesigned .custom-select__option--selected:hover {
+            background: rgb(143 200 168 / 14%);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .custom-select__option--selected {
+            background: rgb(143 200 168 / 12%);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .deadline-locked {
+            border-color: var(--dark-border);
+            background: var(--dark-surface-soft);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .time-entry__period button {
+            background: var(--dark-surface-soft);
+            border-color: var(--dark-border);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .calendar-navigation {
+            background: var(--dark-surface-soft);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .calendar-day:hover {
+            background: rgb(143 200 168 / 14%);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .calendar-day--today {
+            box-shadow: 0 0 0 2px rgb(143 200 168 / 45%);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .calendar-day--disabled {
+            color: var(--dark-text-muted);
+          }
         `}</style>
 
         <div className="task-form__header">

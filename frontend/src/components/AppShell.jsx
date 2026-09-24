@@ -20,6 +20,7 @@ import {
   isPushSupported,
   removePushSubscription,
 } from '../utils/browserNotifications.js'
+import { MobileBottomNav, MobileHeader, MobileMoreSheet } from './MobileNav.jsx'
 
 const THEME_CACHE_KEY = 'planora.theme'
 
@@ -68,6 +69,7 @@ function AppShell({
   const [browserPermission, setBrowserPermission] = useState(() => getBrowserPermission())
   const [pushSubscriptionExists, setPushSubscriptionExists] = useState(false)
   const [browserNotice, setBrowserNotice] = useState(null)
+  const [moreOpen, setMoreOpen] = useState(false)
  const sidebarRef = useRef(null)
    useEffect(() => {
     function handleOutsideClick(event) {
@@ -88,18 +90,28 @@ function AppShell({
   }, [profileOpen])
 
   useEffect(() => {
-    if (!logoutConfirmOpen && !settingsOpen) return undefined
+    if (!logoutConfirmOpen && !settingsOpen && !moreOpen) return undefined
 
     function handleEscape(event) {
       if (event.key === 'Escape') {
         setLogoutConfirmOpen(false)
         setSettingsOpen(false)
+        setMoreOpen(false)
       }
     }
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [logoutConfirmOpen, settingsOpen])
+  }, [logoutConfirmOpen, settingsOpen, moreOpen])
+
+  useEffect(() => {
+    if (!moreOpen) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [moreOpen])
 
   useEffect(() => {
     if (settingsOpen) {
@@ -441,9 +453,26 @@ function AppShell({
 
       </aside>
 
+      <MobileHeader />
+
       <main className="app-content">
         {children}
       </main>
+
+      <MobileBottomNav
+        activePage={activePage}
+        onNavigate={onNavigate}
+        onOpenMore={() => setMoreOpen(true)}
+      />
+
+      <MobileMoreSheet
+        open={moreOpen}
+        activePage={activePage}
+        onNavigate={onNavigate}
+        onOpenSettings={openSettings}
+        onRequestLogout={openLogoutConfirmation}
+        onClose={() => setMoreOpen(false)}
+      />
 
       {logoutConfirmOpen && (
         <div

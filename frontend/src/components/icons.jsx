@@ -189,3 +189,19 @@ export const IconSprout = (p) =>
     <path d="M8 8c0-2-1.5-3.2-3.7-3.2 0 2.2 1.5 3.2 3.7 3.2z" />
     <path d="M8 9.8c0-2 1.5-3.2 3.7-3.2 0 2.2-1.5 3.2-3.7 3.2z" />
   </>);
+
+export const IconSliders = (p) =>
+  base(p, <>
+    <path d="M1.5 4.5h13" />
+    <circle cx="10.5" cy="4.5" r="1.8" />
+    <path d="M1.5 8h13" />
+    <circle cx="5.5" cy="8" r="1.8" />
+    <path d="M1.5 11.5h13" />
+    <circle cx="11" cy="11.5" r="1.8" />
+  </>);
+
+export const IconLogout = (p) =>
+  base(p, <>
+    <path d="M9.5 2.5h-6v11h6" />
+    <path d="M6 8h7.5M11.3 5.5L13.8 8l-2.5 2.5" />
+  </>);
