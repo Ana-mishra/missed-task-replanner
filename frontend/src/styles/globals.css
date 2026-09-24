@@ -11985,15 +11985,15 @@ body {
 }
 
 @media (max-width: 900px) {
-  .plant-companion-layout {
+  .plant-page .plant-companion-layout {
     grid-template-columns: 1fr;
   }
-  .plant-journal {
+  .plant-page .plant-journal {
     width: 100%;
     max-width: 38rem;
     margin-inline: auto;
   }
-  .plant-visual {
+  .plant-page .plant-visual {
     width: 340px;
     height: 374px;
   }
@@ -12003,85 +12003,106 @@ body {
    M3 MY PLANT MOBILE COMPOSITION (<=768px; desktop untouched)
    Contained hero, compact intro, full-width journey, breathing room
    above the bottom nav. No DOM, data, or behavior changes.
+   NOTE: every rule below is scoped under .plant-page so it wins over
+   later unscoped base rules regardless of source order.
    ============================================================ */
 @media (max-width: 768px) {
-  .plant-page {
+  /* #root scoping outranks the later light-theme page padding without
+     touching theme values. */
+  #root .plant-page {
     gap: 0.3rem;
     padding-left: 1rem;
     padding-right: 1rem;
     padding-bottom: 2rem;
   }
-  .plant-page__eyebrow {
+  .plant-page .plant-page__eyebrow {
     margin-bottom: 0.3rem;
   }
-  .plant-page__title {
+  .plant-page .plant-page__title {
     font-size: 1.6rem;
   }
-  .plant-page__standfirst {
+  .plant-page .plant-page__standfirst {
     font-size: 0.88rem;
   }
-  .plant-companion-layout {
+  .plant-page .plant-companion-layout {
     margin-top: 0.5rem;
     gap: 1rem;
   }
-  /* Contained scene: plant stays hero-size, dead space goes. */
-  .plant-world {
-    inset: -0.75rem -2rem 0;
+  /* Contained scene: dead viewBox air is cropped by anchoring the full-size
+     SVG to the bottom of a shorter stage box. The character keeps its exact
+     scale; only empty sky above it is removed. */
+  .plant-page .plant-world {
+    inset: -0.25rem -2rem -4rem;
   }
-  .plant-world__silhouettes {
+  .plant-page .plant-world__silhouettes {
     height: 150px;
   }
-  .plant-visual {
+  .plant-page .plant-stage {
+    gap: 0.25rem;
+  }
+  .plant-page .plant-visual {
+    width: 300px;
+    height: 258px;
+    overflow: hidden;
+  }
+  .plant-page .plant-visual__svg {
     width: 300px;
     height: 330px;
+    flex: none;
   }
-  .plant-visual::after {
+  .plant-page .plant-visual::after {
     width: 180px;
     height: 22px;
   }
-  .plant-companion-copy {
+  .plant-page .plant-companion-copy {
     font-size: 1.05rem;
-    margin-top: 0.1rem;
+    margin-top: 0;
   }
   /* Journal breathes edge to edge; sections stay compact. */
-  .plant-journal {
+  .plant-page .plant-journal {
     padding: 1rem;
     gap: 1rem;
   }
-  .plant-journal > section + section {
+  .plant-page .plant-journal > section + section {
     padding-top: 1rem;
   }
   /* 7-day track fits 320px viewports without clipping. */
-  .plant-journal .plant-journey__track {
+  .plant-page .plant-journal .plant-journey__track {
     gap: 0.15rem;
   }
-  .plant-journal .plant-journey__track::before {
+  .plant-page .plant-journal .plant-journey__track::before {
     top: 0.88rem;
     right: 0.9rem;
     left: 0.9rem;
   }
-  .plant-journey__day svg {
+  .plant-page .plant-journey__day svg {
     width: 17px;
     height: 17px;
   }
-  .plant-journey__day-label {
+  .plant-page .plant-journey__day-label {
     font-size: 0.62rem;
   }
-  .plant-moment__note {
+  .plant-page .plant-moment__note {
     font-size: 0.92rem;
   }
 }
 
 @media (max-width: 360px) {
-  .plant-journal .plant-journey__track {
+  .plant-page .plant-journal .plant-journey__track {
     gap: 0.1rem;
   }
-  .plant-journey__day-label {
+  .plant-page .plant-journey__day-label {
     font-size: 0.6rem;
   }
-  .plant-visual {
+  .plant-page .plant-visual {
+    width: 280px;
+    height: 240px;
+    overflow: hidden;
+  }
+  .plant-page .plant-visual__svg {
     width: 280px;
     height: 308px;
+    flex: none;
   }
 }
 
@@ -13342,5 +13363,200 @@ body {
   }
   .history-row {
     padding: 0.7rem 0.8rem;
+  }
+}
+
+/* ============================================================
+   M5 STATS MOBILE TRANSFORMATION (<=768px; desktop untouched)
+   Phone composition, not stacked desktop: compact header
+   controls, 2x2 metrics, content-hugging panels, right-sized
+   charts. No JSX, data, calculations, or behavior changes.
+   All colors derive from existing theme variables.
+   Placed last so these rules win over earlier breakpoints.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Page density: tighter rhythm between sections. */
+  .stats-target-page {
+    gap: var(--mobile-section-gap);
+  }
+
+  /* 1. Header / controls: compact title, controls share one row. */
+  .stats-target-header {
+    gap: var(--mobile-compact-gap);
+    margin-bottom: 0;
+  }
+  .stats-target-header h1 {
+    font-size: 2rem;
+  }
+  .stats-target-header p {
+    margin-top: 0.3rem;
+  }
+  .stats-target-header__controls {
+    gap: var(--mobile-control-gap);
+  }
+  .stats-target-header__controls .history-dropdown-trigger,
+  .stats-target-header__controls .stats-target-export {
+    min-height: var(--mobile-touch-target);
+  }
+  .stats-target-export {
+    white-space: nowrap;
+  }
+
+  /* Remove the fixed-height scaffolding that made panels giant:
+     300px detail rows and 15rem panel minimums become content-sized. */
+  .stats-target-row--details {
+    grid-auto-rows: auto;
+  }
+  .stats-target-panel {
+    min-height: 0;
+    padding: 0.9rem 0.95rem;
+  }
+  .stats-target-panel h2 {
+    font-size: 0.98rem;
+  }
+
+  /* 2. Primary metrics: compact 2x2 grid that fits 320px.
+     Overrides the earlier <=600px single-column stacking. */
+  .stats-target-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--mobile-compact-gap);
+  }
+  .stats-target-summary-card {
+    min-height: 0;
+    padding: 0.7rem 0.75rem;
+  }
+  .stats-target-summary-card__icon {
+    top: 0.7rem;
+    left: 0.7rem;
+    width: 1.7rem;
+    height: 1.7rem;
+    font-size: 0.85rem;
+  }
+  .stats-target-summary-card p,
+  .stats-target-summary-card strong,
+  .stats-target-summary-card > span:last-child {
+    margin-left: 2.25rem;
+  }
+  .stats-target-summary-card p {
+    font-size: 0.66rem;
+    overflow-wrap: anywhere;
+  }
+  .stats-target-summary-card strong {
+    margin-top: 0.3rem;
+    font-size: 1.3rem;
+  }
+  .stats-target-summary-card > span:last-child {
+    font-size: 0.62rem;
+    overflow-wrap: anywhere;
+  }
+
+  /* 3. Completion Trend: only the height it needs, no scrolling. */
+  .stats-target-trend-chart {
+    height: 9rem;
+    margin-top: 0.75rem;
+  }
+  .stats-target-trend-plot {
+    gap: 0.3rem;
+  }
+  .stats-target-panel--trend > .stats-target-callout {
+    margin-top: 0.6rem;
+  }
+
+  /* 4. Created vs Completed: tighter stack, supporting-size donut. */
+  .stats-target-panel--work .stats-target-work {
+    row-gap: 0.9rem;
+    margin-top: 1rem;
+  }
+  .stats-target-panel--work .stats-target-work-bars {
+    gap: 0.8rem;
+  }
+  .stats-target-panel--work .stats-target-work-row {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  .stats-target-panel--work .stats-target-work-label strong {
+    font-size: 1.3rem;
+  }
+  .stats-target-panel--work .stats-target-work-rate {
+    width: 96px;
+    height: 96px;
+  }
+  .stats-target-panel--work .stats-target-work-rate__inner {
+    width: 78px;
+    height: 78px;
+  }
+  .stats-target-panel--work .stats-target-work-rate strong {
+    font-size: 1.35rem;
+  }
+
+  /* 5. Insights: hug content, keep rows readable. */
+  .stats-target-insights {
+    margin-top: 0.75rem;
+    gap: var(--mobile-compact-gap);
+  }
+
+  /* 6. Plan Stability: compact group, tappable legend rows. */
+  .stats-target-stability-group {
+    gap: 0.75rem;
+    margin: 0.5rem 0 0;
+  }
+  .stats-target-stability-legend__item {
+    min-height: var(--mobile-touch-target);
+    align-items: center;
+  }
+
+  /* Deadline + recovery: trim surrounding space only. */
+  .stats-target-deadline-rows {
+    margin-top: 0.6rem;
+  }
+  .stats-target-deadline-row {
+    padding: 0.45rem 0;
+  }
+  .stats-target-panel--recovery .stats-target-recovery {
+    padding-top: 0.25rem;
+  }
+
+  /* Footer: compact, illustration kept. */
+  .stats-target-footer {
+    min-height: 0;
+    padding: 0.7rem 0.9rem;
+  }
+
+  /* Toast dismiss stays tappable. */
+  .stats-new-week-toast__close {
+    min-width: var(--mobile-touch-target);
+    min-height: var(--mobile-touch-target);
+  }
+}
+
+@media (max-width: 520px) {
+  /* Stability: centered donut over full-width legend rows. */
+  .stats-target-stability-group {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .stats-target-stability-legend {
+    width: 100%;
+  }
+}
+
+@media (max-width: 400px) {
+  .stats-target-trend-chart {
+    height: 8.25rem;
+  }
+  .stats-target-bar small {
+    font-size: 0.58rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .stats-target-summary-card {
+    padding: 0.6rem 0.65rem;
+  }
+  .stats-target-summary-card strong {
+    font-size: 1.2rem;
+  }
+  .stats-target-panel {
+    padding: 0.8rem 0.85rem;
   }
 }
