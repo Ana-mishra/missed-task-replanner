@@ -972,7 +972,7 @@ a:focus-visible {
 
 /* Today sheet markers + chips */
 :root[data-theme="dark"] .day-card { box-shadow: none; }
-:root[data-theme="dark"] .sheet-row__marker { background: rgb(157 187 221 / 15%); color: #9DBBDD; }
+:root[data-theme="dark"] .sheet-row__marker { background: rgb(143 200 168 / 15%); color: var(--dark-success); }
 :root[data-theme="dark"] .sheet-row--missed .sheet-row__marker {
   background: rgb(229 142 130 / 15%);
   color: var(--dark-danger);
@@ -1398,6 +1398,19 @@ a:focus-visible {
   border-color: rgb(229 142 130 / 40%);
 }
 :root[data-theme="dark"] .auth-field input::placeholder { color: var(--dark-text-muted); }
+:root[data-theme="dark"] .auth-page__panel {
+  background: var(--dark-surface);
+  border-color: var(--dark-border);
+}
+:root[data-theme="dark"] .auth-submit {
+  color: var(--dark-accent-text);
+  background: var(--dark-accent);
+  border-color: var(--dark-accent);
+  box-shadow: 0 7px 16px rgb(0 0 0 / 40%);
+}
+:root[data-theme="dark"] .auth-submit:hover:not(:disabled) {
+  background: var(--dark-accent-hover);
+}
 :root[data-theme="dark"] .name-setup-page { background: var(--dark-bg); }
 :root[data-theme="dark"] .name-setup-card {
   background: var(--dark-surface);
@@ -5911,6 +5924,22 @@ body {
 :root[data-theme="dark"] .landing-see-how {
   border-color: var(--dark-border);
   background: var(--dark-surface);
+}
+:root[data-theme="dark"] .landing-button {
+  color: var(--dark-accent-text);
+  background: var(--dark-accent);
+  border-color: var(--dark-accent);
+}
+:root[data-theme="dark"] .landing-button:hover {
+  background: var(--dark-accent-hover);
+}
+:root[data-theme="dark"] .landing-brand > span {
+  color: var(--dark-accent-text);
+  background: var(--dark-accent);
+}
+:root[data-theme="dark"] .landing-see-how span {
+  color: var(--dark-accent-text);
+  background: var(--dark-accent);
 }
 :root[data-theme="dark"] .landing-hero__product::before {
   background: rgb(57 121 95 / 25%);
@@ -13589,12 +13618,16 @@ body {
     max-height: 92vh;
     max-height: 92dvh;
     margin: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    /* Bounded flex-column box: the header is fixed, the <form> below is
+       the sole scroll container (min-height: 0 makes the flex sizing
+       deterministic on every engine). The box itself never scrolls. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
     border-radius: 1.25rem 1.25rem 0 0;
     border-bottom: 0;
-    padding: 0.75rem 1rem calc(1rem + var(--safe-area-bottom));
+    padding: 0.75rem 0 0;
     animation: task-sheet-rise 200ms ease-out;
   }
   .modal-backdrop:has(> .task-form) > .task-form::before {
@@ -13607,15 +13640,13 @@ body {
     background: var(--border);
   }
 
-  /* Compact sticky header: title + 44px close stay visible. */
+  /* Compact fixed header: outside the scroll container, so no sticky
+     positioning is needed for it to stay visible. */
   .task-form__header {
-    position: sticky;
-    top: 0;
-    z-index: 3;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 0.5rem;
-    padding: 0.25rem 0 0.75rem;
+    margin-bottom: 0;
+    padding: 0.25rem 1rem 0.75rem;
     background: var(--surface-elevated);
   }
   .task-form h2 {
@@ -13628,6 +13659,19 @@ body {
     font-size: 1.5rem;
   }
 
+  /* The <form> is the one and only scroll container: it fills the
+     remaining sheet height (min-height: 0 is what makes that binding)
+     and scrolls with momentum + containment. Its bottom padding clears
+     the sticky in-flow footer, so the final field is never trapped
+     behind it. */
+  .modal-backdrop:has(> .task-form) > .task-form > form {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 1rem calc(1.5rem + var(--safe-area-bottom));
+  }
   /* Touch-safe fields: 44px targets, 16px text (no auto-zoom). */
   .task-form label {
     margin-top: 0.85rem;
@@ -13747,7 +13791,11 @@ body {
 }
 
 @media (max-width: 360px) {
-  .modal-backdrop:has(> .task-form) > .task-form {
+  .modal-backdrop:has(> .task-form) > .task-form > form {
+    padding-right: 0.85rem;
+    padding-left: 0.85rem;
+  }
+  .task-form__header {
     padding-right: 0.85rem;
     padding-left: 0.85rem;
   }

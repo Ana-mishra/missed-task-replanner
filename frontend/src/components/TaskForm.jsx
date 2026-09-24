@@ -1105,6 +1105,13 @@ function TaskForm({
           :root[data-theme="dark"] .task-form--redesigned .time-entry__period button {
             background: var(--dark-surface-soft);
             border-color: var(--dark-border);
+            color: var(--text);
+          }
+
+          :root[data-theme="dark"] .task-form--redesigned .time-entry__period button.active {
+            background: var(--dark-accent);
+            border-color: var(--dark-accent);
+            color: var(--dark-accent-text);
           }
 
           :root[data-theme="dark"] .task-form--redesigned .calendar-navigation {

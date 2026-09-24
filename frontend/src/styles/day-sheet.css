@@ -365,8 +365,8 @@ section[aria-label="Completed"] > .sheet-eyebrow {
   margin-top: 0.1rem;
   border: none;
   border-radius: 50%;
-  background: #e8f0f7;
-  color: #3f6f8f;
+  background: #e9f5e8;
+  color: var(--success);
 }
 
 .sheet-row--missed .sheet-row__marker {
