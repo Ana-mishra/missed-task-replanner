@@ -55,6 +55,21 @@ class WeeklyReflectionResult:
     previous_tasks_recovered: int | None = None
 
 
+def _is_noop_reschedule(record: TaskHistory) -> bool:
+    """Mirror the History feed's no-op reschedule exclusion.
+
+    Older planner runs could write ``rescheduled`` rows whose start/end did
+    not actually change. History hides them from users
+    (``load_meaningful_history``); deadline behavior must not count them
+    either, or the two surfaces would diverge again.
+    """
+    if record.old_start is None or record.old_end is None:
+        return False
+    new_start = record.new_start if record.new_start is not None else record.scheduled_start
+    new_end = record.new_end if record.new_end is not None else record.scheduled_end
+    return record.old_start == new_start and record.old_end == new_end
+
+
 class ReflectionService:
     """Builds an objective weekly summary from task history."""
 
@@ -450,7 +465,15 @@ if tasks_scheduled
         tasks: list[Task],
         week_history: list[TaskHistory],
     ) -> dict[str, int]:
-        """Classify deadline-bearing task outcomes for tasks scheduled in the selected period."""
+        """Classify deadline-bearing task outcomes for tasks scheduled in the selected period.
+
+        ``completed_before_deadline`` and ``missed_deadline`` count each task
+        once. ``rescheduled`` counts rescheduling *events* (not tasks), so it
+        matches the History feed/summary definition: a task rescheduled twice
+        contributes two. Only meaningful reschedules count — no-op planner
+        rows (unchanged start/end) are excluded, mirroring
+        ``load_meaningful_history`` in ``app/api/history.py``.
+        """
 
         task_by_id = {task.id: task for task in tasks}
 
@@ -506,14 +529,16 @@ if tasks_scheduled
                 missed_deadline += 1
                 continue
 
-            had_valid_reschedule = any(
-                record.event_type == "rescheduled"
-                and record.timestamp < task.deadline
+            valid_reschedules = [
+                record
                 for record in records
-            )
+                if record.event_type == "rescheduled"
+                and record.timestamp < task.deadline
+                and not _is_noop_reschedule(record)
+            ]
 
-            if had_valid_reschedule:
-                rescheduled += 1
+            if valid_reschedules:
+                rescheduled += len(valid_reschedules)
             elif (
                 outcome.event_type == "completed"
                 and outcome.timestamp <= task.deadline

@@ -483,6 +483,133 @@ class ReflectionServiceTests(unittest.TestCase):
         result = self.service.calculate([task], history, self.week_start, self.current_time)
         self.assertEqual(result.deadline_behavior, {"completed_before_deadline": 0, "rescheduled": 0, "missed_deadline": 0})
 
+    def test_deadline_behavior_counts_one_reschedule_event(self):
+        task = self.task(1)
+        history = [
+            self.event(1, 1, "scheduled", datetime(2026, 8, 11, 9)),
+            self.event(2, 1, "rescheduled", datetime(2026, 8, 11, 10)),
+            self.event(3, 1, "completed", datetime(2026, 8, 11, 11)),
+        ]
+        result = self.service.calculate([task], history, self.week_start, self.current_time)
+        self.assertEqual(result.deadline_behavior["rescheduled"], 1)
+        self.assertEqual(result.deadline_behavior["completed_before_deadline"], 0)
+        self.assertEqual(result.deadline_behavior["missed_deadline"], 0)
+
+    def test_deadline_behavior_counts_two_reschedules_for_same_task(self):
+        task = self.task(1)
+        history = [
+            self.event(1, 1, "scheduled", datetime(2026, 8, 11, 9)),
+            self.event(2, 1, "rescheduled", datetime(2026, 8, 11, 10)),
+            self.event(3, 1, "rescheduled", datetime(2026, 8, 12, 10)),
+            self.event(4, 1, "completed", datetime(2026, 8, 12, 11)),
+        ]
+        result = self.service.calculate([task], history, self.week_start, self.current_time)
+        self.assertEqual(result.deadline_behavior["rescheduled"], 2)
+        self.assertEqual(result.deadline_behavior["completed_before_deadline"], 0)
+        self.assertEqual(result.deadline_behavior["missed_deadline"], 0)
+
+    def test_deadline_behavior_counts_three_reschedules_across_two_tasks(self):
+        # Production case: French rescheduled once, College Work twice.
+        # History shows 3 events, so Stats must report 3 (not 2 tasks).
+        french = self.task(1)
+        college_work = self.task(2)
+        history = [
+            self.event(1, 1, "scheduled", datetime(2026, 8, 11, 9)),
+            self.event(2, 1, "rescheduled", datetime(2026, 8, 11, 10)),
+            self.event(3, 1, "completed", datetime(2026, 8, 11, 11)),
+            self.event(4, 2, "scheduled", datetime(2026, 8, 12, 9)),
+            self.event(5, 2, "rescheduled", datetime(2026, 8, 12, 10)),
+            self.event(6, 2, "rescheduled", datetime(2026, 8, 13, 10)),
+            self.event(7, 2, "completed", datetime(2026, 8, 13, 11)),
+        ]
+        result = self.service.calculate(
+            [french, college_work], history, self.week_start, self.current_time
+        )
+        self.assertEqual(result.deadline_behavior["rescheduled"], 3)
+        self.assertEqual(result.deadline_behavior["completed_before_deadline"], 0)
+        self.assertEqual(result.deadline_behavior["missed_deadline"], 0)
+
+    def test_deadline_rescheduled_matches_history_event_definition(self):
+        # History counts meaningful reschedule events in range. Stats must
+        # agree on the same fixture: no-op planner rows are excluded on both
+        # sides, every other in-period reschedule counts once.
+        task = self.task(1)
+        noop = self.event(2, 1, "rescheduled", datetime(2026, 8, 11, 10))
+        noop.old_start = datetime(2026, 8, 11, 9)
+        noop.old_end = datetime(2026, 8, 11, 10)
+        noop.new_start = datetime(2026, 8, 11, 9)
+        noop.new_end = datetime(2026, 8, 11, 10)
+        history = [
+            self.event(1, 1, "scheduled", datetime(2026, 8, 11, 9)),
+            noop,
+            self.event(3, 1, "rescheduled", datetime(2026, 8, 12, 10)),
+            self.event(4, 1, "completed", datetime(2026, 8, 12, 11)),
+        ]
+        history_count = sum(
+            1 for record in history if record.event_type == "rescheduled"
+            and not (
+                record.old_start is not None
+                and record.old_end is not None
+                and record.old_start
+                == (record.new_start if record.new_start is not None else record.scheduled_start)
+                and record.old_end
+                == (record.new_end if record.new_end is not None else record.scheduled_end)
+            )
+        )
+        result = self.service.calculate([task], history, self.week_start, self.current_time)
+        self.assertEqual(history_count, 1)
+        self.assertEqual(result.deadline_behavior["rescheduled"], history_count)
+
+    def test_deadline_reschedule_change_leaves_other_metrics_unchanged(self):
+        on_time = self.task(1)  # completed before deadline, never rescheduled
+        late = self.task(2)
+        late.deadline = datetime(2026, 8, 12, 12)
+        rescheduled_then_late = self.task(3)
+        rescheduled_then_late.deadline = datetime(2026, 8, 12, 12)
+        missed_then_recovered = self.task(4)
+        history = [
+            self.event(1, 1, "scheduled", datetime(2026, 8, 11, 9)),
+            self.event(2, 1, "completed", datetime(2026, 8, 11, 10)),
+            self.event(3, 2, "scheduled", datetime(2026, 8, 12, 9)),
+            self.event(4, 2, "missed", datetime(2026, 8, 12, 14)),
+            self.event(5, 3, "scheduled", datetime(2026, 8, 12, 9)),
+            self.event(6, 3, "rescheduled", datetime(2026, 8, 12, 10)),
+            self.event(7, 3, "missed", datetime(2026, 8, 12, 14)),
+            self.event(8, 4, "scheduled", datetime(2026, 8, 13, 9)),
+            self.event(9, 4, "missed", datetime(2026, 8, 13, 10)),
+            self.event(10, 4, "recovered", datetime(2026, 8, 13, 11)),
+        ]
+        result = self.service.calculate(
+            [on_time, late, rescheduled_then_late, missed_then_recovered],
+            history,
+            self.week_start,
+            self.current_time,
+        )
+        # A task that ultimately misses its deadline stays missed: its
+        # earlier reschedule must not leak into the rescheduled count.
+        self.assertEqual(
+            result.deadline_behavior,
+            {"completed_before_deadline": 1, "rescheduled": 0, "missed_deadline": 2},
+        )
+        self.assertEqual(result.recovery_overview_missed, 3)
+        self.assertEqual(result.recovery_overview_recovered, 1)
+        self.assertEqual(result.tasks_recovered, 1)
+
+    def test_deadline_behavior_ignores_out_of_period_and_post_deadline_reschedules(self):
+        task = self.task(1)
+        task.deadline = datetime(2026, 8, 12, 12)
+        history = [
+            self.event(1, 1, "scheduled", datetime(2026, 8, 11, 9)),
+            # Before the selected week: outside the event scope entirely.
+            self.event(2, 1, "rescheduled", datetime(2026, 8, 5, 10)),
+            # After the deadline: not a valid reschedule.
+            self.event(3, 1, "rescheduled", datetime(2026, 8, 12, 14)),
+            self.event(4, 1, "completed", datetime(2026, 8, 11, 10)),
+        ]
+        result = self.service.calculate([task], history, self.week_start, self.current_time)
+        self.assertEqual(result.deadline_behavior["rescheduled"], 0)
+        self.assertEqual(result.deadline_behavior["completed_before_deadline"], 1)
+
     def test_previous_period_scheduled_task_completed_current_period_does_not_increase_current_cohort(self):
         history = [
             self.event(1, 1, "scheduled", datetime(2026, 8, 5, 9)),  # previous period schedule
