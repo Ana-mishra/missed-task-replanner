@@ -720,8 +720,8 @@ return (
       )}
 
       {taskToDelete && (
-        <div className="modal-backdrop">
-          <section className="task-form">
+        <div className="modal-backdrop modal-backdrop--confirm">
+          <section className="task-form task-form--confirm">
             <h2>Delete this task?</h2>
             <p className="completion-copy">
               This task will be permanently removed.

@@ -13820,3 +13820,102 @@ body {
     animation: none;
   }
 }
+
+/* ============================================================
+   M11 MOBILE OVERLAY ARCHITECTURE (<=768px; desktop untouched)
+   Fixes three real-device failures at their root instead of
+   layering more overrides:
+
+   A. ADD TASK FOOTER OVERLAP. The sheet was a flex column whose
+      <form> scrolled, but the date/time/select dropdowns stayed
+      absolutely positioned with their own capped internal scroll.
+      Those nested popovers could extend past the sheet while the
+      sticky in-flow footer kept painting over them, so AM/PM and
+      Done were unreachable. Fix: dropdowns join the form flow
+      (position: static), the <form> remains the ONE scroll
+      container, and the footer is plain in-flow content at its
+      end — nothing can ever paint over a control again.
+   B. DELETE CONFIRM. It reused .task-form, so it inherited the
+      flex-column/no-scroll section box with no scroller of its
+      own. Fix: dedicated .modal-backdrop--confirm /
+      .task-form--confirm architecture where the sheet itself is
+      the bounded scroller with safe-area padding.
+   D. LAYERING. Reaffirmed explicit rule (matches the existing
+      z-index values): content < bottom nav (800) < more sheet
+      (900/901) < modal backdrop (1000). Never DOM-order based.
+   No JSX (except the two confirm classes), logic, validation, or
+   behavior changes. All colors derive from theme variables.
+   Placed last so these rules win over M7 where they conflict.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Explicit layering: modal backdrop always above bottom nav. */
+  .mobile-bottom-nav {
+    z-index: 800;
+  }
+  .modal-backdrop {
+    z-index: 1000;
+  }
+
+  /* A. Dropdowns join the form flow: one scroll container, no
+      nested competing scrollers, no clipping at the sheet edge.
+      Doubled prefix beats the component inline <style> (later in
+      the document) without !important. Behavior (open/close,
+      outside-click, selection) is untouched. */
+  .task-form.task-form--redesigned .picker-popover,
+  .task-form.task-form--redesigned .custom-select__menu {
+    position: static;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    margin-top: 0.5rem;
+  }
+  .task-form.task-form--redesigned .custom-select__menu {
+    box-shadow: none;
+  }
+
+  /* A. Footer is ordinary in-flow content at the end of the single
+      scroll container: reachable by scrolling, never occluding.
+      Beats the M7 sticky footer (the occlusion source). */
+  .modal-backdrop:has(> .task-form) .task-form__actions {
+    position: static;
+  }
+  .modal-backdrop:has(> .task-form) > .task-form > form {
+    scroll-padding-bottom: 1rem;
+  }
+
+  /* B. Delete confirmation: proper viewport-relative bottom sheet.
+      Darker scrim owns the interaction; the sheet is bounded by
+      dvh (vh fallback), scrolls itself when needed, and clears
+      the bottom nav + safe area. Content/text/behavior unchanged. */
+  .modal-backdrop.modal-backdrop--confirm {
+    background: rgb(20 30 26 / 55%);
+    overscroll-behavior: none;
+  }
+  .modal-backdrop.modal-backdrop--confirm > .task-form.task-form--confirm {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    max-height: 88vh;
+    max-height: 88dvh;
+    margin: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 1.25rem 1.25rem 0 0;
+    border-bottom: 0;
+    padding: 0.75rem 1rem calc(1rem + var(--safe-area-bottom));
+  }
+  .modal-backdrop.modal-backdrop--confirm .task-form__actions {
+    position: static;
+  }
+  .modal-backdrop.modal-backdrop--confirm .task-form__actions .button {
+    flex: 1 1 0;
+    min-height: var(--mobile-touch-target);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop.modal-backdrop--confirm > .task-form.task-form--confirm {
+    animation: none;
+  }
+}
