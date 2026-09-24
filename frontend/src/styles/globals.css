@@ -13560,3 +13560,215 @@ body {
     padding: 0.8rem 0.85rem;
   }
 }
+
+/* ============================================================
+   M7 TASK FORM MOBILE TRANSFORMATION (<=768px; desktop untouched)
+   Centered desktop dialog becomes a bottom-anchored sheet with a
+   sticky header, independently scrolling content, and a sticky
+   submit footer. No JSX, logic, validation, or behavior changes.
+   Overrides of the component's inline <style> block use the
+   doubled .task-form.task-form--redesigned prefix so they win on
+   specificity (the <style> element sits later in the document).
+   All colors derive from existing theme variables.
+   Placed last so these rules win over earlier breakpoints.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Bottom-sheet anchoring. Scoped to backdrops hosting the task
+     form (this also covers the delete-confirm reuse of .task-form).
+     overscroll-behavior keeps the page behind from scrolling. */
+  .modal-backdrop:has(> .task-form) {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+    overscroll-behavior: none;
+  }
+  .modal-backdrop:has(> .task-form) > .task-form {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+    max-height: 92dvh;
+    margin: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 1.25rem 1.25rem 0 0;
+    border-bottom: 0;
+    padding: 0.75rem 1rem calc(1rem + var(--safe-area-bottom));
+    animation: task-sheet-rise 200ms ease-out;
+  }
+  .modal-backdrop:has(> .task-form) > .task-form::before {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: 0 auto 0.5rem;
+    border-radius: 99px;
+    background: var(--border);
+  }
+
+  /* Compact sticky header: title + 44px close stay visible. */
+  .task-form__header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    padding: 0.25rem 0 0.75rem;
+    background: var(--surface-elevated);
+  }
+  .task-form h2 {
+    font-size: 1.35rem;
+  }
+  .task-form__header .icon-button {
+    width: var(--mobile-touch-target);
+    height: var(--mobile-touch-target);
+    flex: 0 0 auto;
+    font-size: 1.5rem;
+  }
+
+  /* Touch-safe fields: 44px targets, 16px text (no auto-zoom). */
+  .task-form label {
+    margin-top: 0.85rem;
+    overflow-wrap: anywhere;
+  }
+  .task-form input,
+  .task-form textarea,
+  .task-form select {
+    min-height: var(--mobile-touch-target);
+    font-size: var(--mobile-input-min);
+  }
+  .task-form.task-form--redesigned .form-section {
+    margin-top: 1.1rem;
+  }
+  .task-form.task-form--redesigned .picker-trigger,
+  .task-form.task-form--redesigned .custom-select__trigger {
+    min-height: var(--mobile-touch-target);
+    font-size: var(--mobile-interactive-text);
+  }
+  .task-form.task-form--redesigned .time-entry__fields input {
+    min-height: var(--mobile-touch-target);
+    font-size: var(--mobile-input-min);
+  }
+  .task-form.task-form--redesigned .duration-choices {
+    gap: var(--mobile-compact-gap);
+  }
+  .task-form.task-form--redesigned .duration-choices .button {
+    min-height: var(--mobile-touch-target);
+  }
+  .task-form.task-form--redesigned .time-entry__period button {
+    height: auto;
+    min-height: var(--mobile-touch-target);
+  }
+  .task-form.task-form--redesigned .time-entry__actions .button {
+    min-height: var(--mobile-touch-target);
+  }
+  .task-form.task-form--redesigned .calendar-navigation {
+    width: var(--mobile-touch-target);
+    height: var(--mobile-touch-target);
+  }
+  .task-form.task-form--redesigned .calendar-day {
+    min-height: var(--mobile-touch-target);
+    font-size: 0.82rem;
+  }
+  .task-form.task-form--redesigned .custom-select__option {
+    padding: 0.8rem 0.7rem;
+  }
+
+  /* Popovers stay inside the sheet: capped height, own scroll. */
+  .task-form.task-form--redesigned .picker-popover {
+    max-height: 320px;
+    max-height: 46dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .task-form.task-form--redesigned .custom-select__menu {
+    max-height: 260px;
+    max-height: 40dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* Sticky submit footer: primary dominates, stays reachable. */
+  .task-form__actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 1.25rem;
+    padding: 0.75rem 0 0.25rem;
+    background: var(--surface-elevated);
+  }
+  .task-form__actions .button {
+    min-height: var(--mobile-touch-target);
+  }
+  .task-form__actions .button--primary {
+    flex: 1 1 auto;
+    min-height: var(--mobile-primary-height);
+    font-size: 0.95rem;
+  }
+
+  /* Validation stays readable and close to the form flow. */
+  .task-form .form-error {
+    overflow-wrap: anywhere;
+  }
+  .task-form .deadline-conflict {
+    display: grid;
+    gap: 0.6rem;
+    margin-top: 1rem;
+    padding: 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .task-form .deadline-conflict p {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .task-form .deadline-conflict > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mobile-compact-gap);
+  }
+  .task-form .deadline-conflict .button {
+    flex: 1 1 auto;
+    min-height: var(--mobile-touch-target);
+  }
+
+  /* Time-error toast floats above the sheet, inside the viewport. */
+  .modal-backdrop:has(> .task-form) > .stats-new-week-toast {
+    z-index: 1001;
+    top: calc(0.75rem + var(--safe-area-top));
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .modal-backdrop:has(> .task-form) > .task-form {
+    padding-right: 0.85rem;
+    padding-left: 0.85rem;
+  }
+  .task-form h2 {
+    font-size: 1.25rem;
+  }
+}
+
+@keyframes task-sheet-rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop:has(> .task-form) > .task-form {
+    animation: none;
+  }
+}

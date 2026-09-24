@@ -522,3 +522,117 @@
     transition: none !important;
   }
 }
+
+/* ============================================================
+   M6 PLAN MOBILE TRANSFORMATION (<=768px; desktop untouched)
+   Plan becomes a phone action interface: compact header, prominent
+   48px planning action, inline roadmap numbers, TaskCards recomposed
+   as compact rows with thumb-friendly actions. All selectors are
+   .plan-page-scoped; shared TaskCard styling elsewhere is untouched.
+   No JSX, data, or behavior changes.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Compact header: context first, no excess bulk. */
+  .plan-page .plan-head h1 {
+    font-size: 1.75rem;
+  }
+  .plan-page .plan-head p {
+    font-size: 0.85rem;
+  }
+
+  /* Actions: single column, primary Plan action dominant at 48px,
+     Bad Day toggle a full-width 44px row. DOM order preserved. */
+  .plan-page .task-list-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+  .plan-page .task-list-actions .button {
+    width: 100%;
+    min-height: var(--mobile-touch-target);
+    margin: 0;
+    font-size: var(--mobile-interactive-text);
+  }
+  .plan-page .task-list-actions .button--primary {
+    min-height: var(--mobile-primary-height);
+    font-size: 1rem;
+    font-weight: 800;
+  }
+
+  /* Roadmap: inline sequence numbers, no left rail or collision. */
+  .plan-page .plan-roadmap {
+    padding-left: 0;
+    gap: 0.75rem;
+  }
+  .plan-page .plan-roadmap__item::before {
+    position: static;
+    margin-bottom: 0.4rem;
+  }
+
+  /* TaskCard becomes a compact row: title + slot lead, quiet side
+     footer, then an Edit|Complete grid with Delete below. Order in
+     the DOM is unchanged; only visual density changes. */
+  .plan-page .plan-roadmap__item .task-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+  }
+  .plan-page .task-card__main {
+    min-width: 0;
+  }
+  .plan-page .plan-roadmap__item .task-card h3 {
+    font-size: 0.98rem;
+    overflow-wrap: anywhere;
+  }
+  .plan-page .task-card__meta {
+    gap: 0.4rem;
+  }
+  .plan-page .task-card__side {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+  }
+  .plan-page .task-card__deadline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.5rem;
+    text-align: left;
+  }
+  .plan-page .task-card__reason {
+    flex-basis: 100%;
+    margin-top: 0.15rem;
+  }
+  .plan-page .task-card__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  .plan-page .task-card__actions .button {
+    min-height: var(--mobile-touch-target);
+    margin: 0;
+    font-size: var(--mobile-interactive-text);
+  }
+  .plan-page .task-card__actions .button--danger {
+    grid-column: 1 / -1;
+  }
+
+  /* Normal-day overload notice stacks instead of squeezing. */
+  .plan-page .overload-notice {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 480px) {
+  .plan-page .plan-head h1 {
+    font-size: 1.5rem;
+  }
+  .plan-page .plan-roadmap__item .task-card {
+    padding: 0.75rem 0.85rem;
+  }
+}
