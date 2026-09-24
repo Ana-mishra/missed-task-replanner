@@ -11999,6 +11999,92 @@ body {
   }
 }
 
+/* ============================================================
+   M3 MY PLANT MOBILE COMPOSITION (<=768px; desktop untouched)
+   Contained hero, compact intro, full-width journey, breathing room
+   above the bottom nav. No DOM, data, or behavior changes.
+   ============================================================ */
+@media (max-width: 768px) {
+  .plant-page {
+    gap: 0.3rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-bottom: 2rem;
+  }
+  .plant-page__eyebrow {
+    margin-bottom: 0.3rem;
+  }
+  .plant-page__title {
+    font-size: 1.6rem;
+  }
+  .plant-page__standfirst {
+    font-size: 0.88rem;
+  }
+  .plant-companion-layout {
+    margin-top: 0.5rem;
+    gap: 1rem;
+  }
+  /* Contained scene: plant stays hero-size, dead space goes. */
+  .plant-world {
+    inset: -0.75rem -2rem 0;
+  }
+  .plant-world__silhouettes {
+    height: 150px;
+  }
+  .plant-visual {
+    width: 300px;
+    height: 330px;
+  }
+  .plant-visual::after {
+    width: 180px;
+    height: 22px;
+  }
+  .plant-companion-copy {
+    font-size: 1.05rem;
+    margin-top: 0.1rem;
+  }
+  /* Journal breathes edge to edge; sections stay compact. */
+  .plant-journal {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .plant-journal > section + section {
+    padding-top: 1rem;
+  }
+  /* 7-day track fits 320px viewports without clipping. */
+  .plant-journal .plant-journey__track {
+    gap: 0.15rem;
+  }
+  .plant-journal .plant-journey__track::before {
+    top: 0.88rem;
+    right: 0.9rem;
+    left: 0.9rem;
+  }
+  .plant-journey__day svg {
+    width: 17px;
+    height: 17px;
+  }
+  .plant-journey__day-label {
+    font-size: 0.62rem;
+  }
+  .plant-moment__note {
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .plant-journal .plant-journey__track {
+    gap: 0.1rem;
+  }
+  .plant-journey__day-label {
+    font-size: 0.6rem;
+  }
+  .plant-visual {
+    width: 280px;
+    height: 308px;
+  }
+}
+
 /* ---- Stage section (visual + label + vitality copy) ---- */
 .plant-stage {
   display: flex;
