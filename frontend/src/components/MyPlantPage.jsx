@@ -250,12 +250,6 @@ function PlantSvg({ stage, vitality, animating, mood, faceRef }) {
       />
       {/* Companion face sits on the pot body */}
       <PlantFace mood={mood} faceRef={faceRef} />
-      {/* Pot highlight stripe */}
-      <path
-        className="plant-pot__highlight"
-        d="M75 184 L125 184 L123 190 L77 190 Z"
-        opacity="0.18"
-      />
       {/* Soil disc */}
       <ellipse
         className="plant-pot__soil"

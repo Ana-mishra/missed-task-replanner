@@ -12567,10 +12567,6 @@ body {
   fill: #d4956b;
 }
 
-.plant-pot__highlight {
-  fill: #ffffff;
-}
-
 .plant-pot__soil {
   fill: #6b4226;
 }
@@ -13981,5 +13977,66 @@ body {
   }
   .modal-backdrop.modal-backdrop--confirm .task-form__actions {
     position: static;
+  }
+}
+
+/* ============================================================
+   M12 DELETE CENTERED MODAL (<=768px; desktop untouched)
+   The Delete confirmation is NOT a bottom sheet: it is a small
+   centered dialog. This block exempts the confirm dialog from
+   every sheet treatment above (bottom anchoring, grabber, dvh
+   caps, sheet padding) and restores ordinary centered-modal
+   geometry. Later + higher specificity wins over M7/M11/M11b.
+   Add Task sheet, plan cards, handlers, and desktop untouched.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Viewport-level overlay, centered both axes. */
+  .modal-backdrop.modal-backdrop--confirm {
+    display: grid;
+    place-items: center;
+    align-items: center;
+    justify-items: center;
+    padding: 1rem;
+    padding: calc(1rem + var(--safe-area-top)) 1rem calc(1rem + var(--safe-area-bottom));
+    background: rgb(20 30 26 / 55%);
+    overscroll-behavior: none;
+  }
+
+  /* Compact dialog: natural content height, ordinary in-flow child. */
+  .modal-backdrop.modal-backdrop--confirm > .task-form.task-form--confirm {
+    display: block;
+    width: calc(100% - 2rem);
+    max-width: 420px;
+    min-height: 0;
+    margin: 0;
+    overflow: visible;
+    overscroll-behavior: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 60px rgb(23 42 35 / 23%);
+    padding: 1.25rem;
+    animation: none;
+  }
+  /* No sheet grabber on a centered dialog. */
+  .modal-backdrop.modal-backdrop--confirm > .task-form.task-form--confirm::before {
+    content: none;
+  }
+
+  .modal-backdrop.modal-backdrop--confirm .task-form--confirm h2 {
+    margin: 0;
+  }
+  .modal-backdrop.modal-backdrop--confirm .task-form--confirm .completion-copy {
+    margin-top: 0.4rem;
+  }
+  .modal-backdrop.modal-backdrop--confirm .task-form__actions {
+    position: static;
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+  .modal-backdrop.modal-backdrop--confirm .task-form__actions .button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: var(--mobile-touch-target);
   }
 }
