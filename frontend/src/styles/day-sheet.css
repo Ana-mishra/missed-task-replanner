@@ -1205,3 +1205,99 @@ section[aria-label="Completed"] > .sheet-eyebrow {
     transition: none !important;
   }
 }
+
+/* ============================================================
+   M2 DASHBOARD MOBILE TRANSFORMATION (<=768px; desktop untouched)
+   Today becomes an action-first mobile experience: compact summary,
+   guaranteed touch rows, tighter type/spacing, and the inline task
+   detail presented as a bottom sheet. No JSX or behavior changes.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Compact 2-column glance: Scheduled + Needs decision on top,
+     Unscheduled as a full-width mini row beneath. */
+  .day-sheet .history-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--mobile-compact-gap);
+    margin-top: 1rem;
+  }
+  .day-sheet .history-summary__card {
+    min-height: 0;
+    padding: 0.7rem 0.8rem;
+    gap: 0.6rem;
+  }
+  .day-sheet .history-summary__card > span {
+    width: 2rem;
+    height: 2rem;
+    flex-basis: 2rem;
+    font-size: 1rem;
+  }
+  .day-sheet .history-summary__card p {
+    font-size: 0.72rem;
+    margin-bottom: 0.15rem;
+  }
+  .day-sheet .history-summary__card strong {
+    font-size: 1.3rem;
+  }
+  .day-sheet .history-summary__card--unscheduled {
+    grid-column: 1 / -1;
+  }
+
+  /* Tighter hierarchy using M0 type tokens. */
+  .sheet-title {
+    font-size: var(--mobile-title);
+  }
+  .sheet-section {
+    padding-top: 1rem;
+  }
+  .sheet-section__title {
+    font-size: var(--mobile-section-title);
+  }
+
+  /* Guaranteed touch rows without changing desktop density. */
+  .sheet-row__body {
+    align-items: center;
+    min-height: var(--mobile-touch-target);
+  }
+  .sheet-row__title,
+  .sheet-row__meta {
+    overflow-wrap: anywhere;
+  }
+  .sheet-head__add,
+  .sheet-empty__cta {
+    min-height: var(--mobile-primary-height);
+  }
+
+  /* Fixed-width art must never exceed narrow viewports. */
+  .sheet-empty__art {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Inline task detail becomes a bottom sheet on mobile. The aside
+     wrapper is restyled only; TaskInspector logic is untouched. */
+  .day-detail {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 850;
+    max-height: 82vh;
+    max-height: 82dvh;
+    overflow-y: auto;
+    padding: 0 0.75rem calc(0.75rem + var(--safe-area-bottom));
+  }
+  .day-detail .inspector--inline {
+    box-shadow: 0 -12px 32px rgb(33 55 47 / 18%);
+    animation: day-detail-rise 200ms ease-out;
+  }
+  @keyframes day-detail-rise {
+    from {
+      transform: translateY(12px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+}
