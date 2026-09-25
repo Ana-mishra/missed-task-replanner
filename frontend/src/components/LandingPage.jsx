@@ -142,7 +142,6 @@ function LandingPage({ onAbout, onSignIn, onGetStarted }) {
             <button type="button" className="landing-button" onClick={onGetStarted}>
               Get started <span aria-hidden="true">→</span>
             </button>
-            <a href="#about" className="landing-see-how"><span aria-hidden="true">▶</span> See how it works</a>
           </div>
           <ul className="landing-reassurance" aria-label="Planora benefits">
             <li>Free to use</li>
