@@ -618,65 +618,151 @@
     font-weight: 800;
   }
 
-  /* Roadmap: inline sequence numbers, no left rail or collision. */
+  /* Roadmap: sequence number lives inside the card. */
   .plan-page .plan-roadmap {
     padding-left: 0;
-    gap: 0.75rem;
+    gap: 0.45rem;
+  }
+  .plan-page .plan-roadmap__item {
+    display: block;
   }
   .plan-page .plan-roadmap__item::before {
-    position: static;
-    margin-bottom: 0.4rem;
+    content: none;
   }
 
-  /* TaskCard becomes a compact row: title + slot lead, quiet side
-     footer, then an Edit|Complete grid with Delete below. Order in
-     the DOM is unchanged; only visual density changes. */
+  /* Compact TaskCard */
   .plan-page .plan-roadmap__item .task-card {
+    display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 0.6rem;
-    padding: 0.85rem 1rem;
-  }
-  .plan-page .task-card__main {
+    position: relative;
     min-width: 0;
+    min-height: 0;
+    gap: 0;
+    padding: 0.55rem 0.7rem 0.5rem 1.9rem;
+    border-radius: 0.9rem;
+    box-shadow: none;
+  }
+  .plan-page .plan-roadmap__item .task-card::before {
+    content: counter(roadmap);
+    position: absolute;
+    left: 0.6rem;
+    top: 0.72rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.3;
+  }
+  .plan-page .plan-roadmap__item .task-card__main {
+    min-width: 0;
+    gap: 0;
+    align-content: start;
+  }
+
+  /* Title */
+  .plan-page .plan-roadmap__item .task-card__heading {
+    gap: 0.5rem;
   }
   .plan-page .plan-roadmap__item .task-card h3 {
-    font-size: 0.98rem;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.3;
     overflow-wrap: anywhere;
   }
-  .plan-page .task-card__meta {
+  .plan-page .plan-roadmap__item .task-card__description {
+    font-size: 0.78rem;
+    line-height: 1.4;
+    margin-top: 0.1rem;
+  }
+
+  /* Schedule + quiet metadata */
+  .plan-page .plan-roadmap__item .task-card__meta {
+    margin-top: 0.35rem;
+    gap: 0.2rem 0.1rem;
+  }
+  .plan-page .plan-roadmap__item .task-card__meta-item.task-card__slot {
+    flex-basis: 100%;
+    margin: 0 0 0.1rem;
+    padding: 0.1rem 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .plan-page .plan-roadmap__item .task-card__meta-item:not(.task-card__slot) {
+    padding: 0.1rem 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.45;
+  }
+  .plan-page .plan-roadmap__item .task-card__meta-item.priority:not(.task-card__slot) {
+    font-weight: 600;
+  }
+  .plan-page .plan-roadmap__item .task-card__meta-item:not(.task-card__slot)
+    + .task-card__meta-item:not(.task-card__slot)::before {
+    content: "·";
+    margin-right: 0.35rem;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  /* Actions on ONE horizontal row */
+  .plan-page .plan-roadmap__item .task-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
     gap: 0.4rem;
+    width: 100%;
+    margin-top: 0.45rem;
   }
-  .plan-page .task-card__side {
+  .plan-page .plan-roadmap__item .task-card__actions .button {
+    position: relative;
+    min-height: 2.25rem;
+    margin: 0;
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.5rem;
+    box-shadow: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .plan-page .plan-roadmap__item .task-card__actions .button--danger {
+    grid-column: auto;
+    width: auto;
+    min-height: 2.25rem;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  /* Divider + Bottom status / deadline row */
+  .plan-page .plan-roadmap__item .task-card__side {
+    display: block;
+    margin-top: 0.35rem;
+    padding-top: 0.3rem;
+    border-top: 1px solid var(--border);
+  }
+  .plan-page .plan-roadmap__item .task-card__deadline {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 0.25rem 0.75rem;
-  }
-  .plan-page .task-card__deadline {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.25rem 0.5rem;
+    gap: 0.15rem 0.5rem;
     text-align: left;
   }
-  .plan-page .task-card__reason {
-    flex-basis: 100%;
+  .plan-page .plan-roadmap__item .task-card__deadline time {
+    display: inline;
+    white-space: nowrap;
+  }
+  .plan-page .plan-roadmap__item .task-card__reason {
     margin-top: 0.15rem;
-  }
-  .plan-page .task-card__actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    width: 100%;
-  }
-  .plan-page .task-card__actions .button {
-    min-height: var(--mobile-touch-target);
-    margin: 0;
-    font-size: var(--mobile-interactive-text);
-  }
-  .plan-page .task-card__actions .button--danger {
-    grid-column: 1 / -1;
   }
 
   /* Normal-day overload notice stacks instead of squeezing. */
@@ -690,7 +776,21 @@
   .plan-page .plan-head h1 {
     font-size: 1.5rem;
   }
+}
+
+@media (max-width: 360px) {
   .plan-page .plan-roadmap__item .task-card {
-    padding: 0.75rem 0.85rem;
+    padding: 0.5rem 0.65rem 0.45rem 1.8rem;
+  }
+  .plan-page .plan-roadmap__item .task-card::before {
+    left: 0.55rem;
+  }
+  .plan-page .plan-roadmap__item .task-card__actions {
+    gap: 0.3rem;
+  }
+  .plan-page .plan-roadmap__item .task-card__actions .button,
+  .plan-page .plan-roadmap__item .task-card__actions .button--danger {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
   }
 }

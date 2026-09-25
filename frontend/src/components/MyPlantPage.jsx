@@ -818,7 +818,6 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
             <span className="plant-world__ground" />
             <span className="plant-world__leaf plant-world__leaf--1" />
             <span className="plant-world__leaf plant-world__leaf--2" />
-            <span className="plant-world__leaf plant-world__leaf--3" />
             <span className="plant-world__mote plant-world__mote--1" />
             <span className="plant-world__mote plant-world__mote--2" />
             <span className="plant-world__mote plant-world__mote--3" />

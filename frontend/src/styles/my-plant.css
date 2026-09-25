@@ -97,7 +97,7 @@
   }
   .plant-companion-page .plant-world__leaf--1{top:14%;left:14%}
   .plant-companion-page .plant-world__leaf--2{top:9%;right:14%;width:24px;transform:rotate(34deg)}
-  .plant-companion-page .plant-world__leaf--3{top:38%;right:10%;width:16px;transform:rotate(20deg)}
+  .plant-companion-page .plant-world__leaf--3{display:none}
   .plant-companion-page .plant-world__mote{
     width:6px;height:6px;
     background:#89a872;
