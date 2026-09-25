@@ -628,9 +628,56 @@
     margin-bottom: 0.4rem;
   }
 
-  /* TaskCard mobile composition lives in the consolidated M13 layer at
-     the end of this file (the grid + 44px rules formerly here were
-     superseded by the terminal flex treatment). */
+  /* TaskCard becomes a compact row: title + slot lead, quiet side
+     footer, then an Edit|Complete grid with Delete below. Order in
+     the DOM is unchanged; only visual density changes. */
+  .plan-page .plan-roadmap__item .task-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+  }
+  .plan-page .task-card__main {
+    min-width: 0;
+  }
+  .plan-page .plan-roadmap__item .task-card h3 {
+    font-size: 0.98rem;
+    overflow-wrap: anywhere;
+  }
+  .plan-page .task-card__meta {
+    gap: 0.4rem;
+  }
+  .plan-page .task-card__side {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+  }
+  .plan-page .task-card__deadline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.5rem;
+    text-align: left;
+  }
+  .plan-page .task-card__reason {
+    flex-basis: 100%;
+    margin-top: 0.15rem;
+  }
+  .plan-page .task-card__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  .plan-page .task-card__actions .button {
+    min-height: var(--mobile-touch-target);
+    margin: 0;
+    font-size: var(--mobile-interactive-text);
+  }
+  .plan-page .task-card__actions .button--danger {
+    grid-column: 1 / -1;
+  }
 
   /* Normal-day overload notice stacks instead of squeezing. */
   .plan-page .overload-notice {
@@ -643,470 +690,7 @@
   .plan-page .plan-head h1 {
     font-size: 1.5rem;
   }
-}
-
-/* ============================================================
-   M8 PLAN MOBILE REDESIGN (<=768px; desktop untouched)
-   Plan becomes a compact daily schedule/action list: tightened
-   page rhythm, sequence numbers integrated beside each task,
-   dense schedule-item cards with a strong title+time lead, quiet
-   secondary metadata, subordinate actions, and compact states.
-   All selectors are .plan-page-scoped; shared TaskCard styling
-   elsewhere is untouched. No JSX, data, or behavior changes.
-   Placed last so these rules win over M6 and earlier queries.
-   ============================================================ */
-@media (max-width: 768px) {
-  /* Compact page rhythm: header, controls, and "Today's plan"
-     arrive with schedule-like density instead of dashboard gaps. */
-  .plan-page {
-    padding-bottom: 1.5rem;
-  }
-  .plan-page .plan-head h1 {
-    font-size: 1.6rem;
-  }
-  .plan-page .available-time-card {
-    margin-top: 0.4rem;
-    padding: 0.6rem 0.85rem;
-  }
-  .plan-page .available-time-card__header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.2rem;
-  }
-  .plan-page .available-time-card__eyebrow {
-    margin: 0;
-  }
-  .plan-page .available-time-card__content {
-    padding-top: 0;
-  }
-  .plan-page .available-time-card__duration {
-    font-size: 1.6rem;
-    line-height: 1.2;
-  }
-  .plan-page .available-time-card__caption {
-    margin-top: 0.1rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--muted);
-  }
-  .plan-page .available-time-card__help {
-    margin-top: 0.2rem;
-    font-size: 0.68rem;
-    line-height: 1.4;
-  }
-  .plan-page .available-time-card__header .button {
-    min-height: 36px;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.72rem;
-  }
-  .plan-page .task-list-actions {
-    margin-top: 0.5rem;
-    gap: 0.4rem;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .plan-page .plan-bad-day-note {
-    margin-top: 0.4rem;
-    font-size: 0.76rem;
-  }
-  .plan-page section[aria-label="Today's plan"] {
-    margin-top: 0.5rem;
-  }
-  .plan-page .section-heading {
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.4rem;
-  }
-  .plan-page .section-heading h2 {
-    font-size: 1.15rem;
-  }
-
-  /* Sequence marker integrated beside the task: small, quiet,
-     vertically aligned with the title. No desktop rail, no
-     detached number floating above the card. Order preserved. */
-  .plan-page .plan-roadmap {
-    gap: 0.55rem;
-  }
-  /* Roadmap/card composition lives in the consolidated M13 layer at the
-     end of this file (the beside-task marker and card rules formerly
-     here are superseded). */
-  /* (Meta/side/actions mobile rules consolidated in the M13 layer.) */
-
-  /* Overload notice informs without dominating the screen. */
-  .plan-page .overload-notice {
-    padding: 0.85rem 0.9rem;
-    gap: 0.6rem;
-  }
-  .plan-page .overload-notice h3 {
-    font-size: 1.05rem;
-  }
-  .plan-page .overload-notice p {
-    font-size: 0.76rem;
-  }
-  .plan-page .bad-day-strip {
-    margin-top: 0.75rem;
-    padding: 0.55rem 0.8rem;
-  }
-
-  /* Empty states follow the same compact hierarchy. */
-  .plan-page .plan-empty--split {
-    padding: 1.5rem 1rem;
-    gap: 1rem;
-  }
-  .plan-page .plan-empty__art svg {
-    max-width: 200px;
-  }
-  .plan-page .plan-empty__copy {
-    padding-top: 1rem;
-  }
-  .plan-page .plan-empty__title {
-    font-size: 1.15rem;
-  }
-  .plan-page .plan-benefits {
-    gap: 0.5rem;
-    margin: 0.9rem 0;
-  }
-  .plan-page .plan-benefit {
-    padding: 0.6rem 0.8rem;
-  }
-}
-
-/* ============================================================
-   M10 (retired card rules; shell rules kept)
-   The roadmap/card rules formerly here now live in the M13 layer
-   at the end of this file. Only the shell/scroll rules below
-   remain active here.
-   ============================================================ */
-@media (max-width: 768px) {
-  /* Roadmap/card composition consolidated in the M13 layer at the end
-     of this file (the rules formerly here are superseded). */
-  .plan-page .plan-roadmap {
-    gap: 0.5rem;
-  }
-  /* Roadmap/card composition consolidated in the M13 layer at the end
-     of this file (the rules formerly here are superseded). */
-
-  /* Shell header stays opaque above scrolling content; in-page
-     jump targets land below it instead of underneath it. */
-  .mobile-header {
-    background: var(--surface);
-  }
-  .plan-page .plan-head,
-  .plan-page section[aria-label] {
-    scroll-margin-top: 4.5rem;
-  }
-}
-
-/* (Duplicate M11 compaction layers removed; values consolidated into
-   the M13 layer at the end of this file.) */
-
-/* (M14 card layer removed; superseded by the M13 layer at the end.) */
-
-/* ============================================================
-   TASK ACTIONS AS TEXT CONTROLS (desktop + mobile; terminal position)
-   Edit / Complete / Delete read as subtle clickable task controls,
-   not CTA buttons: no borders, fills, shadows, or pill containers.
-   Hierarchy comes from typography color only — neutral Edit,
-   green Complete, restrained destructive Delete — using theme
-   tokens so both themes adapt automatically. Icons are the
-   existing 14px JSX icons. Supersedes all earlier bordered-button
-   action rules. Metadata pills are untouched. No JSX/data changes.
-   ============================================================ */
-.plan-page .task-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.375rem;
-  width: 100%;
-  margin-top: 0.5rem;
-}
-.plan-page .task-card__actions .button {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 2rem;
-  margin: 0;
-  padding: 0.3rem 0.6rem;
-  border-radius: 0.5rem;
-  box-shadow: none;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-.plan-page .task-card__action-icon {
-  display: inline-flex;
-  flex: none;
-}
-.plan-page .task-card__action-icon svg {
-  display: block;
-}
-.plan-page .task-card__actions .button--quiet {
-  color: var(--text);
-  background: transparent;
-  border: 1px solid var(--border);
-}
-.plan-page .task-card__actions .button--quiet:hover:not(:disabled) {
-  background: rgb(40 92 77 / 10%);
-  border-color: var(--primary);
-  color: var(--primary);
-  transform: translateY(-1px);
-}
-.plan-page .task-card__actions .button--complete {
-  background: rgb(143 200 168 / 10%);
-  border: 1px solid rgb(143 200 168 / 45%);
-  color: var(--success);
-}
-.plan-page .task-card__actions .button--complete:hover:not(:disabled) {
-  background: rgb(143 200 168 / 28%);
-  border-color: var(--success);
-  color: var(--success);
-  transform: translateY(-1px);
-}
-.plan-page .task-card__actions .button--danger {
-  background: rgb(229 142 130 / 8%);
-  border: 1px solid rgb(229 142 130 / 45%);
-  box-shadow: none;
-  color: var(--danger);
-}
-.plan-page .task-card__actions .button--danger:hover:not(:disabled) {
-  background: rgb(229 142 130 / 22%);
-  border-color: var(--danger);
-  color: var(--danger);
-  transform: translateY(-1px);
-}
-.plan-page .task-card__actions .button:focus-visible {
-  /* Inset indicator only: an outset `outline` renders outside the border
-     box, and several device browsers paint outlines ignoring
-     border-radius (or with their own focus-ring color), which reads as a
-     pale second boundary around the button. An inset ring cannot leak
-     outside on any engine, so exactly one boundary stays visible while
-     keyboard focus remains clearly indicated (2px inner ring + border
-     recolor, WCAG 2.4.7). */
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: inset 0 0 0 2px var(--primary);
-}
-/* Ordinary (non-visible) focus — e.g. the focus left behind by a
-   mouse click — must never paint a decorative ring. Only
-   :focus-visible (keyboard) carries an indicator. */
-.plan-page .task-card__actions .button:focus:not(:focus-visible) {
-  outline: none;
-  box-shadow: none;
-}
-.plan-page .task-card__actions .button:active:not(:disabled) {
-  transform: translateY(0);
-}
-.plan-page .task-card__actions .button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* ============================================================
-   M13 COMPACT MOBILE TASK CARD (<=768px; desktop untouched)
-   Single consolidated layer for the roadmap card on small screens.
-   It supersedes the removed M6/M8/M10/M11/M14 card rules and the
-   former terminal mobile block. Cascade notes:
-   - Every selector below beats the unscoped shared rules by
-     specificity (.plan-page + .plan-roadmap__item) and beats the
-     desktop terminal block (later in this file, equal-or-higher
-     specificity), so no desktop rule can override mobile.
-   - Colors, borders, fills, and focus/hover behavior are NOT
-     redefined here: buttons, pills-aside, state, and recovery keep
-     the desktop terminal treatment (subtle quiet/green/danger,
-     lift-on-hover, inset :focus-visible, silent mouse focus).
-   - The 44px touch target comes from the invisible ::after hit
-     area, so visible buttons stay compact.
-   ============================================================ */
-@media (max-width: 768px) {
-  /* Roadmap: no left rail; sequence number lives inside the card. */
-  .plan-page .plan-roadmap {
-    padding-left: 0;
-    gap: 0.35rem;
-  }
-  .plan-page .plan-roadmap__item {
-    display: block;
-    padding: 0;
-  }
-  .plan-page .plan-roadmap__item::before {
-    content: none;
-  }
-
-  /* Card: stacked column with tightened padding. display + direction
-     are pinned here so the desktop 2-column grid can never leak into
-     the 701–768px range. Border, radius, and surface stay desktop. */
   .plan-page .plan-roadmap__item .task-card {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    position: relative;
-    min-width: 0;
-    min-height: 0;
-    gap: 0;
-    padding: 0.45rem 0.65rem 0.4rem 1.7rem;
-    border-radius: 0.8rem;
-    box-shadow: none;
-  }
-  .plan-page .plan-roadmap__item .task-card::before {
-    content: counter(roadmap);
-    position: absolute;
-    left: 0.5rem;
-    top: 0.5rem;
-    color: var(--muted);
-    font-size: 0.72rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
-  }
-  /* Single-source vertical rhythm: sections space via margins, so the
-     column itself carries no extra gap. */
-  .plan-page .plan-roadmap__item .task-card__main {
-    gap: 0;
-    align-content: start;
-  }
-
-  /* Title leads; wraps naturally, never truncates. */
-  .plan-page .plan-roadmap__item .task-card__heading {
-    gap: 0.35rem;
-  }
-  .plan-page .plan-roadmap__item .task-card h3 {
-    font-size: 0.92rem;
-    font-weight: 700;
-    line-height: 1.25;
-  }
-  .plan-page .plan-roadmap__item .task-card__description {
-    font-size: 0.74rem;
-    line-height: 1.3;
-    margin-top: 0.05rem;
-  }
-
-  /* Schedule line owns its row, stronger than metadata. The pill
-     chrome itself stays desktop-verbatim. */
-  .plan-page .plan-roadmap__item .task-card__meta {
-    margin-top: 0.25rem;
-    gap: 0.12rem 0.03rem;
-  }
-  .plan-page .plan-roadmap__item .task-card__meta-item.task-card__slot {
-    flex-basis: 100%;
-    margin: 0 0 0.05rem;
-    padding: 0.06rem 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    font-size: 0.74rem;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-  /* Quiet metadata: pill chrome stripped to text with subtle middot
-     separators. Colors are deliberately NOT set here, so priority
-     keeps its shared light/dark distinction and the rest stays
-     muted through the remapped tokens. */
-  .plan-page .plan-roadmap__item .task-card__meta-item:not(.task-card__slot) {
-    padding: 0.06rem 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    font-size: 0.68rem;
-    font-weight: 500;
-    line-height: 1.35;
-  }
-  .plan-page .plan-roadmap__item .task-card__meta-item.priority:not(.task-card__slot) {
-    font-weight: 600;
-  }
-  .plan-page .plan-roadmap__item .task-card__meta-item:not(.task-card__slot)
-    + .task-card__meta-item:not(.task-card__slot)::before {
-    content: "·";
-    margin-right: 0.25rem;
-    color: var(--muted);
-    font-weight: 400;
-  }
-
-  /* Actions: one left-aligned wrapping row. Visible buttons stay
-     compact (36px); the invisible hit area keeps 44px targets. */
-  .plan-page .plan-roadmap__item .task-card__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 0.3rem;
-    width: 100%;
-    margin-top: 0.3rem;
-  }
-  .plan-page .plan-roadmap__item .task-card__actions .button {
-    position: relative;
-    min-height: 2rem;
-    margin: 0;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.4rem;
-    box-shadow: none;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-  .plan-page .plan-roadmap__item .task-card__actions .button::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: -6px;
-    bottom: -6px;
-  }
-  /* Delete flows inline with the same compact danger treatment.
-     grid-* declarations from removed layers are inert under flex. */
-  .plan-page .plan-roadmap__item .task-card__actions .button--danger {
-    grid-column: auto;
-    justify-self: auto;
-    width: auto;
-    min-height: 2rem;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  /* Footer: state + recovery + deadline share one compact block
-     under the existing hairline. Semantics and colors untouched. */
-  .plan-page .plan-roadmap__item .task-card__side {
-    display: block;
-    margin-top: 0.2rem;
-    padding-top: 0.2rem;
-    border-top: 1px solid var(--border);
-  }
-  .plan-page .plan-roadmap__item .task-card__deadline {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.08rem 0.35rem;
-    text-align: left;
-  }
-  .plan-page .plan-roadmap__item .task-card__deadline time {
-    display: inline;
-    white-space: nowrap;
-  }
-  .plan-page .plan-roadmap__item .task-card__reason {
-    margin-top: 0.08rem;
-    font-size: 0.68rem;
-    line-height: 1.3;
-  }
-}
-
-@media (max-width: 360px) {
-  .plan-page .plan-roadmap__item .task-card {
-    padding: 0.4rem 0.55rem 0.35rem 1.6rem;
-  }
-  .plan-page .plan-roadmap__item .task-card::before {
-    left: 0.5rem;
-  }
-  .plan-page .plan-roadmap__item .task-card__actions {
-    gap: 0.25rem;
-  }
-  .plan-page .plan-roadmap__item .task-card__actions .button,
-  .plan-page .plan-roadmap__item .task-card__actions .button--danger {
-    padding: 0.22rem 0.45rem;
-    min-height: 1.9rem;
-    font-size: 0.72rem;
+    padding: 0.75rem 0.85rem;
   }
 }

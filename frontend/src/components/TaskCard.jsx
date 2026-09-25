@@ -108,7 +108,7 @@ function TaskCard({ task, onEdit, onComplete, onDelete, showSlot = false, reason
             </span>
           )}
           <time dateTime={task.deadline}>
-            <span className="task-card__deadline-label">Deadline</span>
+            <span className="task-card__deadline-label">Deadline</span>{' '}
             {formatDeadline(task.deadline)}
           </time>
         </div>
