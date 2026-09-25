@@ -659,38 +659,69 @@
   /* Compact page rhythm: header, controls, and "Today's plan"
      arrive with schedule-like density instead of dashboard gaps. */
   .plan-page {
-    padding-bottom: 2rem;
+    padding-bottom: 1.5rem;
   }
   .plan-page .plan-head h1 {
     font-size: 1.6rem;
   }
   .plan-page .available-time-card {
-    margin-top: 0.75rem;
-    padding: 0.85rem 1rem;
+    margin-top: 0.4rem;
+    padding: 0.6rem 0.85rem;
+  }
+  .plan-page .available-time-card__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.2rem;
+  }
+  .plan-page .available-time-card__eyebrow {
+    margin: 0;
   }
   .plan-page .available-time-card__content {
-    padding-top: 0.4rem;
+    padding-top: 0;
+  }
+  .plan-page .available-time-card__duration {
+    font-size: 1.6rem;
+    line-height: 1.2;
+  }
+  .plan-page .available-time-card__caption {
+    margin-top: 0.1rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
   }
   .plan-page .available-time-card__help {
-    margin-top: 0.4rem;
+    margin-top: 0.2rem;
+    font-size: 0.68rem;
+    line-height: 1.4;
+  }
+  .plan-page .available-time-card__header .button {
+    min-height: 36px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.72rem;
   }
   .plan-page .task-list-actions {
-    margin-top: 0.75rem;
-    gap: 0.5rem;
+    margin-top: 0.5rem;
+    gap: 0.4rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
   }
   .plan-page .plan-bad-day-note {
-    margin-top: 0.5rem;
-    font-size: 0.78rem;
+    margin-top: 0.4rem;
+    font-size: 0.76rem;
   }
   .plan-page section[aria-label="Today's plan"] {
-    margin-top: 0.75rem;
+    margin-top: 0.5rem;
   }
   .plan-page .section-heading {
-    margin-bottom: 0.6rem;
-    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.4rem;
   }
   .plan-page .section-heading h2 {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
   }
 
   /* Sequence marker integrated beside the task: small, quiet,
@@ -894,7 +925,7 @@
   /* Roadmap: no left rail; sequence number lives inside the card. */
   .plan-page .plan-roadmap {
     padding-left: 0;
-    gap: 0.45rem;
+    gap: 0.35rem;
   }
   .plan-page .plan-roadmap__item {
     display: block;
@@ -915,20 +946,20 @@
     min-width: 0;
     min-height: 0;
     gap: 0;
-    padding: 0.55rem 0.7rem 0.5rem 1.9rem;
-    border-radius: 0.9rem;
+    padding: 0.45rem 0.65rem 0.4rem 1.7rem;
+    border-radius: 0.8rem;
     box-shadow: none;
   }
   .plan-page .plan-roadmap__item .task-card::before {
     content: counter(roadmap);
     position: absolute;
-    left: 0.6rem;
-    top: 0.72rem;
+    left: 0.5rem;
+    top: 0.5rem;
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    line-height: 1.3;
+    line-height: 1.2;
   }
   /* Single-source vertical rhythm: sections space via margins, so the
      column itself carries no extra gap. */
@@ -939,49 +970,50 @@
 
   /* Title leads; wraps naturally, never truncates. */
   .plan-page .plan-roadmap__item .task-card__heading {
-    gap: 0.5rem;
+    gap: 0.35rem;
   }
   .plan-page .plan-roadmap__item .task-card h3 {
-    font-size: 1rem;
+    font-size: 0.92rem;
     font-weight: 700;
-    line-height: 1.3;
+    line-height: 1.25;
   }
   .plan-page .plan-roadmap__item .task-card__description {
-    font-size: 0.78rem;
-    line-height: 1.4;
-    margin-top: 0.1rem;
+    font-size: 0.74rem;
+    line-height: 1.3;
+    margin-top: 0.05rem;
   }
 
   /* Schedule line owns its row, stronger than metadata. The pill
      chrome itself stays desktop-verbatim. */
   .plan-page .plan-roadmap__item .task-card__meta {
-    margin-top: 0.35rem;
-    gap: 0.2rem 0.1rem;
+    margin-top: 0.25rem;
+    gap: 0.12rem 0.03rem;
   }
   .plan-page .plan-roadmap__item .task-card__meta-item.task-card__slot {
     flex-basis: 100%;
-    margin: 0 0 0.1rem;
-    padding: 0.1rem 0;
+    margin: 0 0 0.05rem;
+    padding: 0.06rem 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 700;
+    line-height: 1.2;
   }
   /* Quiet metadata: pill chrome stripped to text with subtle middot
      separators. Colors are deliberately NOT set here, so priority
      keeps its shared light/dark distinction and the rest stays
      muted through the remapped tokens. */
   .plan-page .plan-roadmap__item .task-card__meta-item:not(.task-card__slot) {
-    padding: 0.1rem 0;
+    padding: 0.06rem 0;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 500;
-    line-height: 1.45;
+    line-height: 1.35;
   }
   .plan-page .plan-roadmap__item .task-card__meta-item.priority:not(.task-card__slot) {
     font-weight: 600;
@@ -989,7 +1021,7 @@
   .plan-page .plan-roadmap__item .task-card__meta-item:not(.task-card__slot)
     + .task-card__meta-item:not(.task-card__slot)::before {
     content: "·";
-    margin-right: 0.35rem;
+    margin-right: 0.25rem;
     color: var(--muted);
     font-weight: 400;
   }
@@ -1001,18 +1033,18 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
-    gap: 0.4rem;
+    gap: 0.3rem;
     width: 100%;
-    margin-top: 0.45rem;
+    margin-top: 0.3rem;
   }
   .plan-page .plan-roadmap__item .task-card__actions .button {
     position: relative;
-    min-height: 2.25rem;
+    min-height: 2rem;
     margin: 0;
-    padding: 0.35rem 0.7rem;
-    border-radius: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.4rem;
     box-shadow: none;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
   }
   .plan-page .plan-roadmap__item .task-card__actions .button::after {
@@ -1029,9 +1061,9 @@
     grid-column: auto;
     justify-self: auto;
     width: auto;
-    min-height: 2.25rem;
-    padding: 0.35rem 0.7rem;
-    font-size: 0.8rem;
+    min-height: 2rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
     font-weight: 600;
   }
 
@@ -1039,15 +1071,15 @@
      under the existing hairline. Semantics and colors untouched. */
   .plan-page .plan-roadmap__item .task-card__side {
     display: block;
-    margin-top: 0.35rem;
-    padding-top: 0.3rem;
+    margin-top: 0.2rem;
+    padding-top: 0.2rem;
     border-top: 1px solid var(--border);
   }
   .plan-page .plan-roadmap__item .task-card__deadline {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 0.15rem 0.5rem;
+    gap: 0.08rem 0.35rem;
     text-align: left;
   }
   .plan-page .plan-roadmap__item .task-card__deadline time {
@@ -1055,26 +1087,26 @@
     white-space: nowrap;
   }
   .plan-page .plan-roadmap__item .task-card__reason {
-    margin-top: 0.15rem;
+    margin-top: 0.08rem;
+    font-size: 0.68rem;
+    line-height: 1.3;
   }
 }
 
 @media (max-width: 360px) {
   .plan-page .plan-roadmap__item .task-card {
-    padding: 0.5rem 0.65rem 0.45rem 1.8rem;
+    padding: 0.4rem 0.55rem 0.35rem 1.6rem;
   }
   .plan-page .plan-roadmap__item .task-card::before {
-    left: 0.55rem;
+    left: 0.5rem;
   }
-  /* Reclaim ~13px so all three actions share one row at 320px.
-     Font size and 36px height are untouched; wrapping remains as
-     the natural fallback if content still overflows. */
   .plan-page .plan-roadmap__item .task-card__actions {
-    gap: 0.3rem;
+    gap: 0.25rem;
   }
   .plan-page .plan-roadmap__item .task-card__actions .button,
   .plan-page .plan-roadmap__item .task-card__actions .button--danger {
-    padding-left: 0.6rem;
-    padding-right: 0.6rem;
+    padding: 0.22rem 0.45rem;
+    min-height: 1.9rem;
+    font-size: 0.72rem;
   }
 }

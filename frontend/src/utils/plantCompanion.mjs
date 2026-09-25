@@ -123,23 +123,33 @@ export function recoveredToday(historyEvents, now = new Date()) {
 // speech-bubble system as every other companion message.
 export const NEW_USER_WELCOME = "Hi! Let's grow together. 🌱";
 
-// Is this a brand-new user with no meaningful task history? "No history"
-// must never be treated as a slow day, missed day, or recovery day —
-// those states require enough history to be established. Unknown history
-// (still loading) is never "new" so the intro can't flash incorrectly.
+// Is this a brand-new user who has never completed a single task? The test
+// is completion-based, not event-based: a user with tasks but zero
+// completions is still new. "No completions" must never be treated as a
+// slow day, missed day, or recovery day — those states require actual
+// completion history to be established. Unknown history (still loading)
+// is never "new" so the intro can't flash incorrectly.
+export function countCompletions(historyEvents) {
+  return (historyEvents ?? []).filter(
+    (event) => event?.event_type === "completed",
+  ).length;
+}
+
 export function isNewUser({ historyEvents, growthDays = 0, completedToday = false } = {}) {
   if (historyEvents == null) return false;
   if (completedToday) return false;
   if (Number(growthDays) > 0) return false;
-  return historyEvents.length === 0;
+  return countCompletions(historyEvents) === 0;
 }
 
-// Which backend stage should the visual render? New users see the seed
-// until the intro sprout emerges, then the tiny sprout; everyone else
-// always sees the real backend stage.
-export function resolveDisplayStage({ isNewUser, introSprouted, backendStage }) {
+// Which backend stage should the visual render? New users persistently see
+// the seed — growth must come from completion history, never from page
+// visits or the intro. The intro may transiently show the sprout while its
+// grow-in plays (introSprouting), then the visual settles back to seed.
+// Everyone else always sees the real backend stage.
+export function resolveDisplayStage({ isNewUser, introSprouting, backendStage }) {
   if (!isNewUser) return backendStage;
-  return introSprouted ? "sprout" : "seed";
+  return introSprouting ? "sprout" : "seed";
 }
 
 // A small deterministic note from the companion. Priority: returning after

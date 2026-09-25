@@ -146,6 +146,28 @@ class PlanReasonTests(unittest.TestCase):
         item = next(i for i in second if i["task_id"] == task["id"])
         self.assertEqual(item["reason"], "Kept because the deadline is today.")
 
+    def test_overdue_task_reason_not_deadline_close(self):
+        """Overdue tasks must not show 'deadline is close' as reason."""
+        # Create a task with a deadline in the past (overdue)
+        past_deadline = "2040-01-01T18:00:00"
+        task = self.create_task("Overdue task", deadline=past_deadline)
+        schedule = self.plan()["schedule"]
+        item = next(i for i in schedule if i["task_id"] == task["id"])
+        self.assertNotIn("deadline is close", item["reason"].lower())
+        self.assertTrue(
+            "overdue" in item["reason"].lower() or "carried forward" in item["reason"].lower(),
+            f"Expected overdue reason, got: {item['reason']}"
+        )
+
+    def test_bad_day_overdue_task_reason(self):
+        """Overdue task in Bad Day mode must show overdue recovery reason."""
+        past_deadline = "2040-01-01T18:00:00"
+        task = self.create_task("Overdue bad day task", deadline=past_deadline, energy="low")
+        schedule = self.plan(bad_day=True)["schedule"]
+        item = next(i for i in schedule if i["task_id"] == task["id"])
+        self.assertNotIn("deadline is close", item["reason"].lower())
+        self.assertIn("overdue task prioritized for recovery", item["reason"].lower())
+
 
 if __name__ == "__main__":
     unittest.main()

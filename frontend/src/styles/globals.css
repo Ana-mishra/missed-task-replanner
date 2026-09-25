@@ -12397,9 +12397,10 @@ body {
   opacity: 0.38;
 }
 
-.plant-journey__day--today {
-  color: var(--primary);
-}
+/* Today marks position only — never completion. There is deliberately no
+   color declaration here: an uncompleted Today resolves to --muted
+   (neutral) and a completed Today resolves to --lit (green) from real
+   completion history. The bold label below keeps Today findable. */
 
 .plant-journey__day--today.plant-journey__day--muted {
   opacity: 0.75;

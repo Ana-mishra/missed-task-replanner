@@ -56,6 +56,11 @@ class PlanningEngine:
     ) -> str:
         """Return a deterministic explanation for why this task was scheduled this way."""
         deadline = self._to_naive_local(task.deadline)
+        # Overdue tasks (deadline already passed) must not claim "deadline is close."
+        if deadline < available_start:
+            if bad_day:
+                return "Overdue task prioritized for recovery."
+            return "Overdue task carried forward."
         if bad_day:
             if task_is_protected:
                 if deadline.date() == available_start.date():

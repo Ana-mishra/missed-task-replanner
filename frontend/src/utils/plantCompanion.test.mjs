@@ -191,10 +191,36 @@ test("unknown (loading) history is never treated as new", () => {
   );
 });
 
-test("any activity keeps existing users out of the new-user state", () => {
+test("tasks but zero completions is still a new user", () => {
+  assert.equal(
+    isNewUser({
+      historyEvents: [
+        { event_type: "created", timestamp: "2026-09-20T10:00:00Z" },
+        { event_type: "scheduled", timestamp: "2026-09-20T11:00:00Z" },
+        { event_type: "missed", timestamp: "2026-09-21T10:00:00Z" },
+      ],
+      growthDays: 0,
+      completedToday: false,
+    }),
+    true,
+  );
+});
+
+test("any completion keeps existing users out of the new-user state", () => {
   const completed = [{ event_type: "completed", timestamp: "2026-09-20T10:00:00Z" }];
   assert.equal(
     isNewUser({ historyEvents: completed, growthDays: 0, completedToday: false }),
+    false,
+  );
+  assert.equal(
+    isNewUser({
+      historyEvents: [
+        { event_type: "created", timestamp: "2026-09-20T10:00:00Z" },
+        { event_type: "completed", timestamp: "2026-09-21T10:00:00Z" },
+      ],
+      growthDays: 0,
+      completedToday: false,
+    }),
     false,
   );
   assert.equal(
@@ -205,32 +231,72 @@ test("any activity keeps existing users out of the new-user state", () => {
     isNewUser({ historyEvents: [], growthDays: 0, completedToday: true }),
     false,
   );
+});
+
+test("slow-day copy is never the new-user welcome", () => {
+  // The quiet fallback belongs to established slow/recovery days only.
+  assert.ok(!/slower day/i.test(NEW_USER_WELCOME));
+  assert.ok(/grow together/i.test(NEW_USER_WELCOME));
+});
+
+test("new users persist on seed; sprout shows only mid-intro", () => {
+  assert.equal(
+    resolveDisplayStage({ isNewUser: true, introSprouting: false, backendStage: "seed" }),
+    "seed",
+  );
+  assert.equal(
+    resolveDisplayStage({ isNewUser: true, introSprouting: true, backendStage: "seed" }),
+    "sprout",
+  );
+  assert.equal(
+    resolveDisplayStage({ isNewUser: false, introSprouting: true, backendStage: "growing" }),
+    "growing",
+  );
+  assert.equal(
+    resolveDisplayStage({ isNewUser: false, introSprouting: false, backendStage: "mature" }),
+    "mature",
+  );
+});
+
+test("zero completions light no days, including Today", () => {
+  const strip = recentDaysStrip([], new Date("2026-09-25T10:00:00Z"));
+  assert.ok(strip.length > 0);
+  assert.ok(strip.every((day) => day.showedUp === false));
+  assert.equal(strip.find((day) => day.isToday).showedUp, false);
+});
+
+test("a previous-day completion does not light Today", () => {
+  const strip = recentDaysStrip(
+    [{ event_type: "completed", timestamp: "2026-09-23T10:00:00Z" }],
+    new Date("2026-09-25T10:00:00Z"),
+  );
+  const today = strip.find((day) => day.isToday);
+  const lit = strip.filter((day) => day.showedUp);
+  assert.equal(today.showedUp, false);
+  assert.equal(lit.length, 1);
   assert.equal(
     isNewUser({
-      historyEvents: [{ event_type: "created", timestamp: "2026-09-20T10:00:00Z" }],
-      growthDays: 0,
+      historyEvents: [{ event_type: "completed", timestamp: "2026-09-23T10:00:00Z" }],
+      growthDays: 1,
       completedToday: false,
     }),
     false,
   );
 });
 
-test("display stage follows the intro for new users, backend otherwise", () => {
-  assert.equal(
-    resolveDisplayStage({ isNewUser: true, introSprouted: false, backendStage: "seed" }),
-    "seed",
+test("today completed lights Today and exits the new-user state", () => {
+  const strip = recentDaysStrip(
+    [{ event_type: "completed", timestamp: "2026-09-25T08:00:00Z" }],
+    new Date("2026-09-25T10:00:00Z"),
   );
+  assert.equal(strip.find((day) => day.isToday).showedUp, true);
   assert.equal(
-    resolveDisplayStage({ isNewUser: true, introSprouted: true, backendStage: "seed" }),
-    "sprout",
-  );
-  assert.equal(
-    resolveDisplayStage({ isNewUser: false, introSprouted: true, backendStage: "growing" }),
-    "growing",
-  );
-  assert.equal(
-    resolveDisplayStage({ isNewUser: false, introSprouted: false, backendStage: "mature" }),
-    "mature",
+    isNewUser({
+      historyEvents: [{ event_type: "completed", timestamp: "2026-09-25T08:00:00Z" }],
+      growthDays: 0,
+      completedToday: false,
+    }),
+    false,
   );
 });
 

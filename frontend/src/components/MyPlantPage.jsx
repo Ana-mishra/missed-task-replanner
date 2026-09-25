@@ -13,7 +13,7 @@ import {
   recoveredToday,
   resolveDisplayStage,
 } from '../utils/plantCompanion.mjs'
-import { markPlantIntroSeen, readPlantIntroSeen } from '../utils/plantIntro.mjs'
+
 
 // Moods with open pupils that may track the cursor. NEEDS_CARE keeps
 // sleepy half-lidded eyes with no track groups by construction.
@@ -559,9 +559,9 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
   const [petted, pet] = usePetting(visualRef)
   const blinking = useBlink()
 
-  // One-time new-user introduction: seed → pop → sprout, persisted so it
-  // never replays. Hooks stay above the early returns below.
-  const [introSeen, setIntroSeen] = useState(() => readPlantIntroSeen())
+  // New-user intro phases: seed → pop → sprout → done. Replays on every
+  // mount while the user is still new (no persistence gate). Hooks stay
+  // above the early returns below.
   const [introPhase, setIntroPhase] = useState('idle') // idle|seed|pop|sprout|done
   const introTimersRef = useRef([])
   useEffect(() => () => {
@@ -639,15 +639,16 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
     return () => { cancelled = true }
   }, [])
 
-  // One-time intro choreography. Fires only once history confirms a
-  // genuinely new user; the render body below derives the phase classes
-  // and the static pre-history frame from the same inputs.
+  // Intro choreography. MyPlantPage mounts fresh on every navigation
+  // enter (App renders it conditionally), so this mount effect IS the
+  // enter trigger — no re-render replays it, and leaving/unmounting clears
+  // the timers. It fires whenever history confirms a genuinely new user
+  // (zero completions), on every visit, with no persistence gate.
   useEffect(() => {
     if (!plantData) return
     const historyLoaded = historyEvents !== null
     const confirmed =
       historyLoaded &&
-      !readPlantIntroSeen() &&
       isNewUser({
         historyEvents,
         growthDays: plantData.growth_days ?? 0,
@@ -655,22 +656,18 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
       })
     if (!confirmed) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      // No motion: settle directly on the sprout and remember it.
+      // No motion: settle directly on the sprout with the welcome message.
       setIntroPhase('sprout')
-      markPlantIntroSeen()
-      setIntroSeen(true)
       const t = window.setTimeout(() => setIntroPhase('done'), 300)
       introTimersRef.current.push(t)
       return () => window.clearTimeout(t)
     }
+    // Calm ~4.6s arc: seed wiggle → pop + sparkle → gradual sprout grow-in
+    // → settle into normal breathing with the welcome bubble visible.
     setIntroPhase('seed')
-    const t1 = window.setTimeout(() => setIntroPhase('pop'), 1100)
-    const t2 = window.setTimeout(() => setIntroPhase('sprout'), 2100)
-    const t3 = window.setTimeout(() => {
-      setIntroPhase('done')
-      markPlantIntroSeen()
-      setIntroSeen(true)
-    }, 3700)
+    const t1 = window.setTimeout(() => setIntroPhase('pop'), 1400)
+    const t2 = window.setTimeout(() => setIntroPhase('sprout'), 2600)
+    const t3 = window.setTimeout(() => setIntroPhase('done'), 4600)
     introTimersRef.current.push(t1, t2, t3)
     return () => {
       window.clearTimeout(t1)
@@ -734,26 +731,28 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
         ? { ...mood, id: 'HAPPY' }
         : mood
 
-  // New-user state: no meaningful history → seed/sprout visual, HAPPY
-  // face, welcome message. Never the slow-day copy, and never a flash of
-  // it: while history is still loading for a possibly-new account, hold
-  // the same static seed frame the intro starts from.
+  // New-user state: zero completions → seed/sprout visual, HAPPY face,
+  // welcome message, for the whole visit (no persistence gate — the intro
+  // replays on every enter while the user is still new). Never the
+  // slow-day copy, and never a flash of it: while history is still loading
+  // for a possibly-new account, hold the same static seed frame.
   const historyLoaded = historyEvents !== null
   const possiblyNew =
     !plantData.completed_today && Number(plantData.growth_days ?? 0) === 0
   const confirmedNew =
     historyLoaded &&
-    !introSeen &&
     isNewUser({
       historyEvents,
       growthDays: plantData.growth_days ?? 0,
       completedToday: plantData.completed_today,
     })
-  const newUserActive = (!historyLoaded && !introSeen && possiblyNew) || confirmedNew
-  const introSprouted = introPhase === 'sprout' || introPhase === 'done'
+  const newUserActive = (!historyLoaded && possiblyNew) || confirmedNew
+  // The sprout shows only while its intro grow-in plays; the persistent
+  // new-user visual is always the seed (growth comes from completions).
+  const introSprouting = introPhase === 'sprout'
   const displayStage = resolveDisplayStage({
     isNewUser: newUserActive,
-    introSprouted,
+    introSprouting,
     backendStage: stage,
   })
   const effectiveMood =
@@ -845,7 +844,7 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
             onClick={() => { pet(); reactToScene() }}
             aria-label="My plant companion. Press to say hello."
           >
-            <PlantSvg stage={displayStage} vitality={displayVitality} animating={animating} mood={effectiveMood.id} faceRef={faceRef} blinking={blinking} bloomStage={bloomStage} />
+            <PlantSvg stage={displayStage} vitality={displayVitality} animating={animating} mood={effectiveMood.id} faceRef={faceRef} blinking={blinking} bloomStage={newUserActive ? 0 : bloomStage} />
           </button>
 
           {/* Plant speech bubble - replaces separate "Little Moment" section */}
