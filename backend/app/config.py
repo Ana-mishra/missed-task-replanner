@@ -44,9 +44,17 @@ def _unique_origins(*groups: list[str]) -> list[str]:
 
 # Local development origins. Browsers running the Vite dev server need these
 # even when the API itself is hosted remotely (e.g. local frontend talking
-# to the Railway backend). Localhost-only entries cannot be abused by a
-# remote attacker, so they are safe defaults in every environment.
-LOCAL_DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# to the Railway backend). Both 5173 and 5174 are listed because Vite falls
+# back to 5174 when 5173 is occupied; the frontend always sends its actual
+# origin via the signed `next` parameter. Localhost-only entries cannot be
+# abused by a remote attacker, so they are safe defaults in every
+# environment.
+LOCAL_DEV_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+]
 
 # Full CORS allow-list: the production frontend plus local dev servers plus
 # any extra operator-supplied origins (CORS_EXTRA_ORIGINS, comma-separated).

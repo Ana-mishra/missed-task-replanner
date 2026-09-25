@@ -1255,8 +1255,80 @@ a:focus-visible {
   border-color: var(--dark-border);
 }
 :root[data-theme="dark"] .reflection-reminder {
-  background: var(--dark-surface-raised);
-  border-color: var(--dark-border);
+  background: var(--dark-surface-raised) !important;
+  border-color: var(--dark-border-strong) !important;
+  color: var(--dark-text-secondary) !important;
+}
+:root[data-theme="dark"] .reflection-reminder h2 {
+  color: var(--dark-text-primary) !important;
+}
+:root[data-theme="dark"] .reflection-reminder p {
+  color: var(--dark-text-secondary) !important;
+}
+:root[data-theme="dark"] .reflection-reminder strong {
+  color: var(--dark-text-primary) !important;
+  background: var(--dark-surface-soft) !important;
+}
+:root[data-theme="dark"] .reflection-reminder__icon {
+  color: var(--dark-accent);
+  background: rgb(156 203 176 / 15%);
+}
+:root[data-theme="dark"] .reflection-reminder__close {
+  color: var(--dark-text-muted);
+}
+:root[data-theme="dark"] .reflection-reminder__close:hover {
+  background: var(--dark-surface-soft);
+}
+:root[data-theme="dark"] .reflection-reminder__action.button--primary {
+  color: var(--dark-accent-text) !important;
+  background: var(--dark-accent) !important;
+  border-color: var(--dark-accent) !important;
+}
+:root[data-theme="dark"] .reflection-notes-drawer {
+  background: var(--dark-surface-raised) !important;
+  border-left-color: var(--dark-border-strong) !important;
+}
+:root[data-theme="dark"] .reflection-notes-drawer__header h2,
+:root[data-theme="dark"] .reflection-notes-drawer__empty h3 {
+  color: var(--dark-text-primary) !important;
+}
+:root[data-theme="dark"] .reflection-notes-drawer__header p,
+:root[data-theme="dark"] .reflection-notes-drawer__state,
+:root[data-theme="dark"] .reflection-notes-drawer__empty,
+:root[data-theme="dark"] .reflection-notes-drawer__group,
+:root[data-theme="dark"] .reflection-note-entry time {
+  color: var(--dark-text-secondary) !important;
+}
+:root[data-theme="dark"] .reflection-notes-drawer__close,
+:root[data-theme="dark"] .reflection-notes-drawer__back {
+  color: var(--dark-accent) !important;
+}
+:root[data-theme="dark"] .reflection-notes-drawer__filters button {
+  color: var(--dark-text-secondary) !important;
+  background: var(--dark-surface) !important;
+  border-color: var(--dark-border-strong) !important;
+}
+:root[data-theme="dark"] .reflection-notes-drawer__filters button:hover,
+:root[data-theme="dark"] .reflection-notes-drawer__filters button.reflection-notes-drawer__filter--active {
+  color: var(--dark-accent-text) !important;
+  background: var(--dark-accent) !important;
+  border-color: var(--dark-accent) !important;
+}
+:root[data-theme="dark"] .reflection-note-entry {
+  background: var(--dark-surface-soft) !important;
+  border-color: var(--dark-border-strong) !important;
+}
+:root[data-theme="dark"] .reflection-note-entry p {
+  color: var(--dark-text-primary) !important;
+}
+:root[data-theme="dark"] .reflection-notes-drawer__filters button:hover,
+:root[data-theme="dark"] .reflection-notes-drawer__filters button.reflection-notes-drawer__filter--active {
+  color: var(--dark-text-primary);
+  background: rgb(143 200 168 / 16%);
+  border-color: rgb(143 200 168 / 45%);
+}
+:root[data-theme="dark"] .reflection-notes-drawer__close:hover {
+  background: rgb(143 200 168 / 12%);
 }
 
 /* Planning controls: time/capacity cards, choices, dialogs */

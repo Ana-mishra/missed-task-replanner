@@ -26,4 +26,21 @@
 @media(max-width:680px){.plant-companion-page{padding:1rem .9rem 1.4rem}.plant-companion-page .plant-stage{height:400px}.plant-companion-page .plant-visual{width:390px;height:385px;margin-top:.4rem}.plant-companion-page .plant-visual__svg{width:390px;height:430px}.plant-companion-page .plant-speech{right:4%;top:62%;width:38%}.plant-companion-page .plant-world__silhouettes{height:165px}}
 @media(max-width:430px){.plant-companion-page .plant-stage{height:350px}.plant-companion-page .plant-visual{width:335px;height:337px}.plant-companion-page .plant-visual__svg{width:335px;height:369px}.plant-companion-page .plant-visual::after{bottom:12px;width:245px}.plant-companion-page .plant-world__leaf--3,.plant-companion-page .plant-world__mote--4,.plant-companion-page .plant-world__spark--2{display:none}.plant-companion-page .plant-speech{top:67%;right:3%;width:39%}.plant-companion-page .plant-speech__bubble{font-size:.9rem}.plant-companion-page .plant-journey__track{gap:0}.plant-companion-page .plant-journey__day{width:44px;min-height:60px}.plant-companion-page .plant-journey__day svg{width:26px;height:26px}.plant-companion-page .plant-journey__day-label{font-size:.64rem}}
 @media(max-width:360px){.plant-companion-page .plant-stage{height:322px}.plant-companion-page .plant-visual{width:300px;height:318px}.plant-companion-page .plant-visual__svg{width:300px;height:330px}.plant-companion-page .plant-speech{width:41%;top:67%}.plant-companion-page .plant-speech__bubble{font-size:.83rem}.plant-companion-page .plant-journey__day{width:42px}}
-@media(prefers-reduced-motion:reduce){.plant-companion-page .plant-stage--reacting *,.plant-companion-page .plant-organic,.plant-companion-page .plant-stem,.plant-companion-page .plant-leaf,.plant-companion-page .plant-bloom__motion{animation:none!important}}
+@media(prefers-reduced-motion:reduce){.plant-companion-page .plant-stage--reacting *,.plant-companion-page .plant-organic,.plant-companion-page .plant-stem,.plant-companion-page .plant-leaf,.plant-companion-page .plant-bloom__motion,.plant-companion-page .plant-seed,.plant-companion-page .plant-sparkle,.plant-companion-page .plant-speech__bubble{animation:none!important}}
+/* One-time new-user introduction: seed wiggle, seed pop with a restrained
+   sparkle, sprout grow-in, bubble arrival. Scoped to intro phase classes
+   so backend stages and existing users are untouched. Sparkle motion
+   reuses the shared plant-sparkle-pop keyframes. */
+.plant-companion-page .plant-visual--intro-seed .plant-seed{transform-box:fill-box;transform-origin:center bottom;animation:plant-intro-seed-wiggle 1.1s ease-in-out}
+.plant-companion-page .plant-visual--intro-pop .plant-seed{transform-box:fill-box;transform-origin:center bottom;animation:plant-intro-seed-pop 1s ease-in forwards}
+.plant-companion-page .plant-visual--intro-pop .plant-sparkles{opacity:1}
+.plant-companion-page .plant-visual--intro-pop .plant-sparkle--1{animation:plant-sparkle-pop 1s .1s ease-out forwards}
+.plant-companion-page .plant-visual--intro-pop .plant-sparkle--2{animation:plant-sparkle-pop 1s .2s ease-out forwards}
+.plant-companion-page .plant-visual--intro-pop .plant-sparkle--3{animation:plant-sparkle-pop 1s .3s ease-out forwards}
+.plant-companion-page .plant-visual--intro-pop .plant-sparkle--4{animation:plant-sparkle-pop 1s .15s ease-out forwards}
+.plant-companion-page .plant-visual--intro-sprout .plant-stem,.plant-companion-page .plant-visual--intro-sprout .plant-leaves{animation:plant-intro-sprout-in .9s ease-out}
+.plant-companion-page .plant-stage--intro-sprout .plant-speech__bubble{animation:plant-intro-bubble-in .8s ease-out}
+@keyframes plant-intro-seed-wiggle{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-7deg)}55%{transform:rotate(6deg)}80%{transform:rotate(-3deg)}}
+@keyframes plant-intro-seed-pop{0%{opacity:1;transform:translateY(0) scale(1)}35%{opacity:1;transform:translateY(-12px) scale(1.06)}100%{opacity:0;transform:translateY(-16px) scale(1.02)}}
+@keyframes plant-intro-sprout-in{0%{opacity:0;transform:scaleY(0)}60%{opacity:1;transform:scaleY(1.06)}100%{opacity:1;transform:scaleY(1)}}
+@keyframes plant-intro-bubble-in{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}

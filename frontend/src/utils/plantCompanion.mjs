@@ -119,6 +119,29 @@ export function recoveredToday(historyEvents, now = new Date()) {
   );
 }
 
+// First-time greeting for genuinely new users. Shown through the same
+// speech-bubble system as every other companion message.
+export const NEW_USER_WELCOME = "Hi! Let's grow together. 🌱";
+
+// Is this a brand-new user with no meaningful task history? "No history"
+// must never be treated as a slow day, missed day, or recovery day —
+// those states require enough history to be established. Unknown history
+// (still loading) is never "new" so the intro can't flash incorrectly.
+export function isNewUser({ historyEvents, growthDays = 0, completedToday = false } = {}) {
+  if (historyEvents == null) return false;
+  if (completedToday) return false;
+  if (Number(growthDays) > 0) return false;
+  return historyEvents.length === 0;
+}
+
+// Which backend stage should the visual render? New users see the seed
+// until the intro sprout emerges, then the tiny sprout; everyone else
+// always sees the real backend stage.
+export function resolveDisplayStage({ isNewUser, introSprouted, backendStage }) {
+  if (!isNewUser) return backendStage;
+  return introSprouted ? "sprout" : "seed";
+}
+
 // A small deterministic note from the companion. Priority: returning after
 // a missed day, then today's care, then recovery progress, then quiet.
 export function littleMoment({

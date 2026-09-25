@@ -6,10 +6,14 @@ import '../styles/my-plant.css'
 import {
   companionMood,
   eyeTrackingOffset,
+  isNewUser,
   littleMoment,
+  NEW_USER_WELCOME,
   recentDaysStrip,
   recoveredToday,
+  resolveDisplayStage,
 } from '../utils/plantCompanion.mjs'
+import { markPlantIntroSeen, readPlantIntroSeen } from '../utils/plantIntro.mjs'
 
 // Moods with open pupils that may track the cursor. NEEDS_CARE keeps
 // sleepy half-lidded eyes with no track groups by construction.
@@ -555,6 +559,15 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
   const [petted, pet] = usePetting(visualRef)
   const blinking = useBlink()
 
+  // One-time new-user introduction: seed → pop → sprout, persisted so it
+  // never replays. Hooks stay above the early returns below.
+  const [introSeen, setIntroSeen] = useState(() => readPlantIntroSeen())
+  const [introPhase, setIntroPhase] = useState('idle') // idle|seed|pop|sprout|done
+  const introTimersRef = useRef([])
+  useEffect(() => () => {
+    introTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+  }, [])
+
   // Selected day in journey strip for interaction
   const [selectedDay, setSelectedDay] = useState(null)
   const [sceneReacting, setSceneReacting] = useState(false)
@@ -626,6 +639,46 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
     return () => { cancelled = true }
   }, [])
 
+  // One-time intro choreography. Fires only once history confirms a
+  // genuinely new user; the render body below derives the phase classes
+  // and the static pre-history frame from the same inputs.
+  useEffect(() => {
+    if (!plantData) return
+    const historyLoaded = historyEvents !== null
+    const confirmed =
+      historyLoaded &&
+      !readPlantIntroSeen() &&
+      isNewUser({
+        historyEvents,
+        growthDays: plantData.growth_days ?? 0,
+        completedToday: plantData.completed_today,
+      })
+    if (!confirmed) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // No motion: settle directly on the sprout and remember it.
+      setIntroPhase('sprout')
+      markPlantIntroSeen()
+      setIntroSeen(true)
+      const t = window.setTimeout(() => setIntroPhase('done'), 300)
+      introTimersRef.current.push(t)
+      return () => window.clearTimeout(t)
+    }
+    setIntroPhase('seed')
+    const t1 = window.setTimeout(() => setIntroPhase('pop'), 1100)
+    const t2 = window.setTimeout(() => setIntroPhase('sprout'), 2100)
+    const t3 = window.setTimeout(() => {
+      setIntroPhase('done')
+      markPlantIntroSeen()
+      setIntroSeen(true)
+    }, 3700)
+    introTimersRef.current.push(t1, t2, t3)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.clearTimeout(t3)
+    }
+  }, [plantData, historyEvents])
+
   if (plantLoading) {
     return (
       <div className="plant-page">
@@ -680,7 +733,35 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
       : selectedState === 'completed' || selectedState === 'today'
         ? { ...mood, id: 'HAPPY' }
         : mood
-  moodIdRef.current = displayMood.id
+
+  // New-user state: no meaningful history → seed/sprout visual, HAPPY
+  // face, welcome message. Never the slow-day copy, and never a flash of
+  // it: while history is still loading for a possibly-new account, hold
+  // the same static seed frame the intro starts from.
+  const historyLoaded = historyEvents !== null
+  const possiblyNew =
+    !plantData.completed_today && Number(plantData.growth_days ?? 0) === 0
+  const confirmedNew =
+    historyLoaded &&
+    !introSeen &&
+    isNewUser({
+      historyEvents,
+      growthDays: plantData.growth_days ?? 0,
+      completedToday: plantData.completed_today,
+    })
+  const newUserActive = (!historyLoaded && !introSeen && possiblyNew) || confirmedNew
+  const introSprouted = introPhase === 'sprout' || introPhase === 'done'
+  const displayStage = resolveDisplayStage({
+    isNewUser: newUserActive,
+    introSprouted,
+    backendStage: stage,
+  })
+  const effectiveMood =
+    newUserActive && !selectedDay ? { ...displayMood, id: 'HAPPY' } : displayMood
+  moodIdRef.current = effectiveMood.id
+  // A new user's plant is always fresh and healthy on screen: no droop,
+  // no wilt, no desaturation, regardless of the backend vitality value.
+  const displayVitality = newUserActive ? 'healthy' : vitality
 
   // Add recovered flag to strip days for interaction messages
   const enrichedStrip = strip.map(day => ({
@@ -713,7 +794,13 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
            the journey, moment, and growth notes support it. ---- */}
       <div className="plant-companion-flow">
         {/* ---- Central hero: plant + speech ---- */}
-        <section className={`plant-stage${sceneReacting || petted ? ' plant-stage--reacting' : ''}`} aria-label="Plant visual">
+        <section className={[
+          'plant-stage',
+          sceneReacting || petted ? 'plant-stage--reacting' : '',
+          newUserActive && introPhase !== 'idle' && introPhase !== 'done'
+            ? `plant-stage--intro-${introPhase}`
+            : '',
+        ].filter(Boolean).join(' ')} aria-label="Plant visual">
           <div className="plant-world" aria-hidden="true">
             <svg className="plant-world__silhouettes" viewBox="0 0 640 200" focusable="false">
               <g className="plant-world__frond plant-world__frond--left">
@@ -745,26 +832,29 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
             type="button"
             className={[
               'plant-visual',
-              `plant-visual--${stage}`,
-              `plant-visual--vitality-${vitality}`,
-              `plant-visual--mood-${displayMood.id.toLowerCase()}`,
+              `plant-visual--${displayStage}`,
+              `plant-visual--vitality-${displayVitality}`,
+              `plant-visual--mood-${effectiveMood.id.toLowerCase()}`,
               petted ? 'plant-visual--petted' : '',
-              displayMood.id === 'RETURNING' ? 'plant-visual--perked' : '',
+              effectiveMood.id === 'RETURNING' ? 'plant-visual--perked' : '',
               selectedState ? `plant-visual--day-${selectedState}` : '',
+              newUserActive && introPhase !== 'idle' && introPhase !== 'done'
+                ? `plant-visual--intro-${introPhase}`
+                : '',
             ].filter(Boolean).join(' ')}
             onClick={() => { pet(); reactToScene() }}
             aria-label="My plant companion. Press to say hello."
           >
-            <PlantSvg stage={stage} vitality={vitality} animating={animating} mood={displayMood.id} faceRef={faceRef} blinking={blinking} bloomStage={bloomStage} />
+            <PlantSvg stage={displayStage} vitality={displayVitality} animating={animating} mood={effectiveMood.id} faceRef={faceRef} blinking={blinking} bloomStage={bloomStage} />
           </button>
 
           {/* Plant speech bubble - replaces separate "Little Moment" section */}
           <PlantSpeech
-            mood={displayMood}
+            mood={effectiveMood}
             selectedDay={selectedDay}
             completedToday={completed_today}
             recoveredToday={didRecoverToday}
-            defaultMessage={moment}
+            defaultMessage={newUserActive && !selectedDay ? NEW_USER_WELCOME : moment}
           />
 
         </section>

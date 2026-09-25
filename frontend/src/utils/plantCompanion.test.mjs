@@ -7,10 +7,13 @@ import {
   EYE_TRACK_BOUNDS,
   eyeTrackingOffset,
   growthTimeline,
+  isNewUser,
   journeyLine,
   littleMoment,
+  NEW_USER_WELCOME,
   recentDaysStrip,
   recoveredToday,
+  resolveDisplayStage,
 } from "./plantCompanion.mjs";
 
 test("completed today after an absence is RETURNING", () => {
@@ -166,6 +169,69 @@ test("eye tracking follows the cursor direction within bounds", () => {
   assert.equal(right.dy, 0);
   const upLeft = eyeTrackingOffset(40, 40, 100, 100);
   assert.ok(upLeft.dx < 0 && upLeft.dy < 0);
+});
+
+test("brand-new user with no history is new, never slow-day", () => {
+  assert.equal(
+    isNewUser({ historyEvents: [], growthDays: 0, completedToday: false }),
+    true,
+  );
+  assert.ok(NEW_USER_WELCOME.length > 0);
+  assert.ok(!/slower day/i.test(NEW_USER_WELCOME));
+});
+
+test("unknown (loading) history is never treated as new", () => {
+  assert.equal(
+    isNewUser({ historyEvents: null, growthDays: 0, completedToday: false }),
+    false,
+  );
+  assert.equal(
+    isNewUser({ historyEvents: undefined, growthDays: 0, completedToday: false }),
+    false,
+  );
+});
+
+test("any activity keeps existing users out of the new-user state", () => {
+  const completed = [{ event_type: "completed", timestamp: "2026-09-20T10:00:00Z" }];
+  assert.equal(
+    isNewUser({ historyEvents: completed, growthDays: 0, completedToday: false }),
+    false,
+  );
+  assert.equal(
+    isNewUser({ historyEvents: [], growthDays: 3, completedToday: false }),
+    false,
+  );
+  assert.equal(
+    isNewUser({ historyEvents: [], growthDays: 0, completedToday: true }),
+    false,
+  );
+  assert.equal(
+    isNewUser({
+      historyEvents: [{ event_type: "created", timestamp: "2026-09-20T10:00:00Z" }],
+      growthDays: 0,
+      completedToday: false,
+    }),
+    false,
+  );
+});
+
+test("display stage follows the intro for new users, backend otherwise", () => {
+  assert.equal(
+    resolveDisplayStage({ isNewUser: true, introSprouted: false, backendStage: "seed" }),
+    "seed",
+  );
+  assert.equal(
+    resolveDisplayStage({ isNewUser: true, introSprouted: true, backendStage: "seed" }),
+    "sprout",
+  );
+  assert.equal(
+    resolveDisplayStage({ isNewUser: false, introSprouted: true, backendStage: "growing" }),
+    "growing",
+  );
+  assert.equal(
+    resolveDisplayStage({ isNewUser: false, introSprouted: false, backendStage: "mature" }),
+    "mature",
+  );
 });
 
 test("eye tracking clamps far cursors to the bounds", () => {
