@@ -93,3 +93,19 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 # JWT secret so existing single-secret deployments work without change, but
 # a dedicated value is strongly recommended in production.
 OAUTH_STATE_SECRET = os.getenv("OAUTH_STATE_SECRET", JWT_SECRET_KEY)
+
+# Password reset: single-use emailed tokens. Expiry and the resend cooldown
+# (which doubles as abuse protection alongside the neutral responses) are
+# operator-tunable; the tests override the cooldown constant directly.
+PASSWORD_RESET_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_EXPIRE_MINUTES", "60"))
+PASSWORD_RESET_COOLDOWN_SECONDS = int(os.getenv("PASSWORD_RESET_COOLDOWN_SECONDS", "60"))
+
+# Outbound email for password-reset links, via any SMTP relay. Unset
+# SMTP_HOST disables delivery (local development / tests): reset tokens are
+# still issued and validated, but no email leaves the server.
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() not in ("0", "false", "no")
+SMTP_FROM = os.getenv("SMTP_FROM", "Planora <no-reply@planora.local>")

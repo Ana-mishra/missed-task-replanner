@@ -150,6 +150,28 @@ export async function login(credentials) {
   return data
 }
 
+export async function requestPasswordReset(email) {
+  const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+
+  if (!response.ok) throw new Error(await readError(response, 'Could not request a password reset.'))
+  return response.json()
+}
+
+export async function resetPassword({ token, password, passwordConfirm }) {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password, password_confirm: passwordConfirm }),
+  })
+
+  if (!response.ok) throw new Error(await readError(response, 'Could not reset the password.'))
+  return response.json()
+}
+
 export async function register(credentials) {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: 'POST',

@@ -6276,6 +6276,41 @@ body {
   line-height: 1.4;
 }
 
+.auth-forgot-row {
+  margin-top: 0.6rem;
+  text-align: right;
+}
+
+.auth-forgot-link {
+  padding: 0.2rem 0;
+  border: 0;
+  color: var(--primary);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-forgot-link:hover {
+  text-decoration: underline;
+}
+
+.auth-back-login {
+  display: block;
+  margin: 1.1rem auto 0;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-back-login:hover {
+  color: var(--primary);
+}
+
 .auth-submit {
   width: 100%;
   min-height: 3.15rem;
@@ -11929,15 +11964,6 @@ body {
   width: 100%;
 }
 
-.plant-page__eyebrow {
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--secondary);
-  margin: 0 0 0.4rem;
-}
-
 .plant-page__title {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4vw, 2.5rem);
@@ -11957,75 +11983,36 @@ body {
   margin-inline: auto;
 }
 
-/* ---- Living companion composition: environment + journal ---- */
-.plant-companion-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr);
-  gap: clamp(2rem, 4vw, 3.5rem);
-  align-items: start;
-  width: 100%;
-  margin-top: 1rem;
-}
-
-/* ---- Journal: quiet side panel, soft wash, hairline separators ---- */
-.plant-journal {
+/* ---- Living companion composition: one centered column. The plant
+   leads; journey, moment, and growth notes support it with airy
+   spacing instead of panel chrome. ---- */
+.plant-companion-flow {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  min-width: 0;
-  padding: 1.25rem 1.25rem;
-  border-radius: var(--radius-lg);
-  background: rgb(143 200 168 / 6%);
+  align-items: center;
+  width: 100%;
+  max-width: 40rem;
+  margin: 1rem auto 0;
 }
 
-.plant-journal > section + section {
-  border-top: 1px solid var(--border);
-  padding-top: 1.25rem;
+.plant-companion-flow > section + section {
+  margin-top: 2.25rem;
+  width: 100%;
 }
 
-.plant-journal .plant-journey {
-  align-items: stretch;
-  text-align: left;
+.plant-companion-flow .plant-moment,
+.plant-companion-flow .plant-growth {
+  align-items: center;
+  text-align: center;
 }
 
-.plant-journal .plant-journey__track {
-  justify-content: space-between;
-  gap: 0.4rem;
+.plant-companion-flow .plant-journey__track {
+  justify-content: center;
 }
 
-.plant-journal .plant-journey__line {
-  text-align: left;
-}
-
-.plant-journal .plant-moment,
-.plant-journal .plant-growth {
-  align-items: flex-start;
-  text-align: left;
-}
-
-.plant-journal .plant-moment__note {
-  font-style: italic;
-}
-
-@media (max-width: 1100px) {
-  .plant-companion-layout {
-    gap: 1.5rem;
-  }
-}
-
-@media (max-width: 900px) {
-  .plant-page .plant-companion-layout {
-    grid-template-columns: 1fr;
-  }
-  .plant-page .plant-journal {
-    width: 100%;
-    max-width: 38rem;
-    margin-inline: auto;
-  }
-  .plant-page .plant-visual {
-    width: 340px;
-    height: 374px;
-  }
+.plant-companion-flow .plant-growth__track {
+  max-width: 26rem;
+  margin-inline: auto;
 }
 
 /* ============================================================
@@ -12044,18 +12031,17 @@ body {
     padding-right: 1rem;
     padding-bottom: 2rem;
   }
-  .plant-page .plant-page__eyebrow {
-    margin-bottom: 0.3rem;
-  }
   .plant-page .plant-page__title {
     font-size: 1.6rem;
   }
   .plant-page .plant-page__standfirst {
     font-size: 0.88rem;
   }
-  .plant-page .plant-companion-layout {
+  .plant-page .plant-companion-flow {
     margin-top: 0.5rem;
-    gap: 1rem;
+  }
+  .plant-page .plant-companion-flow > section + section {
+    margin-top: 1.75rem;
   }
   /* Contained scene: dead viewBox air is cropped by anchoring the full-size
      SVG to the bottom of a shorter stage box. The character keeps its exact
@@ -12087,19 +12073,11 @@ body {
     font-size: 1.05rem;
     margin-top: 0;
   }
-  /* Journal breathes edge to edge; sections stay compact. */
-  .plant-page .plant-journal {
-    padding: 1rem;
-    gap: 1rem;
-  }
-  .plant-page .plant-journal > section + section {
-    padding-top: 1rem;
-  }
   /* 7-day track fits 320px viewports without clipping. */
-  .plant-page .plant-journal .plant-journey__track {
+  .plant-page .plant-companion-flow .plant-journey__track {
     gap: 0.15rem;
   }
-  .plant-page .plant-journal .plant-journey__track::before {
+  .plant-page .plant-companion-flow .plant-journey__track::before {
     top: 0.88rem;
     right: 0.9rem;
     left: 0.9rem;
@@ -12117,7 +12095,7 @@ body {
 }
 
 @media (max-width: 360px) {
-  .plant-page .plant-journal .plant-journey__track {
+  .plant-page .plant-companion-flow .plant-journey__track {
     gap: 0.1rem;
   }
   .plant-page .plant-journey__day-label {
@@ -12453,9 +12431,7 @@ body {
   );
 }
 
-:root[data-theme="dark"] .plant-journal {
-  background: rgb(143 200 168 / 7%);
-}
+/* (Removed .plant-journal wash: the journal panel no longer exists.) */
 
 /* ---- Light-theme botanical treatment (dark stays exactly as-is) ----
    Everything below is scoped to :not(dark): warm cream/sage surfaces,
@@ -12495,14 +12471,7 @@ body {
   );
 }
 
-:root:not([data-theme="dark"]) .plant-journal {
-  background: #fbf9f1;
-  border: 1px solid #e6e0cf;
-}
-
-:root:not([data-theme="dark"]) .plant-journal > section + section {
-  border-top-color: #ddd6c2;
-}
+/* (Removed .plant-journal wash: the journal panel no longer exists.) */
 
 :root:not([data-theme="dark"]) .plant-journey__track::before,
 :root:not([data-theme="dark"]) .plant-growth__track::before {
@@ -12789,6 +12758,36 @@ body {
   animation: plant-sparkle-pop 1s 0.15s ease-out forwards;
 }
 
+/* ---- Pet reaction — click/tap the plant: one brief friendly bounce.
+   No sparkles here by design (those belong to genuine care moments).
+   Cooldown-limited in JS; reduced-motion kills it with everything else. */
+.plant-visual {
+  cursor: pointer;
+}
+
+@keyframes plant-pet-bounce {
+  0%   { transform: translateY(0); }
+  30%  { transform: translateY(-4px); }
+  60%  { transform: translateY(0); }
+  100% { transform: translateY(0); }
+}
+
+.plant-visual--petted .plant-visual__svg {
+  animation: plant-pet-bounce 0.9s ease-in-out;
+}
+
+/* ---- Return perk-up — RETURNING mood plays one gentle lift on entry,
+   welcoming the user back without touching any mood semantics. */
+@keyframes plant-perk-up {
+  0%   { transform: translateY(2px); }
+  45%  { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+
+.plant-visual--perked .plant-visual__svg {
+  animation: plant-perk-up 1.8s ease-out 1;
+}
+
 /* ---- Metrics ---- */
 .plant-metrics {
   display: flex;
@@ -12959,6 +12958,8 @@ body {
   .plant-visual--caring .plant-visual__svg,
   .plant-visual--caring .plant-leaf,
   .plant-visual--caring .plant-sparkle,
+  .plant-visual--petted .plant-visual__svg,
+  .plant-visual--perked .plant-visual__svg,
   .plant-progress__bar-fill {
     animation: none !important;
     transition: none !important;

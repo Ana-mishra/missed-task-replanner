@@ -591,7 +591,9 @@ section[aria-label="Completed"] > .sheet-eyebrow {
   color: var(--sheet-ink);
 }
 
-.sheet-empty__body {
+.sheet-empty .sheet-empty__body {
+  /* Doubled selector wins over `.sheet-empty p` so the auto side
+     margins survive and the line centers with the title + button. */
   margin: 0.6rem auto 0;
   max-width: 30rem;
   font-size: 1rem;
@@ -1309,3 +1311,8 @@ section[aria-label="Completed"] > .sheet-eyebrow {
     }
   }
 }
+
+/* Quiet-day section (nothing scheduled, completed work shown above).
+   Compact content-height card reusing sheet tokens — calm, not the
+   giant onboarding treatment. Wraps naturally down to 320px. */
+

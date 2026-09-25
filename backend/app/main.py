@@ -18,6 +18,7 @@ from app.config import CORS_ALLOWED_ORIGINS
 from app.database import (
     Base,
     add_oauth_accounts_table,
+    add_password_reset_tokens_table,
     add_task_ownership_column,
     add_task_planning_columns,
     add_user_name_confirmation_column,
@@ -34,6 +35,7 @@ from app.models.daily_reflection import DailyReflection
 from app.models.push_subscription import PushSubscription
 from app.models.reminder_delivery import ReminderDelivery
 from app.models.oauth_account import OAuthAccount
+from app.models.password_reset_token import PasswordResetToken  # noqa: F401  (registers table with Base.metadata)
 
 app = FastAPI(title="Missed Task Replanner API")
 
@@ -53,6 +55,7 @@ upgrade_task_history_table()
 upgrade_task_history_task_fk()
 make_users_password_hash_nullable()
 add_oauth_accounts_table()
+add_password_reset_tokens_table()
 app.include_router(tasks_router)
 app.include_router(auth_router)
 app.include_router(oauth_router)

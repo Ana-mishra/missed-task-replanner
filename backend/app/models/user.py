@@ -25,3 +25,6 @@ class User(Base):
     oauth_accounts: Mapped[list["OAuthAccount"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    password_reset_tokens: Mapped[list["PasswordResetToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )

@@ -566,6 +566,21 @@ setHasPlanned(true);
     );
   }
 
+  if (window.location.pathname === "/reset-password") {
+    const resetToken = new URLSearchParams(window.location.search).get("token");
+    return (
+      <AuthPage
+        key="reset"
+        initialMode="reset"
+        resetToken={resetToken}
+        onBackToLogin={() => {
+          window.history.replaceState({}, document.title, "/");
+          navigatePublicView("login");
+        }}
+      />
+    );
+  }
+
   if (!authenticated) {
     if (publicView === "landing") {
       return (
@@ -593,6 +608,8 @@ setHasPlanned(true);
         initialMode={publicView}
         onAuthenticated={handleAuthenticated}
         onBack={() => navigatePublicView("landing")}
+        onForgotPassword={() => navigatePublicView("forgot")}
+        onBackToLogin={() => navigatePublicView("login")}
       />
     );
 }
@@ -705,6 +722,7 @@ return (
         onDelete={(task) => setTaskToDelete(task)}
         onRecover={handleRecover}
         recoveringId={recoveringId}
+        onPlanDay={() => navigateToPage("plan")}
       />
       </>}
       {mode && (

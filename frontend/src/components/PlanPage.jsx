@@ -2,6 +2,45 @@ import AvailableTimeCard from "./AvailableTimeCard.jsx";
 import TaskCard from "./TaskCard.jsx";
 import { IconClock, IconMoon, IconShield } from "./icons.jsx";
 import { formatDuration } from "../utils/duration.mjs";
+import {
+  getCapacityUnscheduledTasks,
+  getOverloadExplanation,
+  isZeroScheduledOverload,
+} from "../utils/overloadExplanation.mjs";
+
+// Existing Planora empty-state artwork, shared by the plan-empty variants so
+// the illustration is never duplicated or replaced by a new asset.
+function PlanEmptyArt() {
+  return (
+    <svg width="260" height="168" viewBox="0 0 260 168" aria-hidden="true">
+      <path
+        d="M130 12c26-10 62-4 78 14s30 8 34 30-8 44-30 52-30 30-62 26-44 20-70 10-52 2-58-22-22-26-14-48 4-34 14-44 22-12 44-18z"
+        fill="#eaf2e7"
+      />
+      <ellipse cx="130" cy="152" rx="72" ry="9" fill="#e3ecdf" />
+      <g transform="rotate(-7 108 88)">
+        <rect x="66" y="38" width="84" height="100" rx="7" fill="#fffefb" stroke="#4f7d63" strokeWidth="2.5" />
+        <circle cx="84" cy="64" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
+        <line x1="98" y1="64" x2="130" y2="64" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="84" cy="90" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
+        <line x1="98" y1="90" x2="134" y2="90" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="84" cy="116" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
+        <line x1="98" y1="116" x2="126" y2="116" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
+      </g>
+      <g stroke="#285c4d" strokeWidth="2.5" strokeLinecap="round">
+        <line x1="128" y1="10" x2="128" y2="24" />
+        <line x1="110" y1="16" x2="115" y2="28" />
+        <line x1="146" y1="16" x2="141" y2="28" />
+      </g>
+      <g>
+        <path d="M172 148C172 118 178 96 196 78c4 22-2 48-20 66" fill="#9dbd76" />
+        <path d="M172 148c-2-24 2-44 14-58 6 20 0 42-10 56" fill="#6ca578" />
+        <path d="M172 148c8-18 22-32 40-36 0 18-14 32-36 38" fill="#8fb584" />
+        <path d="M172 148l-1-40" stroke="#3f6b52" strokeWidth="2" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}
 
 // Plan My Day: "How do I want today's work to be scheduled?"
 // Rendering only — all planning state and handlers live in App.jsx (single
@@ -42,6 +81,24 @@ export default function PlanPage({
     0,
   );
   const hasNothingToPlan = incomplete.length === 0;
+  // Capacity explanation derived from the backend planner result
+  // (is_overloaded / unscheduled_minutes from POST /plan). No scheduling
+  // logic is duplicated here: demand and shortfall are arithmetic on the
+  // planner's own outputs. Bad Day Mode keeps its existing strip below.
+  const overload = getOverloadExplanation({
+    availableMinutes,
+    plannedMinutes,
+    unscheduledMinutes,
+    isOverloaded: planIsOverloaded,
+  });
+  const capacityUnscheduledTasks = getCapacityUnscheduledTasks(incomplete);
+  // Zero-scheduled overload: the orange capacity notice below is the sole
+  // explanation, so the standalone reshaped note is suppressed here only.
+  const zeroScheduledOverload = isZeroScheduledOverload({
+    hasPlanned,
+    planIsOverloaded,
+    scheduledCount: scheduled.length,
+  });
 
   return (
     <div className="plan-page">
@@ -87,7 +144,7 @@ export default function PlanPage({
         </p>
       )}
 
-      {!badDayMode && !hasNothingToPlan && scheduleRefreshReason && (
+      {!badDayMode && !hasNothingToPlan && scheduleRefreshReason && !zeroScheduledOverload && (
         <p className="plan-bad-day-note">
           {scheduleRefreshReason === "Schedule changed after adding a task"
             ? "Plan updated after adding a new task."
@@ -140,17 +197,26 @@ export default function PlanPage({
         </section>
       )}
 
-      {hasPlanned && planIsOverloaded && !badDayMode && (
+      {hasPlanned && planIsOverloaded && !badDayMode && overload.showOverload && (
         <section className="overload-notice" aria-labelledby="overload-heading">
           <div className="overload-notice__copy">
-            <p className="overload-notice__eyebrow">Your day looks full</p>
+            <p className="overload-notice__eyebrow">Your day is over capacity</p>
             <h3 id="overload-heading">
               More needs attention than fits today.
             </h3>
-            <p className="overload-notice__support">
-              Plan My Day will prioritize what matters most and leave the rest
-              for later.
-            </p>
+            {capacityUnscheduledTasks.length > 0 && (
+              <div className="overload-notice__unfit">
+                <p className="overload-notice__unfit-title">Couldn&apos;t fit today</p>
+                <ul>
+                  {capacityUnscheduledTasks.map((task) => (
+                    <li key={task.id}>
+                      <span>{task.title}</span>
+                      <span>{formatDuration(task.duration_minutes)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <div
             className="overload-notice__limits"
@@ -160,10 +226,10 @@ export default function PlanPage({
               {formatDuration(availableMinutes)} available
             </span>
             <span className="overload-limit">
-              {formatDuration(plannedMinutes)} of tasks
+              {formatDuration(overload.totalDemandMinutes)} of tasks
             </span>
             <span className="overload-limit overload-limit--exceeded">
-              {formatDuration(unscheduledMinutes)} over capacity
+              {formatDuration(overload.shortfallMinutes)} over capacity
             </span>
           </div>
         </section>
@@ -177,33 +243,7 @@ export default function PlanPage({
           incomplete.length === 0 ? (
             <div className="plan-empty plan-empty--split">
               <div className="plan-empty__art">
-                <svg width="260" height="168" viewBox="0 0 260 168" aria-hidden="true">
-                  <path
-                    d="M130 12c26-10 62-4 78 14s30 8 34 30-8 44-30 52-30 30-62 26-44 20-70 10-52 2-58-22-22-26-14-48 4-34 14-44 22-12 44-18z"
-                    fill="#eaf2e7"
-                  />
-                  <ellipse cx="130" cy="152" rx="72" ry="9" fill="#e3ecdf" />
-                  <g transform="rotate(-7 108 88)">
-                    <rect x="66" y="38" width="84" height="100" rx="7" fill="#fffefb" stroke="#4f7d63" strokeWidth="2.5" />
-                    <circle cx="84" cy="64" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
-                    <line x1="98" y1="64" x2="130" y2="64" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
-                    <circle cx="84" cy="90" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
-                    <line x1="98" y1="90" x2="134" y2="90" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
-                    <circle cx="84" cy="116" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
-                    <line x1="98" y1="116" x2="126" y2="116" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
-                  </g>
-                  <g stroke="#285c4d" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="128" y1="10" x2="128" y2="24" />
-                    <line x1="110" y1="16" x2="115" y2="28" />
-                    <line x1="146" y1="16" x2="141" y2="28" />
-                  </g>
-                  <g>
-                    <path d="M172 148C172 118 178 96 196 78c4 22-2 48-20 66" fill="#9dbd76" />
-                    <path d="M172 148c-2-24 2-44 14-58 6 20 0 42-10 56" fill="#6ca578" />
-                    <path d="M172 148c8-18 22-32 40-36 0 18-14 32-36 38" fill="#8fb584" />
-                    <path d="M172 148l-1-40" stroke="#3f6b52" strokeWidth="2" strokeLinecap="round" />
-                  </g>
-                </svg>
+                <PlanEmptyArt />
                 <p className="plan-empty__caption">A more intentional day<br />starts with your tasks.</p>
               </div>
               <div className="plan-empty__copy">
@@ -222,65 +262,69 @@ export default function PlanPage({
                 </button>
               </div>
             </div>
+          ) : zeroScheduledOverload ? (
+            // Calm centered card: the orange notice above already explains the
+            // capacity numbers, so this card repeats none of them.
+            <div className="plan-empty plan-empty--calm">
+              <div className="plan-empty__art">
+                <PlanEmptyArt />
+              </div>
+              <p className="plan-empty__title">No tasks scheduled today.</p>
+              <p className="plan-empty__body">
+                You can adjust your time, reduce some tasks, or re-plan.
+              </p>
+            </div>
           ) : (
             <div className="plan-empty plan-empty--split">
               <div className="plan-empty__art">
-                <svg width="260" height="168" viewBox="0 0 260 168" aria-hidden="true">
-                  <path
-                    d="M130 12c26-10 62-4 78 14s30 8 34 30-8 44-30 52-30 30-62 26-44 20-70 10-52 2-58-22-22-26-14-48 4-34 14-44 22-12 44-18z"
-                    fill="#eaf2e7"
-                  />
-                  <ellipse cx="130" cy="152" rx="72" ry="9" fill="#e3ecdf" />
-                  <g transform="rotate(-7 108 88)">
-                    <rect x="66" y="38" width="84" height="100" rx="7" fill="#fffefb" stroke="#4f7d63" strokeWidth="2.5" />
-                    <circle cx="84" cy="64" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
-                    <line x1="98" y1="64" x2="130" y2="64" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
-                    <circle cx="84" cy="90" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
-                    <line x1="98" y1="90" x2="134" y2="90" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
-                    <circle cx="84" cy="116" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
-                    <line x1="98" y1="116" x2="126" y2="116" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
-                  </g>
-                  <g stroke="#285c4d" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="128" y1="10" x2="128" y2="24" />
-                    <line x1="110" y1="16" x2="115" y2="28" />
-                    <line x1="146" y1="16" x2="141" y2="28" />
-                  </g>
-                  <g>
-                    <path d="M172 148C172 118 178 96 196 78c4 22-2 48-20 66" fill="#9dbd76" />
-                    <path d="M172 148c-2-24 2-44 14-58 6 20 0 42-10 56" fill="#6ca578" />
-                    <path d="M172 148c8-18 22-32 40-36 0 18-14 32-36 38" fill="#8fb584" />
-                    <path d="M172 148l-1-40" stroke="#3f6b52" strokeWidth="2" strokeLinecap="round" />
-                  </g>
-                </svg>
+                <PlanEmptyArt />
                 <p className="plan-empty__caption">A plan for today, a calmer tomorrow.</p>
               </div>
               <div className="plan-empty__copy">
-                <p className="plan-empty__eyebrow">READY TO PLAN?</p>
-                <p className="plan-empty__title">You have tasks for today!</p>
-                <p className="plan-empty__body">Create your plan to see how they fit into your day.</p>
-                <div className="plan-benefits">
-                  <div className="plan-benefit">
-                    <p className="plan-benefit__title">Smart scheduling</p>
-                    <p className="plan-benefit__body">We'll organize your tasks based on time, priority and your energy.</p>
-                  </div>
-                  <div className="plan-benefit">
-                    <p className="plan-benefit__title">Realistic plan</p>
-                    <p className="plan-benefit__body">Get a plan that fits your available time.</p>
-                  </div>
-                  <div className="plan-benefit">
-                    <p className="plan-benefit__title">Less stress</p>
-                    <p className="plan-benefit__body">Know exactly what to do next, without feeling overwhelmed.</p>
-                  </div>
-                </div>
-                <button
-                  className="button button--primary"
-                  type="button"
-                  onClick={onPlanDay}
-                  disabled={planning}
-                >
-                  {planning ? "Planning…" : "Plan my day →"}
-                </button>
-                <p className="plan-tip">Planning takes just a few seconds and helps you stay on track all day.</p>
+                {hasPlanned ? (
+                  <>
+                    <p className="plan-empty__eyebrow">NOTHING SCHEDULED</p>
+                    <p className="plan-empty__title">Nothing is scheduled yet.</p>
+                    <p className="plan-empty__body">
+                      Planora couldn&apos;t place your tasks into today&apos;s plan.
+                      Your tasks are still available — adjust your available time
+                      and re-plan when ready.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="plan-empty__eyebrow">READY TO PLAN?</p>
+                    <p className="plan-empty__title">You have tasks for today!</p>
+                    <p className="plan-empty__body">Create your plan to see how they fit into your day.</p>
+                  </>
+                )}
+                {!hasPlanned && (
+                  <>
+                    <div className="plan-benefits">
+                      <div className="plan-benefit">
+                        <p className="plan-benefit__title">Smart scheduling</p>
+                        <p className="plan-benefit__body">We&apos;ll organize your tasks based on time, priority and your energy.</p>
+                      </div>
+                      <div className="plan-benefit">
+                        <p className="plan-benefit__title">Realistic plan</p>
+                        <p className="plan-benefit__body">Get a plan that fits your available time.</p>
+                      </div>
+                      <div className="plan-benefit">
+                        <p className="plan-benefit__title">Less stress</p>
+                        <p className="plan-benefit__body">Know exactly what to do next, without feeling overwhelmed.</p>
+                      </div>
+                    </div>
+                    <button
+                      className="button button--primary"
+                      type="button"
+                      onClick={onPlanDay}
+                      disabled={planning}
+                    >
+                      {planning ? "Planning…" : "Plan my day →"}
+                    </button>
+                    <p className="plan-tip">Planning takes just a few seconds and helps you stay on track all day.</p>
+                  </>
+                )}
               </div>
             </div>
           )

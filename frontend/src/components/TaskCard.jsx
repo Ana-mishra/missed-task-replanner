@@ -1,5 +1,6 @@
 import { formatDuration } from '../utils/duration.mjs'
 import { isCurrentlyRecovered } from '../utils/taskRecovery.mjs'
+import { IconCheck, IconPencil, IconTrash } from './icons.jsx'
 
 function isOverdue(task) {
   return !task.completed && new Date(task.deadline) < new Date()
@@ -86,12 +87,12 @@ function TaskCard({ task, onEdit, onComplete, onDelete, showSlot = false, reason
             <span className="task-card__completed-label">✓ Completed</span>
           ) : (
             <>
-              <button className="button button--quiet" type="button" onClick={onEdit}>Edit</button>
-              <button className="button button--complete" type="button" onClick={onComplete}>Complete</button>
+              <button className="button button--quiet" type="button" onClick={onEdit}><span className="task-card__action-icon" aria-hidden="true"><IconPencil width={14} height={14} /></span>Edit</button>
+              <button className="button button--complete" type="button" onClick={onComplete}><span className="task-card__action-icon" aria-hidden="true"><IconCheck width={14} height={14} /></span>Complete</button>
             </>
           )}
           <button className="button button--quiet button--danger" type="button" onClick={onDelete}>
-            Delete
+            <span className="task-card__action-icon" aria-hidden="true"><IconTrash width={14} height={14} /></span>Delete
           </button>
         </div>
       </div>

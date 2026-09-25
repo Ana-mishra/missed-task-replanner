@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getTaskHistory } from '../services/api.js'
 import { IconLeaf } from './icons.jsx'
@@ -26,6 +26,8 @@ function useEyeTracking(faceRef, moodIdRef) {
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    // Touch devices get the pure idle animation; no cursor to follow.
+    if (!window.matchMedia('(pointer: fine)').matches) return
     let raf = 0
     let target = { dx: 0, dy: 0 }
     let current = { dx: 0, dy: 0 }
@@ -69,6 +71,28 @@ function useEyeTracking(faceRef, moodIdRef) {
         .forEach((node) => { node.style.transform = '' })
     }
   }, [])
+}
+
+// ---------------------------------------------------------------------------
+// usePetting — a small friendly reaction when the plant is clicked/tapped:
+// brief bounce via the 'plant-visual--petted' class. Cooldown-limited so
+// repeated clicking never looks chaotic; skipped while the care animation
+// owns the SVG transform. No scores, no rewards — just a companion.
+// ---------------------------------------------------------------------------
+function usePetting(visualRef) {
+  const [petted, setPetted] = useState(false)
+  const coolingRef = useRef(false)
+  const pet = useCallback(() => {
+    if (coolingRef.current) return
+    if (visualRef.current?.classList.contains('plant-visual--caring')) return
+    coolingRef.current = true
+    setPetted(true)
+    window.setTimeout(() => {
+      setPetted(false)
+      window.setTimeout(() => { coolingRef.current = false }, 1400)
+    }, 950)
+  }, [visualRef])
+  return [petted, pet]
 }
 
 // ---------------------------------------------------------------------------
@@ -384,6 +408,8 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
   const faceRef = useRef(null)
   const moodIdRef = useRef(null)
   useEyeTracking(faceRef, moodIdRef)
+  const visualRef = useRef(null)
+  const [petted, pet] = usePetting(visualRef)
 
   useEffect(() => {
     if (!plantData) return
@@ -474,15 +500,15 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
   return (
     <div className="plant-page">
       <header className="plant-page__header">
-        <p className="plant-page__eyebrow">MY PLANT</p>
         <h1 className="plant-page__title">My Plant</h1>
         <p className="plant-page__standfirst">
-          A little companion that grows with you.
+          Your little companion that grows with you.
         </p>
       </header>
 
-      {/* ---- Living companion composition: environment + journal ---- */}
-      <div className="plant-companion-layout">
+      {/* ---- Living companion: one centered column; the plant leads and
+           the journey, moment, and growth notes support it. ---- */}
+      <div className="plant-companion-flow">
         {/* ---- Central hero ---- */}
         <section className="plant-stage" aria-label="Plant visual">
         <div className="plant-world" aria-hidden="true">
@@ -500,7 +526,18 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
           <span className="plant-world__mote plant-world__mote--2" />
           <span className="plant-world__mote plant-world__mote--3" />
         </div>
-        <div className={`plant-visual plant-visual--${stage} plant-visual--vitality-${vitality}`}>
+        <div
+          ref={visualRef}
+          className={[
+            'plant-visual',
+            `plant-visual--${stage}`,
+            `plant-visual--vitality-${vitality}`,
+            petted ? 'plant-visual--petted' : '',
+            mood.id === 'RETURNING' ? 'plant-visual--perked' : '',
+          ].filter(Boolean).join(' ')}
+          onClick={pet}
+          title="Say hello"
+        >
           <PlantSvg stage={stage} vitality={vitality} animating={animating} mood={mood.id} faceRef={faceRef} />
         </div>
 
@@ -514,11 +551,9 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
         </p>
         </section>
 
-        <aside className="plant-journal" aria-label="Companion journal">
-          <YourJourney strip={strip} />
-          <LittleMoment note={moment} />
-          <GrowthJourney stage={stage} completedToday={completed_today} />
-        </aside>
+        <YourJourney strip={strip} />
+        <LittleMoment note={moment} />
+        <GrowthJourney stage={stage} completedToday={completed_today} />
       </div>
     </div>
   )

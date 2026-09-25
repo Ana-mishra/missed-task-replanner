@@ -76,6 +76,68 @@ const STATE_META = {
   pending: { label: "Pending", Icon: IconClock },
 };
 
+// Existing Planora empty-state artwork, shared by the true-empty panel and
+// the day-clear panel so the illustration is never duplicated or replaced.
+function SheetEmptyArt() {
+  return (
+    <svg className="sheet-empty__art" width="260" height="168" viewBox="0 0 260 168" aria-hidden="true">
+      <path
+        d="M130 12c26-10 62-4 78 14s30 8 34 30-8 44-30 52-30 30-62 26-44 20-70 10-52 2-58-22-22-26-14-48 4-34 14-44 22-12 44-18z"
+        fill="#eaf2e7"
+      />
+      <ellipse cx="130" cy="152" rx="72" ry="9" fill="#e3ecdf" />
+      <g transform="rotate(-7 108 88)">
+        <rect x="66" y="38" width="84" height="100" rx="7" fill="#fffefb" stroke="#4f7d63" strokeWidth="2.5" />
+        <circle cx="84" cy="64" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
+        <line x1="98" y1="64" x2="130" y2="64" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="84" cy="90" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
+        <line x1="98" y1="90" x2="134" y2="90" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="84" cy="116" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
+        <line x1="98" y1="116" x2="126" y2="116" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
+      </g>
+      <g stroke="#285c4d" strokeWidth="2.5" strokeLinecap="round">
+        <line x1="128" y1="10" x2="128" y2="24" />
+        <line x1="110" y1="16" x2="115" y2="28" />
+        <line x1="146" y1="16" x2="141" y2="28" />
+      </g>
+      <g>
+        <path d="M172 148C172 118 178 96 196 78c4 22-2 48-20 66" fill="#9dbd76" />
+        <path d="M172 148c-2-24 2-44 14-58 6 20 0 42-10 56" fill="#6ca578" />
+        <path d="M172 148c8-18 22-32 40-36 0 18-14 32-36 38" fill="#8fb584" />
+        <path d="M172 148l-1-40" stroke="#3f6b52" strokeWidth="2" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}
+
+function SheetEmptyHints() {
+  return (
+    <ul className="sheet-empty__hints" aria-label="How Planora helps">
+      <li>
+        <span className="sheet-empty__hint-icon" aria-hidden="true"><IconList /></span>
+        <span>
+          <strong>Capture what&rsquo;s on your mind</strong>
+          <small>Add tasks, big or small</small>
+        </span>
+      </li>
+      <li>
+        <span className="sheet-empty__hint-icon" aria-hidden="true"><IconClock /></span>
+        <span>
+          <strong>Plan with intention</strong>
+          <small>Let Planora help you find time for it</small>
+        </span>
+      </li>
+      <li>
+        <span className="sheet-empty__hint-icon" aria-hidden="true"><IconLeaf /></span>
+        <span>
+          <strong>Feel more in control</strong>
+          <small>A clearer day leads to a calmer mind</small>
+        </span>
+      </li>
+    </ul>
+  );
+}
+
 function SheetRow({ task, state, selected, onSelect, onRecover, recoveringId, timeline = false, now = false, tone = null }) {
   const { label, Icon } = STATE_META[state];
   const MarkerIcon = tone === "unscheduled" ? IconCalendar : Icon;
@@ -149,6 +211,7 @@ export default function DaySheet({
   onDelete,
   onRecover,
   recoveringId,
+  onPlanDay,
 }) {
   const [now, setNow] = useState(() => new Date());
   const [selectedId, setSelectedId] = useState(null);
@@ -220,6 +283,26 @@ export default function DaySheet({
   const decisionCount = groups.missed.length + groups.overdue.length;
   const unscheduledCount = groups.unscheduled.length;
 
+  // All completed tasks, derived from the same `tasks` prop (no new source
+  // of truth). Used only to distinguish a quiet-but-active day from a
+  // genuinely empty one: completed work from earlier days is invisible to
+  // `completedTodayTasks`, which only covers today's history events.
+  const completedTasks = tasks.filter(
+    (task) => task.completed || task.status === "completed",
+  );
+  // Quiet day: nothing pending, but the user has completed work to show
+  // (today's completions, or older ones invisible to the today-only
+  // history filter). Gets the compact treatment below instead of the
+  // large onboarding empty state.
+  const showQuietDay =
+    incompleteTasks.length === 0 &&
+    (completedTodayTasks.length > 0 || completedTasks.length > 0);
+  // In the quiet-day case the Completed section falls back to the full
+  // completed list; everywhere else it shows today's completions exactly
+  // as before.
+  const visibleCompletedTasks =
+    completedTodayTasks.length > 0 ? completedTodayTasks : completedTasks;
+
   const firstName = currentUser?.name?.trim().split(/\s+/)[0] ?? "";
   const greeting = greetingForDate(now);
 
@@ -241,7 +324,7 @@ export default function DaySheet({
         </button>
       </header>
 
-      {!loading && (incompleteTasks.length > 0 || completedTodayTasks.length > 0) && (
+      {!loading && (incompleteTasks.length > 0 || completedTodayTasks.length > 0 || completedTasks.length > 0) && (
         <section className="history-summary" aria-label="Today at a glance">
           <article className="history-summary__card history-summary__card--completed">
             <span aria-hidden="true">◷</span>
@@ -270,35 +353,9 @@ export default function DaySheet({
       {loading && <p className="sheet-state">Loading your tasks…</p>}
       {error && <p className="sheet-state sheet-state--error">{error}</p>}
 
-      {!loading && incompleteTasks.length === 0 && completedTodayTasks.length === 0 && (
+      {!loading && incompleteTasks.length === 0 && completedTodayTasks.length === 0 && completedTasks.length === 0 && (
         <section className="sheet-empty sheet-empty--polished" aria-label="Empty day">
-          <svg className="sheet-empty__art" width="260" height="168" viewBox="0 0 260 168" aria-hidden="true">
-            <path
-              d="M130 12c26-10 62-4 78 14s30 8 34 30-8 44-30 52-30 30-62 26-44 20-70 10-52 2-58-22-22-26-14-48 4-34 14-44 22-12 44-18z"
-              fill="#eaf2e7"
-            />
-            <ellipse cx="130" cy="152" rx="72" ry="9" fill="#e3ecdf" />
-            <g transform="rotate(-7 108 88)">
-              <rect x="66" y="38" width="84" height="100" rx="7" fill="#fffefb" stroke="#4f7d63" strokeWidth="2.5" />
-              <circle cx="84" cy="64" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
-              <line x1="98" y1="64" x2="130" y2="64" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="84" cy="90" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
-              <line x1="98" y1="90" x2="134" y2="90" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="84" cy="116" r="7" fill="none" stroke="#4f7d63" strokeWidth="2" />
-              <line x1="98" y1="116" x2="126" y2="116" stroke="#4f7d63" strokeWidth="2.5" strokeLinecap="round" />
-            </g>
-            <g stroke="#285c4d" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="128" y1="10" x2="128" y2="24" />
-              <line x1="110" y1="16" x2="115" y2="28" />
-              <line x1="146" y1="16" x2="141" y2="28" />
-            </g>
-            <g>
-              <path d="M172 148C172 118 178 96 196 78c4 22-2 48-20 66" fill="#9dbd76" />
-              <path d="M172 148c-2-24 2-44 14-58 6 20 0 42-10 56" fill="#6ca578" />
-              <path d="M172 148c8-18 22-32 40-36 0 18-14 32-36 38" fill="#8fb584" />
-              <path d="M172 148l-1-40" stroke="#3f6b52" strokeWidth="2" strokeLinecap="round" />
-            </g>
-          </svg>
+          <SheetEmptyArt />
           <p className="sheet-eyebrow sheet-empty__eyebrow">Your day is open</p>
           <h2 className="sheet-empty__title">What would make today feel productive?</h2>
           <p className="sheet-empty__body">Add what matters, and Planora will find a realistic place for it.</p>
@@ -306,29 +363,7 @@ export default function DaySheet({
             <IconPlus />
             Add your first task
           </button>
-          <ul className="sheet-empty__hints" aria-label="How Planora helps">
-            <li>
-              <span className="sheet-empty__hint-icon" aria-hidden="true"><IconList /></span>
-              <span>
-                <strong>Capture what&rsquo;s on your mind</strong>
-                <small>Add tasks, big or small</small>
-              </span>
-            </li>
-            <li>
-              <span className="sheet-empty__hint-icon" aria-hidden="true"><IconClock /></span>
-              <span>
-                <strong>Plan with intention</strong>
-                <small>Let Planora help you find time for it</small>
-              </span>
-            </li>
-            <li>
-              <span className="sheet-empty__hint-icon" aria-hidden="true"><IconLeaf /></span>
-              <span>
-                <strong>Feel more in control</strong>
-                <small>A clearer day leads to a calmer mind</small>
-              </span>
-            </li>
-          </ul>
+          <SheetEmptyHints />
         </section>
       )}
 
@@ -451,11 +486,11 @@ export default function DaySheet({
         </Section>
       )}
 
-      {completedTodayTasks.length > 0 && (
+      {(completedTodayTasks.length > 0 || showQuietDay) && (
         <section className="sheet-section" aria-label="Completed">
-          <p className="sheet-eyebrow">Completed <span className="sheet-count">{completedTodayTasks.length}</span></p>
+          <p className="sheet-eyebrow">Completed <span className="sheet-count">{visibleCompletedTasks.length}</span></p>
           <div className="sheet-rows">
-            {completedTodayTasks.map((task) => (
+            {visibleCompletedTasks.map((task) => (
               <SheetRow
                 key={task.id}
                 task={task}
@@ -467,6 +502,20 @@ export default function DaySheet({
               />
             ))}
           </div>
+        </section>
+      )}
+
+      {showQuietDay && (
+        <section className="sheet-empty sheet-empty--polished" aria-label="Day clear">
+          <SheetEmptyArt />
+          <p className="sheet-eyebrow sheet-empty__eyebrow">Your day is clear</p>
+          <h2 className="sheet-empty__title">Nothing else is planned right now.</h2>
+          <p className="sheet-empty__body">You&rsquo;ve already made some progress today.</p>
+          <button className="button button--primary sheet-empty__cta" type="button" onClick={onCreate}>
+            <IconPlus />
+            Add a task
+          </button>
+          <SheetEmptyHints />
         </section>
       )}
       </div>
