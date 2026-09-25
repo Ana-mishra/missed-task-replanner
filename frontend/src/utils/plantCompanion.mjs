@@ -138,12 +138,11 @@ export function littleMoment({
   return "A slower day is okay. I'm still here.";
 }
 
-// Cursor eye-tracking offset for the open-eye moods (GROWING, RETURNING).
-// Returns a small bounded {dx, dy} translation (px, SVG units) pointing
-// from the face center toward the cursor. Closed-eye moods (HAPPY,
-// NEEDS_CARE) never call this — their expressions stay exactly as designed.
-export const EYE_TRACK_BOUNDS = { x: 2.5, y: 1.5 };
-const EYE_TRACK_RANGE_PX = 120;
+// Cursor eye-tracking offset for the open-eye moods (HAPPY, GROWING, RETURNING).
+// Returns a bounded {dx, dy} translation (px, SVG units) pointing
+// from the face center toward the cursor. NEEDS_CARE keeps sleepy expression.
+export const EYE_TRACK_BOUNDS = { x: 4.5, y: 3.5 };
+const EYE_TRACK_RANGE_PX = 150;
 
 export function eyeTrackingOffset(cursorX, cursorY, centerX, centerY) {
   const clamp = (value, bound) =>

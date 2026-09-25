@@ -1,0 +1,57 @@
+/* First-task-of-the-day celebration note. A tiny floating companion
+   message — never a card, modal, or overlay. pointer-events stays off so
+   it can never cover or block task controls. All colors derive from the
+   existing Planora theme tokens. */
+.app-shell .first-task-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--mobile-nav-height, 64px) + var(--safe-area-bottom, 0px) + 1rem);
+  transform: translateX(-50%);
+  z-index: 950;
+  margin: 0;
+  padding: 0.5rem 1.1rem;
+  width: max-content;
+  max-width: min(92vw, 24rem);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.02rem;
+  line-height: 1.4;
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
+  animation: first-task-rise 0.45s ease-out;
+}
+
+@keyframes first-task-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+:root[data-theme="dark"] .first-task-toast {
+  background: var(--dark-surface-raised, #242a26);
+  border-color: var(--dark-border, #303732);
+  color: var(--dark-accent, #9ccbb0);
+}
+
+@media (min-width: 769px) {
+  .first-task-toast {
+    bottom: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .first-task-toast {
+    animation: none;
+  }
+}

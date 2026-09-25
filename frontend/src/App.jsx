@@ -10,6 +10,7 @@ import AuthPage from "./components/AuthPage.jsx";
 import LandingPage from "./components/LandingPage.jsx";
 import AboutPage from "./components/AboutPage.jsx";
 import MyPlantPage from "./components/MyPlantPage.jsx";
+import FirstTaskToast from "./components/FirstTaskToast.jsx";
 import OAuthCallback from "./components/OAuthCallback.jsx";
 
 import {
@@ -35,6 +36,11 @@ import {
 import { mergeScheduleReasons } from "./utils/planReasons.mjs";
 import { buildPlanPayload, resolveEffectiveBadDayMode } from "./utils/planRequest.mjs";
 import { createRecoveryLock, runRecoverySequence } from "./utils/recovery.mjs";
+import {
+  celebrateFirstTask,
+  isFirstCompletionToday,
+  prepareCelebrationAudio,
+} from "./utils/firstCelebration.mjs";
 
 const LAST_PLANNED_AVAILABLE_MINUTES_KEY = "planora.lastPlannedAvailableMinutes";
 const PLANORA_PAGES = new Set(["today", "plan", "plant", "history", "stats", "reflection"]);
@@ -277,6 +283,8 @@ const completedTodayTasks = tasks.filter((task) =>
           all.map((task) => (task.id === saved.id ? saved : task)),
         );
       } else {
+        prepareCelebrationAudio();
+        const firstToday = isFirstCompletionToday(selected, todayCompletedTaskIds);
         saved = await updateTask(selected.id, {
           ...selected,
           completed: true,
@@ -286,6 +294,7 @@ const completedTodayTasks = tasks.filter((task) =>
         setTasks((all) =>
           all.map((task) => (task.id === saved.id ? saved : task)),
         );
+        if (firstToday) celebrateFirstTask(saved.id);
         setTodayCompletedTaskIds((ids) => [
           ...new Set([...ids, String(saved.id)]),
         ]);
@@ -318,6 +327,10 @@ const completedTodayTasks = tasks.filter((task) =>
     if (!task || completingId) return;
     setCompletingId(task.id);
     setError(null);
+    // Warm up celebration audio inside the user gesture (autoplay-safe);
+    // snapshot first-of-day BEFORE the update resolves.
+    prepareCelebrationAudio();
+    const firstToday = isFirstCompletionToday(task, todayCompletedTaskIds);
 
     // Snapshot whether the plant has already grown today BEFORE the completion
     // so the plant page can detect the first-of-day event after the refresh.
@@ -332,6 +345,7 @@ const completedTodayTasks = tasks.filter((task) =>
       setTasks((all) =>
         all.map((t) => (t.id === saved.id ? saved : t)),
       );
+      if (firstToday) celebrateFirstTask(saved.id);
       setTodayCompletedTaskIds((ids) => [
         ...new Set([...ids, String(saved.id)]),
       ]);
@@ -763,6 +777,7 @@ return (
           </section>
         </div>
       )}
+      <FirstTaskToast />
     </AppShell>
   );
 }

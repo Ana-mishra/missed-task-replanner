@@ -11983,6 +11983,13 @@ body {
   margin-inline: auto;
 }
 
+.plant-page__sparkle {
+  display: block;
+  margin-top: 0.3rem;
+  color: #b8863b;
+  font-size: 1.1rem;
+}
+
 /* ---- Living companion composition: one centered column. The plant
    leads; journey, moment, and growth notes support it with airy
    spacing instead of panel chrome. ---- */
@@ -12174,6 +12181,62 @@ body {
   text-align: center;
 }
 
+/* ---- Plant speech bubble — the plant's voice, soft botanical callout ---- */
+.plant-speech {
+  margin: 0.25rem 0 0;
+  text-align: center;
+  width: 100%;
+  max-width: 34ch;
+}
+
+.plant-speech__bubble {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--primary);
+  line-height: 1.4;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.85rem;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  animation: plant-speech-pop 0.4s ease-out;
+}
+
+@keyframes plant-speech-pop {
+  0% { opacity: 0; transform: translateY(6px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Small triangular pointer on the bubble */
+.plant-speech__bubble::before {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--border);
+}
+
+.plant-speech__bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--surface);
+}
+
 /* ---- Your journey: one connected 7-leaf sequence, never a score ---- */
 .plant-journey {
   display: flex;
@@ -12219,7 +12282,38 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.plant-journey__day:hover {
+  background: var(--surface);
+  border-color: var(--border);
+  transform: translateY(-1px);
+}
+
+.plant-journey__day:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.plant-journey__day--selected {
+  border-color: var(--success);
+  background: rgb(143 200 168 / 12%);
+  box-shadow: 0 0 0 3px rgb(143 200 168 / 18%);
+}
+
+.plant-journey__day--selected:hover {
+  background: rgb(143 200 168 / 18%);
 }
 
 .plant-journey__day--lit {
@@ -12237,6 +12331,12 @@ body {
 
 .plant-journey__day--today.plant-journey__day--muted {
   opacity: 0.75;
+}
+
+.plant-journey__day svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
 .plant-journey__day-label {
@@ -12651,15 +12751,43 @@ body {
   fill: #3d5a45;
 }
 
+/* Eye whites (sclera) — visible in all open-eyed moods */
+.plant-face__eye-white {
+  fill: #fafafa;
+  stroke: #3d5a45;
+  stroke-width: 0.8;
+}
+
+/* Pupils — these track the cursor via .plant-face__track transform */
+.plant-face__pupil {
+  fill: #2d4a35;
+}
+
+/* Heavy upper lids for NEEDS_CARE mood */
+.plant-face__lid {
+  stroke: #3d5a45;
+  stroke-width: 2.2;
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
 .plant-face__blush {
   fill: #d98a7e;
   opacity: 0.3;
 }
 
+/* Blinking is React-driven (see useBlink): the resting state is always
+   open eyes, and a quick squash plays every few seconds at randomized
+   intervals. No mechanical synchronized loop. */
 .plant-face__blink {
   transform-box: fill-box;
   transform-origin: center;
-  animation: plant-blink 7s ease-in-out infinite;
+  transition: transform 90ms ease-in;
+}
+
+.plant-face--blinking .plant-face__blink {
+  transform: scaleY(0.12);
 }
 
 /* ---- Idle life: slow breathing, staggered leaf sway ---- */
@@ -12693,9 +12821,34 @@ body {
   50%      { transform: rotate(1.6deg); }
 }
 
-@keyframes plant-blink {
-  0%, 92%, 100% { transform: scaleY(1); }
-  95%           { transform: scaleY(0.1); }
+/* ---- Mood-tempo personalities: same character, different energy.
+   GROWING/RETURNING idle just visibly faster; droopy vitality idles
+   slower and softer. Durations only — names, delays, and keyframes
+   (and therefore droop composition) are untouched. ---- */
+.plant-visual--mood-growing .plant-visual__svg,
+.plant-visual--mood-returning .plant-visual__svg {
+  animation-duration: 5s;
+}
+.plant-visual--mood-growing .plant-leaves,
+.plant-visual--mood-returning .plant-leaves {
+  animation-duration: 5s;
+}
+.plant-visual--vitality-droopy .plant-visual__svg,
+.plant-visual--vitality-very_droopy .plant-visual__svg {
+  animation-duration: 9.5s;
+}
+.plant-visual--vitality-droopy .plant-leaves,
+.plant-visual--vitality-very_droopy .plant-leaves {
+  animation-duration: 10s;
+}
+
+/* ---- Hover energy: the plant perks up while visited, then settles
+   back to idle on leave. Touch devices use the tap reaction instead. ---- */
+.plant-visual:hover .plant-visual__svg {
+  animation-duration: 3.2s;
+}
+.plant-visual:hover .plant-leaves {
+  animation-duration: 3.5s;
 }
 
 /* ---- Sparkle particles ---- */
@@ -12776,6 +12929,17 @@ body {
   animation: plant-pet-bounce 0.9s ease-in-out;
 }
 
+.plant-visual--petted .plant-leaves {
+  animation: plant-pet-flutter 1s ease-in-out;
+}
+
+@keyframes plant-pet-flutter {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(-5.5deg); }
+  50%  { transform: rotate(4deg); }
+  100% { transform: rotate(0deg); }
+}
+
 /* ---- Return perk-up — RETURNING mood plays one gentle lift on entry,
    welcoming the user back without touching any mood semantics. */
 @keyframes plant-perk-up {
@@ -12786,6 +12950,20 @@ body {
 
 .plant-visual--perked .plant-visual__svg {
   animation: plant-perk-up 1.8s ease-out 1;
+}
+
+.plant-visual--day-completed .plant-visual__svg,
+.plant-visual--day-recovered .plant-visual__svg {
+  animation-duration: 3.8s;
+}
+
+.plant-visual--day-recovered .plant-visual__svg {
+  animation: plant-perk-up 1.2s ease-out;
+}
+
+.plant-visual--day-missed .plant-visual__svg {
+  animation-duration: 10s;
+  filter: saturate(0.84) brightness(0.97);
 }
 
 /* ---- Metrics ---- */
@@ -12952,6 +13130,9 @@ body {
   .plant-face,
   .plant-face__variant,
   .plant-face__blink,
+  .plant-face__eye-white,
+  .plant-face__pupil,
+  .plant-face__lid,
   .plant-world__mote,
   .plant-stem,
   .plant-sparkle,

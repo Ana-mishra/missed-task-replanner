@@ -2,19 +2,26 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getTaskHistory } from '../services/api.js'
 import { IconLeaf } from './icons.jsx'
+import '../styles/my-plant.css'
 import {
   companionMood,
   eyeTrackingOffset,
-  growthTimeline,
-  journeyLine,
   littleMoment,
   recentDaysStrip,
   recoveredToday,
 } from '../utils/plantCompanion.mjs'
 
-// Moods with open pupils that may track the cursor. Closed-eye moods
-// (HAPPY arcs, NEEDS_CARE lines) have no track groups by construction.
-const TRACKED_MOODS = new Set(['GROWING', 'RETURNING'])
+// Moods with open pupils that may track the cursor. NEEDS_CARE keeps
+// sleepy half-lidded eyes with no track groups by construction.
+const TRACKED_MOODS = new Set(['HAPPY', 'GROWING', 'RETURNING'])
+
+// Day state labels for journey interaction messages
+const DAY_MESSAGES = {
+  completed: "You showed up that day. 🌱",
+  missed: "A slower day. That's okay.",
+  today: "You're here today. That's what matters. 💚",
+  recovered: "You came back and kept going. 🌿",
+}
 
 // ---------------------------------------------------------------------------
 // useEyeTracking — pupils follow the cursor via ref + rAF only (zero
@@ -31,6 +38,9 @@ function useEyeTracking(faceRef, moodIdRef) {
     let raf = 0
     let target = { dx: 0, dy: 0 }
     let current = { dx: 0, dy: 0 }
+    let lastPointerAt = Date.now()
+    let nextLookAt = Date.now() + 3600
+    let idleLook = { dx: 0, dy: 0 }
     const onMove = (event) => {
       const face = faceRef.current
       if (!face || typeof event.clientX !== 'number') return
@@ -41,11 +51,20 @@ function useEyeTracking(faceRef, moodIdRef) {
         rect.left + rect.width / 2,
         rect.top + rect.height / 2,
       )
+      lastPointerAt = Date.now()
     }
     // Cursor left the viewport: glide back to neutral.
     const onLeave = () => { target = { dx: 0, dy: 0 } }
     const tick = () => {
-      const goal = TRACKED_MOODS.has(moodIdRef.current) ? target : { dx: 0, dy: 0 }
+      const now = Date.now()
+      if (now - lastPointerAt > 2800 && now >= nextLookAt) {
+        idleLook = { dx: [-2.2, 0, 2.2][Math.floor(Math.random() * 3)], dy: -0.7 }
+        nextLookAt = now + 3200 + Math.random() * 3600
+      }
+      const hasRecentPointer = now - lastPointerAt < 2800
+      const goal = TRACKED_MOODS.has(moodIdRef.current)
+        ? (hasRecentPointer ? target : idleLook)
+        : { dx: 0, dy: 0 }
       current = {
         dx: current.dx + (goal.dx - current.dx) * 0.12,
         dy: current.dy + (goal.dy - current.dy) * 0.12,
@@ -82,90 +101,154 @@ function useEyeTracking(faceRef, moodIdRef) {
 function usePetting(visualRef) {
   const [petted, setPetted] = useState(false)
   const coolingRef = useRef(false)
+  const timersRef = useRef([])
+  useEffect(() => () => {
+    timersRef.current.forEach((timer) => window.clearTimeout(timer))
+  }, [])
   const pet = useCallback(() => {
     if (coolingRef.current) return
     if (visualRef.current?.classList.contains('plant-visual--caring')) return
     coolingRef.current = true
     setPetted(true)
-    window.setTimeout(() => {
+    const settleTimer = window.setTimeout(() => {
       setPetted(false)
-      window.setTimeout(() => { coolingRef.current = false }, 1400)
+      const cooldownTimer = window.setTimeout(() => { coolingRef.current = false }, 1400)
+      timersRef.current.push(cooldownTimer)
     }, 950)
+    timersRef.current.push(settleTimer)
   }, [visualRef])
   return [petted, pet]
 }
 
 // ---------------------------------------------------------------------------
-// YourJourney — the recent 7 IST days as one connected sequence, plus a
-// single contextual line. Lit leaves mark genuine growth days; missed days
-// stay quiet and muted. No scores, no streaks.
+// useBlink — the resting state is always open eyes; a quick squash plays
+// every few seconds at randomized intervals so blinks never look
+// mechanical. Returns true only during the ~150ms lid-close. Skipped
+// entirely under prefers-reduced-motion.
 // ---------------------------------------------------------------------------
-function YourJourney({ strip }) {
+function useBlink() {
+  const [blinking, setBlinking] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let alive = true
+    let openTimer = 0
+    let closeTimer = 0
+    const schedule = () => {
+      openTimer = window.setTimeout(() => {
+        if (!alive) return
+        setBlinking(true)
+        closeTimer = window.setTimeout(() => {
+          if (!alive) return
+          setBlinking(false)
+          schedule()
+        }, 150)
+      }, 2600 + Math.random() * 3800)
+    }
+    schedule()
+    return () => {
+      alive = false
+      window.clearTimeout(openTimer)
+      window.clearTimeout(closeTimer)
+    }
+  }, [])
+  return blinking
+}
+
+// ---------------------------------------------------------------------------
+// JourneyDay — interactive day button for the 7-day journey strip.
+// When clicked, becomes selected and triggers plant/message reaction.
+// ---------------------------------------------------------------------------
+function JourneyDay({ day, isSelected, onSelect }) {
+  const isLit = day.showedUp
+  const isToday = day.isToday
+  const isRecovered = day.recovered // if we track this
+
+  let messageKey = 'missed'
+  if (isToday) messageKey = 'today'
+  else if (isLit) messageKey = 'completed'
+  else if (isRecovered) messageKey = 'recovered'
+
+  const state = isToday ? 'today' : isRecovered ? 'recovered' : isLit ? 'completed' : 'missed'
+
   return (
-    <section className="plant-journey" aria-label="Your journey">
-      <h2 className="plant-journey__heading">Your journey</h2>
-      <ol className="plant-journey__track">
-        {strip.map((day) => (
-          <li
-            key={day.key}
-            className={[
-              'plant-journey__day',
-              day.showedUp ? 'plant-journey__day--lit' : 'plant-journey__day--muted',
-              day.isToday ? 'plant-journey__day--today' : '',
-            ].filter(Boolean).join(' ')}
-            aria-label={`${day.label}${day.showedUp ? ', showed up' : ''}${day.isToday ? ', today' : ''}`}
-            aria-current={day.isToday ? 'date' : undefined}
-          >
-            <IconLeaf width={20} height={20} />
-            <span className="plant-journey__day-label">{day.label}</span>
-          </li>
-        ))}
-      </ol>
-      <p className="plant-journey__line">{journeyLine(strip)}</p>
-    </section>
+    <button
+      key={day.key}
+      className={[
+        'plant-journey__day',
+        isLit ? 'plant-journey__day--lit' : 'plant-journey__day--muted',
+        isToday ? 'plant-journey__day--today' : '',
+        isSelected ? 'plant-journey__day--selected' : '',
+      ].filter(Boolean).join(' ')}
+      onClick={() => onSelect(day)}
+      aria-label={`${day.label}, ${state}${isSelected ? ', selected' : ''}`}
+      aria-current={isToday ? 'date' : undefined}
+      aria-pressed={isSelected}
+      title={DAY_MESSAGES[messageKey]}
+    >
+      <IconLeaf width={24} height={24} />
+      <span className="plant-journey__day-label">{day.label}</span>
+    </button>
   )
 }
 
 // ---------------------------------------------------------------------------
-// LittleMoment — one deterministic note from the companion, derived from
-// already-available data. A note, never a notification or a report.
+// PlantSpeech — the plant's voice, shown as a soft botanical callout near
+// the plant. Changes based on mood and selected journey day.
 // ---------------------------------------------------------------------------
-function LittleMoment({ note }) {
-  return (
-    <section className="plant-moment" aria-label="A little moment">
-      <h2 className="plant-moment__heading">A little moment</h2>
-      <p className="plant-moment__note">{note}</p>
-    </section>
-  )
-}
+function PlantSpeech({ mood, selectedDay, completedToday, recoveredToday, defaultMessage }) {
+  // If a day is selected, show that day's message
+  if (selectedDay) {
+    if (selectedDay.isToday) {
+      return (
+        <p className="plant-speech">
+          <span className="plant-speech__bubble" aria-live="polite">
+            You're here today. That's what matters. 💚
+          </span>
+        </p>
+      )
+    }
+    if (selectedDay.showedUp) {
+      return (
+        <p className="plant-speech">
+          <span className="plant-speech__bubble" aria-live="polite">
+            You showed up that day. 🌱
+          </span>
+        </p>
+      )
+    }
+    if (selectedDay.recovered) {
+      return (
+        <p className="plant-speech">
+          <span className="plant-speech__bubble" aria-live="polite">
+            You came back and kept going. 🌿
+          </span>
+        </p>
+      )
+    }
+    return (
+      <p className="plant-speech">
+        <span className="plant-speech__bubble" aria-live="polite">
+          A slower day. That's okay.
+        </span>
+      </p>
+    )
+  }
 
-// ---------------------------------------------------------------------------
-// GrowthJourney — seed → sprout → growing → today as pure visual story.
-// Position comes from the backend stage; nothing numeric is shown.
-// ---------------------------------------------------------------------------
-function GrowthJourney({ stage, completedToday }) {
-  const nodes = growthTimeline(stage, completedToday)
+  // Default: mood-based message (from littleMoment or companionMood)
+  let message = defaultMessage || mood.message
+  if (completedToday && recoveredToday) {
+    message = "You came back today. Your plant is happy to see you. 🌿"
+  } else if (completedToday) {
+    message = "You took care of things today. 💚"
+  } else if (recoveredToday) {
+    message = "You made some progress today. 🌱"
+  }
+
   return (
-    <section className="plant-growth" aria-label="Your plant's journey">
-      <h2 className="plant-growth__heading">Your plant&apos;s journey</h2>
-      <ol className="plant-growth__track">
-        {nodes.map((node) => (
-          <li
-            key={node.id}
-            className={`plant-growth__node plant-growth__node--${node.state}`}
-            aria-label={`${node.label}${node.state === 'done' ? ', reached' : node.state === 'current' ? ', current' : ''}`}
-            aria-current={node.id === 'today' ? 'date' : undefined}
-          >
-            <span className="plant-growth__dot" aria-hidden="true">
-              {(node.state === 'done' || node.state === 'current') && (
-                <IconLeaf width={13} height={13} />
-              )}
-            </span>
-            <span className="plant-growth__label">{node.label}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
+    <p className="plant-speech">
+      <span className="plant-speech__bubble" aria-live="polite">{message}</span>
+    </p>
   )
 }
 
@@ -175,46 +258,77 @@ function GrowthJourney({ stage, completedToday }) {
 // data-mood so expression changes transition gently with no JS state
 // machine. Shapes are simple SVG strokes in the existing green family.
 // ---------------------------------------------------------------------------
-function PlantFace({ mood, faceRef }) {
+function PlantFace({ mood, faceRef, blinking }) {
+  const faceClass = ['plant-face', blinking ? 'plant-face--blinking' : '']
+    .filter(Boolean).join(' ')
   return (
-    <g className="plant-face" data-mood={mood} ref={faceRef}>
-      {/* HAPPY — gentle curved eyes, small smile, soft blush */}
+    <g className={faceClass} data-mood={mood} ref={faceRef}>
+      {/* HAPPY — open expressive eyes with visible sclera & pupils, gentle smile, soft blush */}
       <g className="plant-face__variant" data-face="HAPPY">
-        <path className="plant-face__feature" d="M83 192 Q88 187.5 93 192" />
-        <path className="plant-face__feature" d="M107 192 Q112 187.5 117 192" />
-        <path className="plant-face__feature" d="M93 200 Q100 204.5 107 200" />
-        <ellipse className="plant-face__blush" cx="79" cy="198" rx="3.5" ry="2.2" />
-        <ellipse className="plant-face__blush" cx="121" cy="198" rx="3.5" ry="2.2" />
+        {/* Eye whites (sclera) — stationary */}
+        <g className="plant-face__eyes">
+          <ellipse className="plant-face__eye-white" cx="85" cy="188" rx="7.5" ry="6" />
+          <ellipse className="plant-face__eye-white" cx="115" cy="188" rx="7.5" ry="6" />
+        </g>
+        {/* Pupils — these track the cursor, and blink scales them */}
+        <g className="plant-face__track">
+          <g className="plant-face__blink">
+            <circle className="plant-face__pupil" cx="85" cy="188" r="3.2" />
+            <circle className="plant-face__pupil" cx="115" cy="188" r="3.2" />
+          </g>
+        </g>
+        <path className="plant-face__feature" d="M90 197 Q100 202 110 197" />
+        <ellipse className="plant-face__blush" cx="76" cy="194" rx="4" ry="2.5" />
+        <ellipse className="plant-face__blush" cx="124" cy="194" rx="4" ry="2.5" />
       </g>
       {/* GROWING — bright open eyes, curious smile */}
       <g className="plant-face__variant" data-face="GROWING">
+        <g className="plant-face__eyes">
+          <ellipse className="plant-face__eye-white" cx="85" cy="187" rx="8" ry="6.5" />
+          <ellipse className="plant-face__eye-white" cx="115" cy="187" rx="8" ry="6.5" />
+        </g>
         <g className="plant-face__track">
           <g className="plant-face__blink">
-            <circle className="plant-face__eye-dot" cx="88" cy="191" r="2.7" />
-            <circle className="plant-face__eye-dot" cx="112" cy="191" r="2.7" />
+            <circle className="plant-face__pupil" cx="85" cy="187" r="3.5" />
+            <circle className="plant-face__pupil" cx="115" cy="187" r="3.5" />
           </g>
         </g>
-        <path className="plant-face__feature" d="M92 199 Q100 205.5 108 199" />
+        <path className="plant-face__feature" d="M89 196 Q100 203 111 196" />
       </g>
-      {/* NEEDS_CARE — sleepy eyes, small neutral mouth. Tired, never broken. */}
+      {/* NEEDS_CARE — sleepy/droopy lids, small neutral mouth.
+          Tired, never broken, never fully closed. */}
       <g className="plant-face__variant" data-face="NEEDS_CARE">
-        <path className="plant-face__feature" d="M83 192 L93 192" />
-        <path className="plant-face__feature" d="M107 192 L117 192" />
-        <path className="plant-face__feature" d="M95 200.5 Q100 202 105 200.5" />
+        <g className="plant-face__blink">
+          {/* Heavy-lidded: eye whites partially covered by upper lid */}
+          <ellipse className="plant-face__eye-white" cx="85" cy="189" rx="7.5" ry="4" />
+          <ellipse className="plant-face__eye-white" cx="115" cy="189" rx="7.5" ry="4" />
+          <circle className="plant-face__pupil" cx="85" cy="189" r="2.8" />
+          <circle className="plant-face__pupil" cx="115" cy="189" r="2.8" />
+          {/* Upper eyelids for sleepy look */}
+          <path className="plant-face__lid" d="M77.5 183.5 Q85 181.5 92.5 183.5" />
+          <path className="plant-face__lid" d="M107.5 183.5 Q115 181.5 122.5 183.5" />
+        </g>
+        <path className="plant-face__feature" d="M79 186.5 L91 186.5" />
+        <path className="plant-face__feature" d="M109 186.5 L121 186.5" />
+        <path className="plant-face__feature" d="M92 197.5 Q100 199.5 108 197.5" />
       </g>
-      {/* RETURNING — raised happy brows, bright eyes, open smile: welcome back */}
+      {/* RETURNING — raised happy brows, bright open eyes, open smile: welcome back */}
       <g className="plant-face__variant" data-face="RETURNING">
-        <path className="plant-face__brow" d="M82 184 Q88 180.5 94 184" />
-        <path className="plant-face__brow" d="M106 184 Q112 180.5 118 184" />
+        <path className="plant-face__brow" d="M79 180 Q85 176.5 91 180" />
+        <path className="plant-face__brow" d="M109 180 Q115 176.5 121 180" />
+        <g className="plant-face__eyes">
+          <ellipse className="plant-face__eye-white" cx="85" cy="187" rx="8" ry="6.5" />
+          <ellipse className="plant-face__eye-white" cx="115" cy="187" rx="8" ry="6.5" />
+        </g>
         <g className="plant-face__track">
           <g className="plant-face__blink">
-            <circle className="plant-face__eye-dot" cx="88" cy="191" r="2.9" />
-            <circle className="plant-face__eye-dot" cx="112" cy="191" r="2.9" />
+            <circle className="plant-face__pupil" cx="85" cy="187" r="3.8" />
+            <circle className="plant-face__pupil" cx="115" cy="187" r="3.8" />
           </g>
         </g>
-        <path className="plant-face__feature" d="M91 198 Q100 206.5 109 198" />
-        <ellipse className="plant-face__blush" cx="79" cy="198" rx="3.5" ry="2.2" />
-        <ellipse className="plant-face__blush" cx="121" cy="198" rx="3.5" ry="2.2" />
+        <path className="plant-face__feature" d="M88 195 Q100 204 112 195" />
+        <ellipse className="plant-face__blush" cx="76" cy="194" rx="4" ry="2.5" />
+        <ellipse className="plant-face__blush" cx="124" cy="194" rx="4" ry="2.5" />
       </g>
     </g>
   )
@@ -225,7 +339,7 @@ function PlantFace({ mood, faceRef }) {
 // Vitality drives leaf droop via CSS class. Care animation fires via
 // the 'plant-visual--caring' class added on first-completion-of-day.
 // ---------------------------------------------------------------------------
-function PlantSvg({ stage, vitality, animating, mood, faceRef }) {
+function PlantSvg({ stage, vitality, animating, mood, faceRef, blinking, bloomStage }) {
   // How many leaf pairs to show based on stage, and how tall the stem is.
   const stageConfig = {
     seed:        { stemH: 0,   leaves: 0, showSeedBody: true  },
@@ -273,7 +387,7 @@ function PlantSvg({ stage, vitality, animating, mood, faceRef }) {
         d="M64 176 L72 214 Q72 218 76 218 L124 218 Q128 218 128 214 L136 176 Z"
       />
       {/* Companion face sits on the pot body */}
-      <PlantFace mood={mood} faceRef={faceRef} />
+      <PlantFace mood={mood} faceRef={faceRef} blinking={blinking} />
       {/* Soil disc */}
       <ellipse
         className="plant-pot__soil"
@@ -289,6 +403,8 @@ function PlantSvg({ stage, vitality, animating, mood, faceRef }) {
         </g>
       )}
 
+      {/* The upper plant moves independently so the pot remains grounded. */}
+      <g className="plant-organic">
       {/* ---- Stem ---- */}
       {cfg.stemH > 0 && (
         <line
@@ -384,6 +500,33 @@ function PlantSvg({ stage, vitality, animating, mood, faceRef }) {
         </g>
       )}
 
+      {/* Flowers arrive only after a quiet moment with the companion. */}
+      {cfg.stemH > 0 && (
+        <g className={`plant-blooms plant-blooms--stage-${bloomStage}`} aria-hidden="true">
+          <g className="plant-bloom plant-bloom--one" transform={`translate(${stemBaseX - 17} ${stemTopY + 7})`}>
+            <g className="plant-bloom__motion">
+            <circle className="plant-bloom__petal" cx="0" cy="-4" r="3.4" />
+            <circle className="plant-bloom__petal" cx="3.8" cy="-1.2" r="3.4" />
+            <circle className="plant-bloom__petal" cx="2.3" cy="3.4" r="3.4" />
+            <circle className="plant-bloom__petal" cx="-2.3" cy="3.4" r="3.4" />
+            <circle className="plant-bloom__petal" cx="-3.8" cy="-1.2" r="3.4" />
+            <circle className="plant-bloom__center" cx="0" cy="0" r="2" />
+            </g>
+          </g>
+          <g className="plant-bloom plant-bloom--two" transform={`translate(${stemBaseX + 21} ${stemTopY + 20})`}>
+            <g className="plant-bloom__motion">
+            <circle className="plant-bloom__petal" cx="0" cy="-3.2" r="2.7" />
+            <circle className="plant-bloom__petal" cx="3" cy="-1" r="2.7" />
+            <circle className="plant-bloom__petal" cx="1.8" cy="2.8" r="2.7" />
+            <circle className="plant-bloom__petal" cx="-1.8" cy="2.8" r="2.7" />
+            <circle className="plant-bloom__petal" cx="-3" cy="-1" r="2.7" />
+            <circle className="plant-bloom__center" cx="0" cy="0" r="1.6" />
+            </g>
+          </g>
+        </g>
+      )}
+      </g>
+
       {/* ---- Tiny sparkle particles (shown during care animation only) ---- */}
       <g className="plant-sparkles" aria-hidden="true">
         <circle className="plant-sparkle plant-sparkle--1" cx="82"  cy={stemTopY - 8}  r="2.5" />
@@ -410,6 +553,36 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
   useEyeTracking(faceRef, moodIdRef)
   const visualRef = useRef(null)
   const [petted, pet] = usePetting(visualRef)
+  const blinking = useBlink()
+
+  // Selected day in journey strip for interaction
+  const [selectedDay, setSelectedDay] = useState(null)
+  const [sceneReacting, setSceneReacting] = useState(false)
+  const [bloomStage, setBloomStage] = useState(0)
+  const sceneTimerRef = useRef(0)
+
+  useEffect(() => () => window.clearTimeout(sceneTimerRef.current), [])
+  const reactToScene = useCallback(() => {
+    setSceneReacting(false)
+    window.clearTimeout(sceneTimerRef.current)
+    requestAnimationFrame(() => {
+      setSceneReacting(true)
+      sceneTimerRef.current = window.setTimeout(() => setSceneReacting(false), 1100)
+    })
+  }, [])
+  const selectDay = useCallback((day) => {
+    setSelectedDay(day)
+    reactToScene()
+  }, [reactToScene])
+
+  useEffect(() => {
+    const firstBloom = window.setTimeout(() => setBloomStage(1), 24000)
+    const secondBloom = window.setTimeout(() => setBloomStage(2), 34000)
+    return () => {
+      window.clearTimeout(firstBloom)
+      window.clearTimeout(secondBloom)
+    }
+  }, [])
 
   useEffect(() => {
     if (!plantData) return
@@ -478,7 +651,6 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
   }
 
   const {
-    growth_days,
     stage,
     completed_today,
     vitality,
@@ -490,70 +662,127 @@ export default function MyPlantPage({ plantData, plantLoading, plantError }) {
     : (strip.length >= 2 ? strip[strip.length - 2].showedUp : undefined)
 
   const mood = companionMood({ completed_today, vitality, showedUpYesterday })
-  moodIdRef.current = mood.id
   const moment = littleMoment({
     completed_today,
     showedUpYesterday,
     didRecoverToday: recoveredToday(historyEvents ?? []),
   })
+  const didRecoverToday = recoveredToday(historyEvents ?? [])
+  const selectedState = selectedDay
+    ? (selectedDay.isToday ? 'today' : selectedDay.recovered ? 'recovered' : selectedDay.showedUp ? 'completed' : 'missed')
+    : ''
+  // Selecting a day gives the companion a small, meaningful visual response
+  // without changing any persisted plant data or mood calculation.
+  const displayMood = selectedState === 'missed'
+    ? { ...mood, id: 'NEEDS_CARE' }
+    : selectedState === 'recovered'
+      ? { ...mood, id: 'RETURNING' }
+      : selectedState === 'completed' || selectedState === 'today'
+        ? { ...mood, id: 'HAPPY' }
+        : mood
+  moodIdRef.current = displayMood.id
+
+  // Add recovered flag to strip days for interaction messages
+  const enrichedStrip = strip.map(day => ({
+    ...day,
+    recovered: historyEvents?.some(
+      e => e.event_type === 'recovered' && dayKeyInZone(e.timestamp) === day.key
+    ) ?? false,
+  }))
+
+  // Helper for day key (mirrors plantCompanion.mjs)
+  function dayKeyInZone(value, timeZone = "Asia/Kolkata") {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date(value))
+    const get = (type) => parts.find((part) => part.type === type).value
+    return `${get("year")}-${get("month")}-${get("day")}`
+  }
 
   return (
-    <div className="plant-page">
+    <div className="plant-page plant-companion-page">
       <header className="plant-page__header">
         <h1 className="plant-page__title">My Plant</h1>
         <p className="plant-page__standfirst">
           Your little companion that grows with you.
         </p>
+        <span className="plant-page__sparkle" aria-hidden="true">✦</span>
       </header>
 
-      {/* ---- Living companion: one centered column; the plant leads and
+      {/* ---- Living companion: one centered column. The plant leads and
            the journey, moment, and growth notes support it. ---- */}
       <div className="plant-companion-flow">
-        {/* ---- Central hero ---- */}
-        <section className="plant-stage" aria-label="Plant visual">
-        <div className="plant-world" aria-hidden="true">
-          <svg className="plant-world__silhouettes" viewBox="0 0 640 200" focusable="false">
-            <g className="plant-world__frond plant-world__frond--left">
-              <path d="M40 190 Q70 120 52 60 Q86 116 74 190 Z" />
-              <path d="M74 190 Q96 140 88 96 Q110 142 104 190 Z" />
-            </g>
-            <g className="plant-world__frond plant-world__frond--right">
-              <path d="M600 190 Q570 120 588 60 Q554 116 566 190 Z" />
-              <path d="M566 190 Q544 140 552 96 Q530 142 536 190 Z" />
-            </g>
-          </svg>
-          <span className="plant-world__mote plant-world__mote--1" />
-          <span className="plant-world__mote plant-world__mote--2" />
-          <span className="plant-world__mote plant-world__mote--3" />
-        </div>
-        <div
-          ref={visualRef}
-          className={[
-            'plant-visual',
-            `plant-visual--${stage}`,
-            `plant-visual--vitality-${vitality}`,
-            petted ? 'plant-visual--petted' : '',
-            mood.id === 'RETURNING' ? 'plant-visual--perked' : '',
-          ].filter(Boolean).join(' ')}
-          onClick={pet}
-          title="Say hello"
-        >
-          <PlantSvg stage={stage} vitality={vitality} animating={animating} mood={mood.id} faceRef={faceRef} />
-        </div>
+        {/* ---- Central hero: plant + speech ---- */}
+        <section className={`plant-stage${sceneReacting || petted ? ' plant-stage--reacting' : ''}`} aria-label="Plant visual">
+          <div className="plant-world" aria-hidden="true">
+            <svg className="plant-world__silhouettes" viewBox="0 0 640 200" focusable="false">
+              <g className="plant-world__frond plant-world__frond--left">
+                <path d="M40 190 Q70 120 52 60 Q86 116 74 190 Z" />
+                <path d="M74 190 Q96 140 88 96 Q110 142 104 190 Z" />
+              </g>
+              <g className="plant-world__frond plant-world__frond--right">
+                <path d="M600 190 Q570 120 588 60 Q554 116 566 190 Z" />
+                <path d="M566 190 Q544 140 552 96 Q530 142 536 190 Z" />
+              </g>
+              <g className="plant-world__grass">
+                <path d="M228 196 Q236 165 242 196 Q248 157 254 196 Q262 170 268 196 Z" />
+                <path d="M370 196 Q378 170 384 196 Q392 157 398 196 Q406 166 412 196 Z" />
+              </g>
+            </svg>
+            <span className="plant-world__ground" />
+            <span className="plant-world__leaf plant-world__leaf--1" />
+            <span className="plant-world__leaf plant-world__leaf--2" />
+            <span className="plant-world__leaf plant-world__leaf--3" />
+            <span className="plant-world__mote plant-world__mote--1" />
+            <span className="plant-world__mote plant-world__mote--2" />
+            <span className="plant-world__mote plant-world__mote--3" />
+            <span className="plant-world__mote plant-world__mote--4" />
+            <span className="plant-world__spark plant-world__spark--1">✦</span>
+            <span className="plant-world__spark plant-world__spark--2">✦</span>
+          </div>
+          <button
+            ref={visualRef}
+            type="button"
+            className={[
+              'plant-visual',
+              `plant-visual--${stage}`,
+              `plant-visual--vitality-${vitality}`,
+              `plant-visual--mood-${displayMood.id.toLowerCase()}`,
+              petted ? 'plant-visual--petted' : '',
+              displayMood.id === 'RETURNING' ? 'plant-visual--perked' : '',
+              selectedState ? `plant-visual--day-${selectedState}` : '',
+            ].filter(Boolean).join(' ')}
+            onClick={() => { pet(); reactToScene() }}
+            aria-label="My plant companion. Press to say hello."
+          >
+            <PlantSvg stage={stage} vitality={vitality} animating={animating} mood={displayMood.id} faceRef={faceRef} blinking={blinking} bloomStage={bloomStage} />
+          </button>
 
-        <p className={`plant-companion-copy plant-companion-copy--${mood.id.toLowerCase()}`}>
-          {mood.message}
-        </p>
-        <p className="plant-consistency">
-          {growth_days > 0
-            ? `Your plant has grown with you for ${growth_days} day${growth_days === 1 ? '' : 's'}.`
-            : 'Your first day of showing up will plant the seed.'}
-        </p>
+          {/* Plant speech bubble - replaces separate "Little Moment" section */}
+          <PlantSpeech
+            mood={displayMood}
+            selectedDay={selectedDay}
+            completedToday={completed_today}
+            recoveredToday={didRecoverToday}
+            defaultMessage={moment}
+          />
+
         </section>
 
-        <YourJourney strip={strip} />
-        <LittleMoment note={moment} />
-        <GrowthJourney stage={stage} completedToday={completed_today} />
+        {/* ---- Interactive Journey - replaces static "Your Journey" section ---- */}
+        <section className="plant-journey" aria-label="Explore this week with your plant">
+          <h2 className="plant-journey__heading">A little week together</h2>
+          <div className="plant-journey__track">
+            {enrichedStrip.map((day) => (
+              <JourneyDay
+                key={day.key}
+                day={day}
+                isSelected={selectedDay?.key === day.key}
+                onSelect={selectDay}
+              />
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   )
