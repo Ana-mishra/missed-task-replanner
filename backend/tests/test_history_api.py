@@ -223,6 +223,38 @@ class HistoryApiTests(unittest.TestCase):
         self.assertEqual(events[0]["reason"], "2 tasks were rearranged to fit your day.")
         self.assertEqual(summary["rescheduled"], 1)
 
+    def test_history_events_at_different_actual_times_return_distinct_timestamps(self):
+        task1 = self.create_task("First task")
+        task2 = self.create_task("Second task")
+
+        event_time_1 = datetime(2026, 9, 25, 13, 42, 0)
+        event_time_2 = datetime(2026, 9, 25, 15, 18, 0)
+
+        self.add_event(task1["id"], "completed", event_time_1, completed_at=event_time_1)
+        self.add_event(
+            task2["id"],
+            "rescheduled",
+            event_time_2,
+            old_start=datetime(2026, 9, 25, 10, 0),
+            old_end=datetime(2026, 9, 25, 10, 30),
+            new_start=datetime(2026, 9, 25, 16, 0),
+            new_end=datetime(2026, 9, 25, 16, 30),
+            reason="Rescheduled task",
+        )
+
+        response = self.client.get("/history?range=all")
+        self.assertEqual(response.status_code, 200)
+        events = response.json()
+        self.assertEqual(len(events), 2)
+
+        # Returned newest first
+        rescheduled_event = next(e for e in events if e["event_type"] == "rescheduled")
+        completed_event = next(e for e in events if e["event_type"] == "completed")
+
+        self.assertEqual(rescheduled_event["timestamp"], event_time_2.isoformat())
+        self.assertEqual(completed_event["timestamp"], event_time_1.isoformat())
+        self.assertNotEqual(rescheduled_event["timestamp"], completed_event["timestamp"])
+
 
 if __name__ == "__main__":
     unittest.main()

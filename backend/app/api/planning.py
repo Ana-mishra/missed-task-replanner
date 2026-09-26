@@ -382,6 +382,7 @@ def create_plan(
                         user_id=current_user.id,
                         event_type="recovered",
                         task_title=task.title,
+                        timestamp=plan_reshaped_at,
                         old_start=old_start,
                         old_end=old_end,
                         new_start=item.scheduled_start,

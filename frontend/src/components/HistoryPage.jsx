@@ -78,6 +78,7 @@ function formatDateHeading(timestamp) {
 }
 
 function formatTime(timestamp) {
+  if (!timestamp) return "";
   return new Date(timestamp).toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
@@ -498,7 +499,6 @@ function HistoryPage() {
               <h2>{date}</h2>
               <div className="history-timeline">
                 {events.map((event) => {
-                  console.log("HISTORY EVENT:", event);
                  const labels = {
   completed: "Completed",
   missed: "Missed",
