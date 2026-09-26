@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -251,9 +251,68 @@ class HistoryApiTests(unittest.TestCase):
         rescheduled_event = next(e for e in events if e["event_type"] == "rescheduled")
         completed_event = next(e for e in events if e["event_type"] == "completed")
 
-        self.assertEqual(rescheduled_event["timestamp"], event_time_2.isoformat())
-        self.assertEqual(completed_event["timestamp"], event_time_1.isoformat())
+        # Event instants serialize as unambiguous UTC (naive UTC wall-clock
+        # rows are interpreted as UTC at the API boundary).
+        self.assertEqual(
+            rescheduled_event["timestamp"],
+            event_time_2.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+        )
+        self.assertEqual(
+            completed_event["timestamp"],
+            event_time_1.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+        )
         self.assertNotEqual(rescheduled_event["timestamp"], completed_event["timestamp"])
+
+    def test_plan_my_day_records_actual_execution_time_across_all_its_history_events(self):
+        from unittest.mock import patch
+        from app.services.planning import PlanningResult, ScheduledTask
+
+        task1 = self.create_task("Task 1")
+        task2 = self.create_task("Task 2")
+
+        execution_time = datetime(2026, 9, 25, 14, 5, 0)
+        task1_slot_start = datetime(2026, 9, 25, 16, 0, 0)
+        task1_slot_end = datetime(2026, 9, 25, 16, 30, 0)
+        task2_slot_start = datetime(2026, 9, 25, 16, 30, 0)
+        task2_slot_end = datetime(2026, 9, 25, 17, 0, 0)
+
+        plan_result = PlanningResult(
+            schedule=[
+                ScheduledTask(task1["id"], task1["title"], task1_slot_start, task1_slot_end),
+                ScheduledTask(task2["id"], task2["title"], task2_slot_start, task2_slot_end),
+            ],
+            is_overloaded=False,
+            unscheduled_minutes=0,
+        )
+
+        execution_instant = execution_time.replace(tzinfo=timezone.utc)
+        with patch(
+            "app.api.planning.utcnow_naive",
+            return_value=execution_instant.replace(tzinfo=None),
+        ):
+            with patch("app.api.planning.PlanningEngine.generate_schedule", return_value=plan_result):
+                response = self.client.post(
+                    "/plan",
+                    json={
+                        "available_start": "2026-09-25T16:00:00",
+                        "available_end": "2026-09-25T18:00:00",
+                        "timezone": "Asia/Kolkata",
+                    },
+                )
+                self.assertEqual(response.status_code, 200)
+
+        history_response = self.client.get("/history?range=all")
+        self.assertEqual(history_response.status_code, 200)
+        events = history_response.json()
+        self.assertEqual(len(events), 2)
+
+        for event in events:
+            # Left timestamp must be the execution time (2:05 PM), NOT the scheduled start (4:00 PM / 4:30 PM)
+            self.assertEqual(
+                event["timestamp"],
+                execution_instant.isoformat().replace("+00:00", "Z"),
+            )
+            self.assertNotEqual(event["timestamp"], event["new_start"])
 
 
 if __name__ == "__main__":

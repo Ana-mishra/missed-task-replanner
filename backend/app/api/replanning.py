@@ -8,6 +8,7 @@ from app.models.user import User
 from app.api.auth import get_current_user
 from app.schemas.planning import PlanRequest, ScheduledTaskResponse
 from app.schemas.replanning import ReplanResponse
+from app.event_time import utcnow_naive
 from app.services.history_state import recovery_state_by_task_id
 from app.services.replanning import ReplanningEngine
 
@@ -58,6 +59,7 @@ def replan_task(
                 user_id=current_user.id,
                 event_type="missed",
                 task_title=missed_task.title,
+                timestamp=utcnow_naive(),
                 scheduled_start=missed_task.scheduled_start,
                 scheduled_end=missed_task.scheduled_end,
                 old_start=missed_start,

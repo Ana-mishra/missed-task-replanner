@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
+
+from app.event_time import as_utc_aware
 
 
 class TaskBase(BaseModel):
@@ -41,3 +43,9 @@ class TaskResponse(TaskBase):
     completed_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("completed_at")
+    def serialize_completed_at(self, value: datetime | None) -> datetime | None:
+        # Completion is an event instant (UTC), unlike the user wall-clock
+        # schedule/deadline fields above, which stay naive.
+        return as_utc_aware(value)

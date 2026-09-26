@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getHistory } from "../services/api.js";
+import { formatHistoryTime } from "../utils/historyFormat.mjs";
 
 const PAGE_SIZE = 10;
 const FILTERS = [
@@ -78,12 +79,7 @@ function formatDateHeading(timestamp) {
 }
 
 function formatTime(timestamp) {
-  if (!timestamp) return "";
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+  return formatHistoryTime(timestamp);
 }
 
 function formatSchedule(timestamp) {

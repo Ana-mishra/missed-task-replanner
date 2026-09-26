@@ -9,6 +9,7 @@ from app.models.task_history import TaskHistory
 from app.models.user import User
 from app.api.auth import get_current_user
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
+from app.event_time import utcnow_naive
 from app.services.history_state import recovery_state_by_task_id
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -79,6 +80,7 @@ def create_task(
             user_id=current_user.id,
             event_type="created",
             task_title=task.title,
+            timestamp=utcnow_naive(),
         )
     )
 
@@ -137,13 +139,14 @@ def update_task(
         task.schedule_refresh_reason = "edited"
     if not was_completed and task.completed:
         task.status = "completed"
-        task.completed_at = datetime.now()
+        task.completed_at = utcnow_naive()
         db.add(
             TaskHistory(
                 task_id=task.id,
                 user_id=current_user.id,
                 event_type="completed",
                 task_title=task.title,
+                timestamp=task.completed_at,
                 scheduled_start=task.scheduled_start,
                 scheduled_end=task.scheduled_end,
                 old_start=task.scheduled_start,
@@ -172,6 +175,7 @@ def delete_task(
             user_id=current_user.id,
             event_type="deleted",
             task_title=task.title,
+            timestamp=utcnow_naive(),
             scheduled_start=task.scheduled_start,
             scheduled_end=task.scheduled_end,
         )

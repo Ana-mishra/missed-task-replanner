@@ -10,6 +10,7 @@ from app.models.task_history import TaskHistory
 from app.models.user import User
 from app.api.auth import get_current_user
 from app.schemas.planning import PlanRequest, PlanResponse, ScheduledTaskResponse
+from app.event_time import utcnow_naive
 from app.services.history_state import recovery_state_by_task_id
 from app.services.planning import PlanningEngine
 
@@ -214,7 +215,12 @@ def create_plan(
     planning_end_time = user_wall_clock(
         plan_request.available_end, plan_request.timezone
     )
-    plan_reshaped_at = datetime.now()
+    # The single execution instant shared by every history event this run
+    # records (missed/overdue/recovered/rescheduled/scheduled). Naive UTC
+    # wall-clock: stripping the tz before storage keeps the bytes identical
+    # on every database (PostgreSQL would otherwise convert an aware value
+    # to the session TimeZone when writing a naive TIMESTAMP column).
+    plan_reshaped_at = utcnow_naive()
     _, outstanding_missed_ids = recovery_state_by_task_id(
         db, [task.id for task in incomplete_tasks]
     )

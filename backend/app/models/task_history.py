@@ -5,6 +5,7 @@ from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.event_time import utcnow_naive
 
 if TYPE_CHECKING:
     from app.models.task import Task
@@ -38,7 +39,11 @@ class TaskHistory(Base):
     # deleted. Never used for logic, grouping, or classification; old rows
     # simply have NULL here.
     task_title: Mapped[str | None] = mapped_column(String, nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    # Event instant in UTC. The column stays naive (UTC wall-clock, the same
+    # bytes as before, so existing rows need no migration); the API boundary
+    # interprets it as UTC and serializes it with explicit timezone info.
+    # Schedule fields below remain user wall-clock and are never UTC.
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scheduled_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scheduled_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

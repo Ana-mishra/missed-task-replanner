@@ -11,6 +11,7 @@ import {
   IconRecover,
 } from "./icons.jsx";
 import { isCurrentlyRecovered } from "../utils/taskRecovery.mjs";
+import { formatEventDateTime } from "../utils/historyFormat.mjs";
 
 const EVENT_LABELS = {
   created: "Created",
@@ -23,6 +24,7 @@ const EVENT_LABELS = {
 };
 
 function fmtDateTime(value) {
+  // Schedule/deadline wall-clock values: unchanged local display.
   if (!value) return null;
   return new Date(value).toLocaleString([], {
     month: "short",
@@ -31,6 +33,13 @@ function fmtDateTime(value) {
     minute: "2-digit",
     hour12: true,
   });
+}
+
+function fmtEventDateTime(value) {
+  // Recorded-journey event instants: unambiguous UTC rendered in the user's
+  // timezone via the shared history formatter.
+  if (!value) return null;
+  return formatEventDateTime(value);
 }
 
 function stateLine(task) {
@@ -166,7 +175,7 @@ export default function TaskInspector({
               {history.map((event) => (
                 <li key={event.id} className={`inspector__event inspector__event--${event.event_type}`}>
                   <strong>{EVENT_LABELS[event.event_type] ?? event.event_type}</strong>
-                  <span> · {fmtDateTime(event.timestamp)}</span>
+                  <span> · {fmtEventDateTime(event.timestamp)}</span>
                   {event.reason && <span> · {event.reason}</span>}
                 </li>
               ))}
