@@ -5,7 +5,7 @@ import { formatHistoryTime } from "../utils/historyFormat.mjs";
 const PAGE_SIZE = 10;
 const FILTERS = [
   ["all", "All"],
-  ["scheduled", "Created"],
+  ["scheduled", "Scheduled"],
   ["completed", "Completed"],
   ["missed", "Missed"],
   ["overdue", "Overdue"],
@@ -501,7 +501,7 @@ function HistoryPage() {
   overdue: "Overdue",
   rescheduled: "Rescheduled",
   recovered: "Recovered",
-  scheduled: "Created",
+  scheduled: "Scheduled",
 };
 
 const icons = {

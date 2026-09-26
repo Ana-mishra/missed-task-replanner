@@ -240,7 +240,7 @@ function CompletionTrend({ dailyCompletedTasks, period, historyRecords, onNeedDe
         <strong>{tipTitle(day)}</strong>
         <p>
           {count === 0
-            ? "No created tasks completed"
+            ? "No scheduled tasks completed"
             : `${count} task${count === 1 ? "" : "s"} completed`}
         </p>
         {count > 0 && (
@@ -294,7 +294,7 @@ function CompletionTrend({ dailyCompletedTasks, period, historyRecords, onNeedDe
               </g>
             </svg>
             <strong>Your progress will appear here</strong>
-            <p>Complete a few created tasks to start seeing your completion trend.</p>
+            <p>Complete a few scheduled tasks to start seeing your completion trend.</p>
           </div>
         ) : (
           entries.map(([day, count], index) => {
@@ -306,7 +306,7 @@ function CompletionTrend({ dailyCompletedTasks, period, historyRecords, onNeedDe
                 role="button"
                 tabIndex={0}
                 aria-expanded={activeDay === day}
-                aria-label={`${chartLabel(day, period)}: ${count} created tasks completed. Activate for details.`}
+                aria-label={`${chartLabel(day, period)}: ${count} scheduled tasks completed. Activate for details.`}
                 onMouseEnter={() => {
                   onNeedDetails?.();
                   setActiveDay(day);
@@ -353,7 +353,7 @@ function PlannedCompletedTasks({ reflection }) {
       <div className="stats-target-work-bars">
         <div className="stats-target-work-row">
           <div className="stats-target-work-label">
-            <span>Created</span>
+            <span>Scheduled</span>
             <strong>{scheduledTasks}</strong>
             <small>tasks</small>
           </div>
@@ -399,8 +399,8 @@ function PlannedCompletedTasks({ reflection }) {
       <p className="stats-target-callout">
         <span className="stats-target-callout-icon" aria-hidden="true">✦</span>
         {scheduledTasks > 0
-          ? `${completed} of ${scheduledTasks} Created tasks were completed.`
-          : "Created tasks will appear as your history grows."}
+          ? `${completed} of ${scheduledTasks} Scheduled tasks were completed.`
+          : "Scheduled tasks will appear as your history grows."}
       </p>
     </div>
   );
@@ -1105,12 +1105,12 @@ function StatsPage() {
           <section className="stats-target-summary" aria-label="Stats summary">
             <SummaryCard
               icon="✓"
-              label="Created Tasks Completed"
+              label="Scheduled Tasks Completed"
               value={reflection?.tasks_scheduled_completed ?? 0}
               detail={
                 (reflection?.tasks_scheduled_completed ?? 0) > 0
                   ? taskDetail
-                  : "Start by completing a created task this week."
+                  : "Start by completing a scheduled task this week."
               }
               detailTone={(reflection?.tasks_scheduled_completed ?? 0) > 0 ? taskTone : "neutral"}
               tone="green"
@@ -1174,7 +1174,7 @@ function StatsPage() {
                   <div className="stats-target-panel__heading">
                     <div>
                       <h2>Completion Trend</h2>
-                      <p>Created tasks completed over the selected period</p>
+                      <p>Scheduled tasks completed over the selected period</p>
                     </div>
                   </div>
                   <CompletionTrend
@@ -1187,8 +1187,8 @@ function StatsPage() {
                 <article className="stats-target-panel stats-target-panel--work">
                   <div className="stats-target-panel__heading">
                     <div>
-                      <h2>Created vs Completed tasks</h2>
-                      <p>See how created task outcomes led to completion.</p>
+                      <h2>Scheduled vs Completed tasks</h2>
+                      <p>See how scheduled task outcomes led to completion.</p>
                     </div>
                   </div>
                   <PlannedCompletedTasks reflection={reflection} />
@@ -1340,7 +1340,7 @@ function StatsPage() {
                   <strong>You’re finding your rhythm.</strong>
                   <p>
                     {(reflection?.tasks_scheduled_completed ?? 0) > 0
-                      ? `You completed ${reflection.tasks_scheduled_completed} created task${reflection.tasks_scheduled_completed === 1 ? "" : "s"} in this period.`
+                      ? `You completed ${reflection.tasks_scheduled_completed} scheduled task${reflection.tasks_scheduled_completed === 1 ? "" : "s"} in this period.`
                       : "Your planning patterns will appear as you build more history."}
                   </p>
                 </div>
