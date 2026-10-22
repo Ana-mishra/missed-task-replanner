@@ -26,7 +26,6 @@ Planora is a full-stack productivity application designed to help users recover 
 | Testing | Pytest |
 | Deployment | Vercel, Railway |
 
-*Adjust this list if your current implementation differs.*
 
 ## 🏗️ Architecture
 
